@@ -1,5 +1,6 @@
 package com.example.policlicabine.service;
 
+import com.example.policlicabine.config.properties.JwtProperties;
 import com.example.policlicabine.security.JwtService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -9,28 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Date;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Unit tests for {@link JwtService}.
- * <p>
- * Tests JWT token operations:
- * - Access token generation with role claims
- * - Refresh token generation with type claims
- * - Username extraction from tokens
- * - Expiration date extraction
- * - Token validation (signature, expiration, username matching)
- * <p>
- * Uses real JJWT library for token generation and parsing.
- */
 class JwtServiceTest {
 
     private JwtService jwtService;
@@ -43,12 +29,14 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService();
+        // Create test JwtProperties
+        JwtProperties jwtProperties = new JwtProperties();
+        jwtProperties.setSecret(TEST_SECRET);
+        jwtProperties.setExpiration(ACCESS_TOKEN_EXPIRATION);
+        jwtProperties.setRefreshExpiration(REFRESH_TOKEN_EXPIRATION);
 
-        // Set test configuration using reflection (since JwtService uses @Value)
-        ReflectionTestUtils.setField(jwtService, "secret", TEST_SECRET);
-        ReflectionTestUtils.setField(jwtService, "expiration", ACCESS_TOKEN_EXPIRATION);
-        ReflectionTestUtils.setField(jwtService, "refreshExpiration", REFRESH_TOKEN_EXPIRATION);
+        // Create JwtService with test properties
+        jwtService = new JwtService(jwtProperties);
 
         // Create test user details
         testUserDetails = User.builder()

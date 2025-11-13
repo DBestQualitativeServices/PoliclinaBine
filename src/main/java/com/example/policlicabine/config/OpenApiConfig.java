@@ -8,18 +8,14 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-/**
- * OpenAPI 3.1 Configuration for PoliclinaBine Clinic Management System.
- *
- * Provides API metadata, server configurations, and documentation settings
- * that will be displayed in Swagger UI.
- */
 @Configuration
+@ConditionalOnProperty(prefix = "swagger", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class OpenApiConfig {
 
     @Bean
