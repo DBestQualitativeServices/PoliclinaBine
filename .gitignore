@@ -41,5 +41,3 @@ build/
 
 ### Azure ###
 .azure/
-
-*.md
