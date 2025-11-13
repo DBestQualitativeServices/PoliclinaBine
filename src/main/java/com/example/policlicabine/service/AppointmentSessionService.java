@@ -154,7 +154,7 @@ public class AppointmentSessionService {
             }
 
             // Use EntityGraph to load session with consultations collection
-            AppointmentSession session = appointmentRepository.findWithConsultationsById(sessionId)
+            AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId)
                 .orElse(null);
             if (session == null) {
                 return Result.failure("Session not found");
@@ -205,7 +205,7 @@ public class AppointmentSessionService {
             }
 
             // Use EntityGraph to load session with basic relationships
-            AppointmentSession session = appointmentRepository.findWithBasicRelationshipsById(sessionId)
+            AppointmentSession session = appointmentRepository.findWithBasicRelationshipsBySessionId(sessionId)
                 .orElse(null);
             if (session == null) {
                 return Result.failure("Session not found");
@@ -307,7 +307,7 @@ public class AppointmentSessionService {
             }
 
             // Use EntityGraph to load all relationships for event publishing
-            AppointmentSession session = appointmentRepository.findWithAllRelationshipsById(sessionId)
+            AppointmentSession session = appointmentRepository.findWithAllRelationshipsBySessionId(sessionId)
                 .orElse(null);
             if (session == null) {
                 return Result.failure("Session not found");
@@ -365,7 +365,7 @@ public class AppointmentSessionService {
             }
 
             // Use EntityGraph to load session with basic relationships
-            AppointmentSession session = appointmentRepository.findWithBasicRelationshipsById(sessionId)
+            AppointmentSession session = appointmentRepository.findWithBasicRelationshipsBySessionId(sessionId)
                 .orElse(null);
             if (session == null) {
                 return Result.failure("Session not found");
@@ -422,6 +422,36 @@ public class AppointmentSessionService {
         }
     }
 
+    /**
+     * PUBLIC: Retrieves a single appointment session by ID with all relationships loaded.
+     * Uses EntityGraph to prevent N+1 queries.
+     *
+     * @param sessionId Session identifier
+     * @return Result containing AppointmentSessionDto or error message
+     */
+    @Transactional(readOnly = true)
+    public Result<AppointmentSessionDto> findById(UUID sessionId) {
+        try {
+            if (sessionId == null) {
+                return Result.failure("Session ID is required");
+            }
+
+            AppointmentSession session = appointmentRepository
+                .findWithAllRelationshipsBySessionId(sessionId)
+                .orElse(null);
+
+            if (session == null) {
+                return Result.failure("Appointment session not found with ID: " + sessionId);
+            }
+
+            return Result.success(appointmentMapper.toDto(session));
+
+        } catch (Exception e) {
+            log.error("Error getting appointment session by ID", e);
+            return Result.failure("Failed to get appointment session: " + e.getMessage());
+        }
+    }
+
     private List<String> getConsultationNames(AppointmentSession session) {
         return session.getConsultations().stream()
             .map(Consultation::getName)
@@ -447,7 +477,7 @@ public class AppointmentSessionService {
         }
 
         // Use EntityGraph to load session with consultations
-        AppointmentSession session = appointmentRepository.findWithConsultationsById(sessionId)
+        AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId)
             .orElse(null);
         if (session == null) {
             return Result.failure("Session not found");
@@ -477,7 +507,7 @@ public class AppointmentSessionService {
         if (sessionId == null) {
             return null;
         }
-        return appointmentRepository.findWithAllRelationshipsById(sessionId).orElse(null);
+        return appointmentRepository.findWithAllRelationshipsBySessionId(sessionId).orElse(null);
     }
 
     /**

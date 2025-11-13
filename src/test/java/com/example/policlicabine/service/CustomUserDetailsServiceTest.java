@@ -1,0 +1,375 @@
+package com.example.policlicabine.service;
+
+import com.example.policlicabine.builder.UserTestBuilder;
+import com.example.policlicabine.entity.User;
+import com.example.policlicabine.entity.enums.UserRole;
+import com.example.policlicabine.repository.UserRepository;
+import com.example.policlicabine.security.CustomUserDetailsService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for {@link CustomUserDetailsService}.
+ * <p>
+ * Tests Spring Security UserDetailsService implementation:
+ * - Loading user by username from database
+ * - Converting User entity to Spring Security UserDetails
+ * - Role mapping (DOCTOR → ROLE_DOCTOR)
+ * - Account status flags (enabled, locked, expired, credentials expired)
+ * - Special case: users with null/empty password (migration support)
+ * <p>
+ * Uses Mockito mocks for UserRepository.
+ */
+@ExtendWith(MockitoExtension.class)
+class CustomUserDetailsServiceTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    private CustomUserDetailsService userDetailsService;
+
+    @BeforeEach
+    void setUp() {
+        userDetailsService = new CustomUserDetailsService(userRepository);
+    }
+
+    // ===== LOAD USER BY USERNAME TESTS =====
+
+    @Test
+    void loadUserByUsername_WithExistingUser_ShouldReturnUserDetails() {
+        // Given
+        User testUser = UserTestBuilder.aDoctor()
+                .withUsername("drsmith")
+                .withPassword("$2a$10$hashedPassword")
+                .withFullName("Dr. Smith")
+                .build();
+        testUser.setEnabled(true);
+        testUser.setAccountNonLocked(true);
+
+        when(userRepository.findByUsername("drsmith")).thenReturn(Optional.of(testUser));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("drsmith");
+
+        // Then
+        assertThat(userDetails).isNotNull();
+        assertThat(userDetails.getUsername()).isEqualTo("drsmith");
+        assertThat(userDetails.getPassword()).isEqualTo("$2a$10$hashedPassword");
+        assertThat(userDetails.isEnabled()).isTrue();
+        assertThat(userDetails.isAccountNonLocked()).isTrue();
+        assertThat(userDetails.isAccountNonExpired()).isTrue();
+        assertThat(userDetails.isCredentialsNonExpired()).isTrue();
+
+        // Verify authorities
+        assertThat(userDetails.getAuthorities()).hasSize(1);
+        assertThat(userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList()).containsExactly("ROLE_DOCTOR");
+
+        verify(userRepository).findByUsername("drsmith");
+    }
+
+    @Test
+    void loadUserByUsername_WithNonExistentUser_ShouldThrowException() {
+        // Given
+        when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
+
+        // When/Then
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("nonexistent"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("User not found");
+
+        verify(userRepository).findByUsername("nonexistent");
+    }
+
+    // ===== PASSWORD VALIDATION TESTS =====
+
+    @Test
+    void loadUserByUsername_WithNullPassword_ShouldThrowException() {
+        // Given - User with null password (migration scenario)
+        User userWithoutPassword = UserTestBuilder.aDoctor()
+                .withUsername("olduser")
+                .build();
+        userWithoutPassword.setPassword(null);
+
+        when(userRepository.findByUsername("olduser")).thenReturn(Optional.of(userWithoutPassword));
+
+        // When/Then
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("olduser"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("User has no password set")
+                .hasMessageContaining("contact administrator");
+    }
+
+    @Test
+    void loadUserByUsername_WithEmptyPassword_ShouldThrowException() {
+        // Given - User with empty password
+        User userWithEmptyPassword = UserTestBuilder.aDoctor()
+                .withUsername("emptypass")
+                .withPassword("")
+                .build();
+
+        when(userRepository.findByUsername("emptypass")).thenReturn(Optional.of(userWithEmptyPassword));
+
+        // When/Then
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("emptypass"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("User has no password set");
+    }
+
+    @Test
+    void loadUserByUsername_WithBlankPassword_ShouldThrowException() {
+        // Given - User with blank password (spaces only)
+        User userWithBlankPassword = UserTestBuilder.aDoctor()
+                .withUsername("blankpass")
+                .withPassword("   ")
+                .build();
+
+        when(userRepository.findByUsername("blankpass")).thenReturn(Optional.of(userWithBlankPassword));
+
+        // When/Then
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("blankpass"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("User has no password set");
+    }
+
+    // ===== ROLE MAPPING TESTS =====
+
+    @Test
+    void loadUserByUsername_WithDoctorRole_ShouldMapToRoleDoctor() {
+        // Given
+        User doctor = UserTestBuilder.aDoctor()
+                .withUsername("doctor")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("doctor")).thenReturn(Optional.of(doctor));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("doctor");
+
+        // Then
+        assertThat(userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList()).containsExactly("ROLE_DOCTOR");
+    }
+
+    @Test
+    void loadUserByUsername_WithAdminRole_ShouldMapToRoleAdmin() {
+        // Given
+        User admin = UserTestBuilder.anAdmin()
+                .withUsername("admin")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("admin");
+
+        // Then
+        assertThat(userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList()).containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void loadUserByUsername_WithReceptionistRole_ShouldMapToRoleReceptionist() {
+        // Given
+        User receptionist = UserTestBuilder.aReceptionist()
+                .withUsername("receptionist")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("receptionist")).thenReturn(Optional.of(receptionist));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("receptionist");
+
+        // Then
+        assertThat(userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList()).containsExactly("ROLE_RECEPTIONIST");
+    }
+
+    @Test
+    void loadUserByUsername_WithManagerRole_ShouldMapToRoleManager() {
+        // Given
+        User manager = UserTestBuilder.aUser()
+                .withUsername("manager")
+                .withPassword("password")
+                .withRole(UserRole.MANAGER)
+                .build();
+
+        when(userRepository.findByUsername("manager")).thenReturn(Optional.of(manager));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("manager");
+
+        // Then
+        assertThat(userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList()).containsExactly("ROLE_MANAGER");
+    }
+
+    // ===== ACCOUNT STATUS TESTS =====
+
+    @Test
+    void loadUserByUsername_WithEnabledUser_ShouldReturnEnabledUserDetails() {
+        // Given
+        User enabledUser = UserTestBuilder.aDoctor()
+                .withUsername("enabled")
+                .withPassword("password")
+                .build();
+        enabledUser.setEnabled(true);
+
+        when(userRepository.findByUsername("enabled")).thenReturn(Optional.of(enabledUser));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("enabled");
+
+        // Then
+        assertThat(userDetails.isEnabled()).isTrue();
+    }
+
+    @Test
+    void loadUserByUsername_WithDisabledUser_ShouldReturnDisabledUserDetails() {
+        // Given
+        User disabledUser = UserTestBuilder.aDoctor()
+                .withUsername("disabled")
+                .withPassword("password")
+                .build();
+        disabledUser.setEnabled(false);
+
+        when(userRepository.findByUsername("disabled")).thenReturn(Optional.of(disabledUser));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("disabled");
+
+        // Then
+        assertThat(userDetails.isEnabled()).isFalse();
+    }
+
+    @Test
+    void loadUserByUsername_WithLockedAccount_ShouldReturnLockedUserDetails() {
+        // Given
+        User lockedUser = UserTestBuilder.aDoctor()
+                .withUsername("locked")
+                .withPassword("password")
+                .build();
+        lockedUser.setAccountNonLocked(false);
+
+        when(userRepository.findByUsername("locked")).thenReturn(Optional.of(lockedUser));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("locked");
+
+        // Then
+        assertThat(userDetails.isAccountNonLocked()).isFalse();
+    }
+
+    @Test
+    void loadUserByUsername_WithNonLockedAccount_ShouldReturnNonLockedUserDetails() {
+        // Given
+        User nonLockedUser = UserTestBuilder.aDoctor()
+                .withUsername("nonlocked")
+                .withPassword("password")
+                .build();
+        nonLockedUser.setAccountNonLocked(true);
+
+        when(userRepository.findByUsername("nonlocked")).thenReturn(Optional.of(nonLockedUser));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("nonlocked");
+
+        // Then
+        assertThat(userDetails.isAccountNonLocked()).isTrue();
+    }
+
+    @Test
+    void loadUserByUsername_ShouldAlwaysSetAccountNonExpiredToTrue() {
+        // Given - Account expiration not implemented in User entity
+        User user = UserTestBuilder.aDoctor()
+                .withUsername("user")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("user");
+
+        // Then
+        assertThat(userDetails.isAccountNonExpired()).isTrue();
+    }
+
+    @Test
+    void loadUserByUsername_ShouldAlwaysSetCredentialsNonExpiredToTrue() {
+        // Given - Credentials expiration not implemented in User entity
+        User user = UserTestBuilder.aDoctor()
+                .withUsername("user")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("user");
+
+        // Then
+        assertThat(userDetails.isCredentialsNonExpired()).isTrue();
+    }
+
+    // ===== EDGE CASES =====
+
+    @Test
+    void loadUserByUsername_WithCaseSensitiveUsername_ShouldMatchExactly() {
+        // Given
+        User user = UserTestBuilder.aDoctor()
+                .withUsername("TestUser")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("TestUser")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+
+        // When/Then - Exact match should work
+        UserDetails userDetails = userDetailsService.loadUserByUsername("TestUser");
+        assertThat(userDetails.getUsername()).isEqualTo("TestUser");
+
+        // Different case should fail
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("testuser"))
+                .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    @Test
+    void loadUserByUsername_ShouldNotTrimUsername() {
+        // Given - Username with spaces
+        User user = UserTestBuilder.aDoctor()
+                .withUsername("user with spaces")
+                .withPassword("password")
+                .build();
+
+        when(userRepository.findByUsername("user with spaces")).thenReturn(Optional.of(user));
+
+        // When
+        UserDetails userDetails = userDetailsService.loadUserByUsername("user with spaces");
+
+        // Then
+        assertThat(userDetails.getUsername()).isEqualTo("user with spaces");
+    }
+}

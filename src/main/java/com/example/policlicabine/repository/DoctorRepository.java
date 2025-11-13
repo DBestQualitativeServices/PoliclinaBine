@@ -29,5 +29,5 @@ public interface DoctorRepository extends JpaRepository<Doctor, UUID> {
      * Use for DTO mapping with nested relationships.
      */
     @EntityGraph(attributePaths = {"user", "weeklyAvailability"})
-    Optional<Doctor> findWithUserAndAvailabilityById(UUID doctorId);
+    Optional<Doctor> findWithUserAndAvailabilityByDoctorId(UUID doctorId);
 }

@@ -149,7 +149,7 @@ public class PaymentService {
             }
 
             // Use EntityGraph to load payment with invoices and their sessionBillings
-            Payment payment = paymentRepository.findWithInvoicesAndBillingsById(paymentId)
+            Payment payment = paymentRepository.findWithInvoicesAndBillingsByPaymentId(paymentId)
                 .orElse(null);
             if (payment == null) {
                 return Result.failure("Payment not found");

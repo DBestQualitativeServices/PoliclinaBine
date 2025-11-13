@@ -13,8 +13,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     // EntityGraph methods to prevent N+1 queries
     @EntityGraph(attributePaths = {"invoices", "generatedBy"})
-    Optional<Payment> findWithInvoicesById(UUID paymentId);
+    Optional<Payment> findWithInvoicesByPaymentId(UUID paymentId);
 
     @EntityGraph(attributePaths = {"invoices", "invoices.sessionBillings", "generatedBy"})
-    Optional<Payment> findWithInvoicesAndBillingsById(UUID paymentId);
+    Optional<Payment> findWithInvoicesAndBillingsByPaymentId(UUID paymentId);
 }

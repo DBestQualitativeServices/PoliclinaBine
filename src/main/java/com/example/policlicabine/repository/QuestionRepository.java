@@ -15,5 +15,5 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
     List<Question> findByConsultationConsultationId(UUID consultationId);
 
     @EntityGraph(attributePaths = {"consultation"})
-    Optional<Question> findWithConsultationById(UUID questionId);
+    Optional<Question> findWithConsultationByQuestionId(UUID questionId);
 }

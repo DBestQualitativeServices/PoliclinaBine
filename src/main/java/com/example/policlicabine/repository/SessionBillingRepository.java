@@ -25,5 +25,5 @@ public interface SessionBillingRepository extends JpaRepository<SessionBilling, 
      * Use for DTO mapping with nested BillingDiscountDto list.
      */
     @EntityGraph(attributePaths = {"session", "discounts", "discounts.appliedBy"})
-    Optional<SessionBilling> findWithSessionAndDiscountsById(UUID billingId);
+    Optional<SessionBilling> findWithSessionAndDiscountsByBillingId(UUID billingId);
 }

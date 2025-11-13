@@ -20,11 +20,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     // EntityGraph methods to prevent N+1 queries
     @EntityGraph(attributePaths = {"sessionBillings", "generatedBy"})
-    Optional<Invoice> findWithSessionBillingsById(UUID invoiceId);
+    Optional<Invoice> findWithSessionBillingsByInvoiceId(UUID invoiceId);
 
     @EntityGraph(attributePaths = {"sessionBillings", "payments", "generatedBy"})
-    Optional<Invoice> findWithSessionBillingsAndPaymentsById(UUID invoiceId);
+    Optional<Invoice> findWithSessionBillingsAndPaymentsByInvoiceId(UUID invoiceId);
 
     @EntityGraph(attributePaths = {"sessionBillings", "sessionBillings.session", "generatedBy"})
-    List<Invoice> findAllWithSessionBillingsByIdIn(List<UUID> invoiceIds);
+    List<Invoice> findAllWithSessionBillingsByInvoiceIdIn(List<UUID> invoiceIds);
 }

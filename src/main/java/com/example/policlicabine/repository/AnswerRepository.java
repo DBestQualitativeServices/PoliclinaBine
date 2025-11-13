@@ -20,7 +20,7 @@ public interface AnswerRepository extends JpaRepository<Answer, UUID> {
 
     // EntityGraph methods to prevent N+1 queries when mapping to DTO
     @EntityGraph(attributePaths = {"session", "question", "consultation"})
-    Optional<Answer> findWithRelationshipsById(UUID answerId);
+    Optional<Answer> findWithRelationshipsByAnswerId(UUID answerId);
 
     @EntityGraph(attributePaths = {"session", "question", "consultation"})
     List<Answer> findWithRelationshipsBySessionSessionId(UUID sessionId);

@@ -25,7 +25,7 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
      * Use for operations that need basic relationship data.
      */
     @EntityGraph(attributePaths = {"patient", "doctor"})
-    Optional<AppointmentSession> findWithBasicRelationshipsById(UUID sessionId);
+    Optional<AppointmentSession> findWithBasicRelationshipsBySessionId(UUID sessionId);
 
     /**
      * Finds appointment session with all relationships loaded.
@@ -33,14 +33,14 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
      * Includes answers for complete nested DTO mapping.
      */
     @EntityGraph(attributePaths = {"patient", "doctor", "consultations", "diagnoses", "answers"})
-    Optional<AppointmentSession> findWithAllRelationshipsById(UUID sessionId);
+    Optional<AppointmentSession> findWithAllRelationshipsBySessionId(UUID sessionId);
 
     /**
      * Finds appointment session with consultations loaded.
      * Use when adding consultations to a session.
      */
     @EntityGraph(attributePaths = {"consultations"})
-    Optional<AppointmentSession> findWithConsultationsById(UUID sessionId);
+    Optional<AppointmentSession> findWithConsultationsBySessionId(UUID sessionId);
 
     /**
      * Finds patient's appointment history with relationships loaded.

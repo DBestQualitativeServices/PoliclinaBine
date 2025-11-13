@@ -30,7 +30,7 @@ public interface ConsultationRepository extends JpaRepository<Consultation, UUID
      * Use for DTO mapping with nested QuestionDto list.
      */
     @EntityGraph(attributePaths = {"questions"})
-    Optional<Consultation> findWithQuestionsById(UUID consultationId);
+    Optional<Consultation> findWithQuestionsByConsultationId(UUID consultationId);
 
     /**
      * Finds consultations by names with questions loaded.

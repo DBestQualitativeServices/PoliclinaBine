@@ -280,6 +280,10 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
                 return Result.failure("Consultation not found");
             }
 
+            if (!consultation.getIsActive()) {
+                return Result.failure("Consultation is already inactive");
+            }
+
             consultation.setIsActive(false);
             Consultation savedConsultation = consultationRepository.save(consultation);
 

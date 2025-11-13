@@ -107,7 +107,7 @@ public class InvoiceService extends BaseServiceImpl<Invoice, InvoiceDto, UUID> {
             }
 
             // Use EntityGraph to load invoice with sessionBillings and payments
-            Invoice invoice = invoiceRepository.findWithSessionBillingsAndPaymentsById(invoiceId)
+            Invoice invoice = invoiceRepository.findWithSessionBillingsAndPaymentsByInvoiceId(invoiceId)
                 .orElse(null);
             if (invoice == null) {
                 return Result.failure("Invoice not found");
@@ -330,7 +330,7 @@ public class InvoiceService extends BaseServiceImpl<Invoice, InvoiceDto, UUID> {
         if (invoiceIds == null || invoiceIds.isEmpty()) {
             return List.of();
         }
-        return invoiceRepository.findAllWithSessionBillingsByIdIn(invoiceIds);
+        return invoiceRepository.findAllWithSessionBillingsByInvoiceIdIn(invoiceIds);
     }
 
     /**

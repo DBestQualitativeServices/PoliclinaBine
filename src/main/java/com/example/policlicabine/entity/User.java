@@ -4,6 +4,7 @@ import com.example.policlicabine.entity.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -31,10 +32,27 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
+    @Column(nullable = true)
+    private String password;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    @Column(nullable = false)
+    private boolean accountNonLocked = true;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime lastLogin;
+
     @PrePersist
     void generateId() {
         if (userId == null) {
             userId = UUID.randomUUID();
+        }
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
         }
     }
 
@@ -58,6 +76,10 @@ public class User {
                 ", username='" + username + '\'' +
                 ", fullName='" + fullName + '\'' +
                 ", role=" + role +
+                ", enabled=" + enabled +
+                ", accountNonLocked=" + accountNonLocked +
+                ", createdAt=" + createdAt +
+                ", lastLogin=" + lastLogin +
                 '}';
     }
 }

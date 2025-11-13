@@ -291,7 +291,7 @@ public class QuestionService extends BaseServiceImpl<Question, QuestionDto, UUID
         if (questionId == null) {
             return null;
         }
-        return questionRepository.findWithConsultationById(questionId).orElse(null);
+        return questionRepository.findWithConsultationByQuestionId(questionId).orElse(null);
     }
 
     /**
