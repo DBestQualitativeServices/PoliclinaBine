@@ -150,8 +150,8 @@ public class SecurityAuditEventListener {
      * @param auditLogDto The audit log DTO to persist and track
      */
     private void logToAuditTrail(SecurityAuditLogDto auditLogDto) {
-        // Log to database (persistent audit trail)
-        SecurityAuditLog savedLog = auditService.logEventAsync(auditLogDto);
+        // Log to database (persistent audit trail) and get saved entity
+        SecurityAuditLog savedLog = auditService.logEventAndReturnEntity(auditLogDto);
 
         // Track in Azure Application Insights (real-time monitoring)
         if (appInsightsService != null && savedLog != null) {

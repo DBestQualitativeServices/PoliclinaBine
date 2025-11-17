@@ -89,13 +89,6 @@
             <version>3.7.5</version>
         </dependency>
 
-        <!-- Azure Application Insights - Logback Integration -->
-        <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>applicationinsights-logging-logback</artifactId>
-            <version>3.7.5</version>
-        </dependency>
-
         <!-- JWT (JSON Web Token) Support -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

@@ -1,5 +1,4 @@
 {
-  "connectionString": "${APPLICATIONINSIGHTS_CONNECTION_STRING}",
   "role": {
     "name": "PoliclinaBine-API",
     "instance": "${WEBSITE_INSTANCE_ID:local}"

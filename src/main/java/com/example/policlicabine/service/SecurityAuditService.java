@@ -111,6 +111,45 @@ public class SecurityAuditService {
     }
 
     /**
+     * Log a security event and return the entity (for internal use by event listeners).
+     * This method is synchronous and returns the saved entity for further processing
+     * (e.g., tracking in Application Insights).
+     *
+     * @param dto Security audit log DTO
+     * @return Saved SecurityAuditLog entity, or null if logging failed
+     */
+    @Transactional
+    public SecurityAuditLog logEventAndReturnEntity(SecurityAuditLogDto dto) {
+        try {
+            SecurityAuditLog entity = auditLogMapper.toEntity(dto);
+
+            // Set default severity if not provided
+            if (entity.getSeverity() == null) {
+                entity.setSeverity(determineSeverity(entity.getEventType()));
+            }
+
+            // Ensure timestamp is in UTC
+            if (entity.getTimestamp() != null) {
+                entity.setTimestamp(entity.getTimestamp().withOffsetSameInstant(ZoneOffset.UTC));
+            }
+
+            SecurityAuditLog saved = auditLogRepository.save(entity);
+
+            log.debug("Audit event logged and returned: {} | Principal: {} | Severity: {}",
+                saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
+
+            // Publish event for alerting
+            publishAuditEventForAlerting(saved);
+
+            return saved;
+
+        } catch (Exception e) {
+            log.error("Failed to log security event", e);
+            return null;
+        }
+    }
+
+    /**
      * Find audit log by ID.
      */
     @Transactional(readOnly = true)
