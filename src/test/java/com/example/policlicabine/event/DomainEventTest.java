@@ -58,6 +58,9 @@ class DomainEventTest extends BaseServiceTest {
     @Mock
     private ConsultationMapper consultationMapper;
 
+    @Mock
+    private com.example.policlicabine.specification.PatientSpecificationBuilder patientSpecificationBuilder;
+
     @InjectMocks
     private PatientService patientService;
 
@@ -72,7 +75,7 @@ class DomainEventTest extends BaseServiceTest {
     @DisplayName("Should publish PatientRegistered event after successful registration")
     void registerPatient_Success_PublishesEvent() {
         // Given
-        patientService = new PatientService(patientRepository, patientMapper, eventPublisher);
+        patientService = new PatientService(patientRepository, patientMapper, eventPublisher, patientSpecificationBuilder);
 
         Patient patient = PatientTestBuilder.aPatient()
                 .withFirstName("John")
@@ -119,7 +122,7 @@ class DomainEventTest extends BaseServiceTest {
     @DisplayName("Should NOT publish event when registration fails")
     void registerPatient_Failure_NoEventPublished() {
         // Given
-        patientService = new PatientService(patientRepository, patientMapper, eventPublisher);
+        patientService = new PatientService(patientRepository, patientMapper, eventPublisher, patientSpecificationBuilder);
 
         when(patientRepository.existsByPhone("0700123456")).thenReturn(true);
 
@@ -139,7 +142,7 @@ class DomainEventTest extends BaseServiceTest {
     @DisplayName("Should NOT publish event when validation fails")
     void registerPatient_ValidationFailure_NoEventPublished() {
         // Given
-        patientService = new PatientService(patientRepository, patientMapper, eventPublisher);
+        patientService = new PatientService(patientRepository, patientMapper, eventPublisher, patientSpecificationBuilder);
 
         // When - Missing required field (first name)
         Result<PatientDto> result = patientService.registerNewPatient(

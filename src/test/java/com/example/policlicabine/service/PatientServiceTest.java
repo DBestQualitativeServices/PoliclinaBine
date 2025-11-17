@@ -8,6 +8,7 @@ import com.example.policlicabine.entity.Patient;
 import com.example.policlicabine.event.PatientRegistered;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
+import com.example.policlicabine.specification.PatientSpecificationBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,9 @@ class PatientServiceTest extends BaseServiceTest {
     @Mock
     private PatientMapper patientMapper;
 
+    @Mock
+    private PatientSpecificationBuilder specificationBuilder;
+
     @InjectMocks
     private PatientService patientService;
 
@@ -55,7 +59,7 @@ class PatientServiceTest extends BaseServiceTest {
         eventPublisher = createEventPublisher();
 
         // Manually inject eventPublisher since @InjectMocks doesn't handle it
-        patientService = new PatientService(patientRepository, patientMapper, eventPublisher);
+        patientService = new PatientService(patientRepository, patientMapper, eventPublisher, specificationBuilder);
 
         // Create test data
         testPatient = PatientTestBuilder.aPatient()
