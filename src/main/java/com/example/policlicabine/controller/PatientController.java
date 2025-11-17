@@ -3,6 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ErrorResponse;
 import com.example.policlicabine.dto.PatientDto;
+import com.example.policlicabine.dto.PatientFilterCriteria;
 import com.example.policlicabine.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -131,6 +135,61 @@ public class PatientController {
                             request.getRequestURI()
                     ));
         }
+    }
+
+    @Operation(
+            summary = "Search patients with filters",
+            description = """
+                    Searches and filters patients with pagination and sorting support.
+
+                    **Query Parameter Format:**
+                    All parameters are flat query parameters (no nesting required).
+                    Simply append filters and pagination params directly to the URL.
+
+                    **Filter Options (all optional):**
+                    - `firstName` - Partial match, case-insensitive (e.g., "joh" matches "John")
+                    - `lastName` - Partial match, case-insensitive (e.g., "smi" matches "Smith")
+                    - `phone` - Partial match (e.g., "0723" matches any phone containing "0723")
+                    - `email` - Partial match, case-insensitive
+                    - `registeredAfter` - Filter patients registered on or after this date (ISO 8601 format)
+                    - `registeredBefore` - Filter patients registered on or before this date (ISO 8601 format)
+                    - `hasConsent` - Boolean: true = with consent file, false = without consent file
+
+                    **Pagination Parameters:**
+                    - `page` - Page number (0-indexed, default: 0)
+                    - `size` - Page size (default: 20, max: 100)
+                    - `sort` - Sort criteria (e.g., "lastName,asc" or "registrationDate,desc")
+
+                    **Examples:**
+                    - `/api/patients/search?firstName=john&page=0&size=10`
+                    - `/api/patients/search?hasConsent=true&sort=registrationDate,desc`
+                    - `/api/patients/search?registeredAfter=2025-01-01T00:00:00Z&registeredBefore=2025-12-31T23:59:59Z`
+                    - `/api/patients/search?firstName=mar&lastName=smith&phone=072&page=1&size=50&sort=lastName,asc`
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Paginated patient results with metadata"
+    )
+    @GetMapping("/search")
+    public ResponseEntity<Page<PatientDto>> searchPatients(
+            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+            @ModelAttribute PatientFilterCriteria criteria,
+
+            @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
+            @PageableDefault(size = 20, sort = "registrationDate")
+            Pageable pageable
+    ) {
+        log.info("REST: Searching patients with criteria: {} and pageable: {}", criteria, pageable);
+
+        Page<PatientDto> result = patientService.search(criteria, pageable);
+
+        log.info("REST: Patient search returned {} results (page {}/{})",
+                result.getNumberOfElements(),
+                result.getNumber() + 1,
+                result.getTotalPages());
+
+        return ResponseEntity.ok(result);
     }
 
     @Operation(

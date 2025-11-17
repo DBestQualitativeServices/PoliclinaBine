@@ -2,6 +2,7 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
+import com.example.policlicabine.dto.PatientFilterCriteria;
 import com.example.policlicabine.entity.Patient;
 import com.example.policlicabine.event.PatientConsentStatusChanged;
 import com.example.policlicabine.event.PatientPersonalInfoUpdated;
@@ -9,8 +10,13 @@ import com.example.policlicabine.event.PatientRegistered;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.service.base.ServiceHelper;
+import com.example.policlicabine.specification.PatientSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,13 +46,16 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     private final PatientRepository patientRepository;
     private final PatientMapper patientMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final PatientSpecificationBuilder specificationBuilder;
 
     public PatientService(PatientRepository patientRepository, PatientMapper patientMapper,
-                         ApplicationEventPublisher eventPublisher) {
+                         ApplicationEventPublisher eventPublisher,
+                         PatientSpecificationBuilder specificationBuilder) {
         super(patientRepository, patientMapper);
         this.patientRepository = patientRepository;
         this.patientMapper = patientMapper;
         this.eventPublisher = eventPublisher;
+        this.specificationBuilder = specificationBuilder;
     }
 
     @Override
@@ -108,6 +117,11 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             // Check for duplicate phone
             if (patientRepository.existsByPhone(phone.trim())) {
                 return Result.failure("Patient with this phone number already exists");
+            }
+
+            // Check for duplicate email
+            if (email != null && patientRepository.existsByEmail(email.trim())) {
+                return Result.failure(ServiceHelper.alreadyExistsMessage("Patient", "email"));
             }
 
             // Build and save patient
@@ -226,6 +240,53 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         } catch (Exception e) {
             log.error("Error updating consent file", e);
             return Result.failure("Failed to update consent file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Searches patients with dynamic filtering, pagination, and sorting.
+     * <p>
+     * This method uses Spring Data JPA Specifications for building dynamic queries
+     * based on the provided filter criteria. All filters are optional and combined
+     * with AND logic.
+     * </p>
+     * <p>
+     * Supported filters:
+     * <ul>
+     *   <li>firstName, lastName, phone, email - partial match, case-insensitive</li>
+     *   <li>registeredAfter, registeredBefore - date range filtering</li>
+     *   <li>hasConsent - boolean filter for consent file presence</li>
+     * </ul>
+     * </p>
+     *
+     * @param criteria filter criteria (all fields optional)
+     * @param pageable pagination and sorting parameters
+     * @return Page of PatientDto with pagination metadata
+     */
+    @Transactional(readOnly = true)
+    public Page<PatientDto> search(PatientFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching patients with criteria: {} and pageable: {}", criteria, pageable);
+
+        try {
+            // Build dynamic specification from filter criteria
+            Specification<Patient> spec = specificationBuilder.build(criteria);
+
+            // Execute query with pagination
+            Page<Patient> entityPage = patientRepository.findAll(spec, pageable);
+
+            // Map entities to DTOs using Spring's Page.map()
+            Page<PatientDto> dtoPage = entityPage.map(this::toDto);
+
+            log.info("Patient search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+
+        } catch (Exception e) {
+            log.error("Error searching patients with criteria: {}", criteria, e);
+            throw new RuntimeException("Failed to search patients: " + e.getMessage(), e);
         }
     }
 
