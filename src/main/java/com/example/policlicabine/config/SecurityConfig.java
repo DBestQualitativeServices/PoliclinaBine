@@ -40,12 +40,16 @@ public class SecurityConfig {
                         // Public endpoints - no authentication required
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/security/log",  // Security audit logging from frontend
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/h2-console/**"
                         ).permitAll()
+                        // Actuator endpoints - role-based access control
+                        .requestMatchers("/actuator/auditevents").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         // Role-based authorization
                         .requestMatchers("/api/admin/**").hasRole("MANAGER")
                         .requestMatchers("/api/doctor/**").hasAnyRole("DOCTOR", "MANAGER")
