@@ -7,7 +7,7 @@ import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,8 +46,8 @@ public class Payment {
     @Column(length = 3)
     private String currency = "RON";
 
-    @Column(nullable = false)
-    private LocalDateTime paymentDate;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime paymentDate;
 
     @Enumerated(EnumType.STRING)
     private PaymentType paymentType;
@@ -56,8 +56,8 @@ public class Payment {
     private String notes;
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime createdAt;
 
     @PrePersist
     void generateId() {

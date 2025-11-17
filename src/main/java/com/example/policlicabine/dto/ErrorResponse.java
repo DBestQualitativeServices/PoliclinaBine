@@ -6,7 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /**
  * Standard error response structure for API error handling.
@@ -40,10 +41,10 @@ public class ErrorResponse {
 
     @Schema(
             description = "Timestamp when the error occurred",
-            example = "2025-01-15T10:30:00",
+            example = "2025-01-15T10:30:00Z",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    private LocalDateTime timestamp;
+    private OffsetDateTime timestamp;
 
     @Schema(
             description = "Request path that caused the error",
@@ -64,7 +65,7 @@ public class ErrorResponse {
         return ErrorResponse.builder()
                 .status(status)
                 .message(message)
-                .timestamp(LocalDateTime.now())
+                .timestamp(OffsetDateTime.now(ZoneOffset.UTC))
                 .path(path)
                 .build();
     }

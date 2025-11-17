@@ -12,7 +12,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -91,9 +92,9 @@ class PasswordResetTokenServiceTest {
                     assertThat(token.getToken()).hasSize(36); // UUID format
                     assertThat(token.getUser()).isEqualTo(mockUserReference);
                     assertThat(token.isUsed()).isFalse();
-                    assertThat(token.getExpiryDate()).isAfter(LocalDateTime.now());
+                    assertThat(token.getExpiryDate()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
                     assertThat(token.getExpiryDate())
-                            .isBefore(LocalDateTime.now().plusHours(1).plusMinutes(1));
+                            .isBefore(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).plusMinutes(1));
                 });
 
         // Verify old tokens deleted first
@@ -110,7 +111,7 @@ class PasswordResetTokenServiceTest {
     @Test
     void createResetToken_ShouldSetCorrectExpirationTime() {
         // Given
-        LocalDateTime beforeCreation = LocalDateTime.now();
+        OffsetDateTime beforeCreation = OffsetDateTime.now(ZoneOffset.UTC);
 
         when(entityManager.getReference(eq(User.class), eq(testUserId)))
                 .thenReturn(mockUserReference);
@@ -124,7 +125,7 @@ class PasswordResetTokenServiceTest {
         assertThat(result).isSuccess();
 
         PasswordResetToken token = result.getValue();
-        LocalDateTime expectedExpiry = beforeCreation.plusHours(1);
+        OffsetDateTime expectedExpiry = beforeCreation.plusHours(1);
 
         // Allow 5 second tolerance for test execution time
         assertThat(token.getExpiryDate())
@@ -142,7 +143,7 @@ class PasswordResetTokenServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token(validToken)
                 .user(mockUserReference)
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
                 .used(false)
                 .build();
 
@@ -185,7 +186,7 @@ class PasswordResetTokenServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token(usedToken)
                 .user(mockUserReference)
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
                 .used(true) // Already used
                 .build();
 
@@ -209,7 +210,7 @@ class PasswordResetTokenServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token(expiredToken)
                 .user(mockUserReference)
-                .expiryDate(LocalDateTime.now().minusHours(1)) // Expired 1 hour ago
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).minusHours(1)) // Expired 1 hour ago
                 .used(false)
                 .build();
 
@@ -233,7 +234,7 @@ class PasswordResetTokenServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token(tokenExpiringNow)
                 .user(mockUserReference)
-                .expiryDate(LocalDateTime.now().minusNanos(1)) // Expired 1 nanosecond ago
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).minusNanos(1)) // Expired 1 nanosecond ago
                 .used(false)
                 .build();
 
@@ -259,7 +260,7 @@ class PasswordResetTokenServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token(tokenString)
                 .user(mockUserReference)
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
                 .used(false)
                 .build();
 
@@ -305,17 +306,17 @@ class PasswordResetTokenServiceTest {
     @Test
     void cleanupExpiredTokens_ShouldDeleteExpiredTokensOnly() {
         // Given
-        LocalDateTime now = LocalDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
         // When
         passwordResetTokenService.cleanupExpiredTokens();
 
         // Then
-        ArgumentCaptor<LocalDateTime> dateCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<OffsetDateTime> dateCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
         verify(resetTokenRepository).deleteByExpiryDateBefore(dateCaptor.capture());
 
         // Verify cleanup called with approximately current time (within 5 seconds)
-        LocalDateTime capturedTime = dateCaptor.getValue();
+        OffsetDateTime capturedTime = dateCaptor.getValue();
         assertThat(capturedTime)
                 .isAfter(now.minusSeconds(5))
                 .isBefore(now.plusSeconds(5));
@@ -331,6 +332,6 @@ class PasswordResetTokenServiceTest {
         passwordResetTokenService.cleanupExpiredTokens();
 
         // Then - Should be called 3 times without errors
-        verify(resetTokenRepository, times(3)).deleteByExpiryDateBefore(any(LocalDateTime.class));
+        verify(resetTokenRepository, times(3)).deleteByExpiryDateBefore(any(OffsetDateTime.class));
     }
 }

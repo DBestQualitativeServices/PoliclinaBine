@@ -20,7 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -72,7 +72,7 @@ public class InvoiceController {
             @Parameter(description = "Invoice number (must be unique)", required = true)
             @RequestParam String invoiceNumber,
             @Parameter(description = "Invoice date (ISO format: yyyy-MM-dd)", required = true)
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate invoiceDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime invoiceDate,
             @Parameter(description = "Is this a proforma invoice?", required = true)
             @RequestParam boolean isProforma,
             @Parameter(description = "User generating the invoice", required = true)

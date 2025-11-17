@@ -7,7 +7,7 @@ import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,8 +34,8 @@ public class AppointmentSession {
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @Column(nullable = false)
-    private LocalDateTime scheduledDateTime;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime scheduledDateTime;
 
     @Builder.Default
     private Boolean isEmergency = false;
@@ -85,12 +85,17 @@ public class AppointmentSession {
     private Integer rescheduleCount = 0;
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime createdAt;
 
-    private LocalDateTime completedAt;
-    private LocalDateTime cancelledAt;
-    private LocalDateTime lastContactAttemptAt;
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime completedAt;
+
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime cancelledAt;
+
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime lastContactAttemptAt;
 
     @PrePersist
     void generateId() {

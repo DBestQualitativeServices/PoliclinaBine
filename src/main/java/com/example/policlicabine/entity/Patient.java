@@ -5,7 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -50,8 +50,8 @@ public class Patient {
     private List<AppointmentSession> appointments = new ArrayList<>();
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime registrationDate;
+    @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime registrationDate;
 
     @PrePersist
     void generateId() {

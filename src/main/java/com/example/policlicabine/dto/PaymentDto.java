@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,8 +23,8 @@ public class PaymentDto {
     private String generatedByUsername;
     private BigDecimal amount;
     private String currency;
-    private LocalDateTime paymentDate;
+    private OffsetDateTime paymentDate;
     private PaymentType paymentType;
     private String notes;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 }

@@ -2,7 +2,8 @@ package com.example.policlicabine.builder;
 
 import com.example.policlicabine.entity.Patient;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,7 +33,7 @@ public class PatientTestBuilder {
     private String email = "patient" + counter.get() + "@test.com";
     private String address = "123 Test Street, Test City";
     private String consentFileUrl = null;
-    private LocalDateTime registrationDate = LocalDateTime.now();
+    private OffsetDateTime registrationDate = OffsetDateTime.now(ZoneOffset.UTC);
 
     public static PatientTestBuilder aPatient() {
         return new PatientTestBuilder();
@@ -78,7 +79,7 @@ public class PatientTestBuilder {
         return this;
     }
 
-    public PatientTestBuilder withRegistrationDate(LocalDateTime registrationDate) {
+    public PatientTestBuilder withRegistrationDate(OffsetDateTime registrationDate) {
         this.registrationDate = registrationDate;
         return this;
     }

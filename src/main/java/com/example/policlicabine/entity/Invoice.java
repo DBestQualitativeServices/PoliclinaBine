@@ -8,8 +8,7 @@ import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,8 +28,8 @@ public class Invoice {
     @Column(nullable = false, unique = true)
     private String invoiceNumber;
 
-    @Column(nullable = false)
-    private LocalDate invoiceDate;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime invoiceDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generated_by", nullable = false)
@@ -53,8 +52,8 @@ public class Invoice {
     private List<Payment> payments;
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime createdAt;
 
     @PrePersist
     void generateId() {

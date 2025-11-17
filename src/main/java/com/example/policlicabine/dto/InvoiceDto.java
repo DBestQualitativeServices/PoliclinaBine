@@ -7,8 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +19,7 @@ public class InvoiceDto {
 
     private UUID invoiceId;
     private String invoiceNumber;
-    private LocalDate invoiceDate;
+    private OffsetDateTime invoiceDate;
     private UUID generatedByUserId;
     private String generatedByUsername;
     private Boolean isProforma;
@@ -29,5 +28,5 @@ public class InvoiceDto {
     private BigDecimal totalPaid;
     private BigDecimal outstandingAmount;
     private PaymentStatus paymentStatus;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 }

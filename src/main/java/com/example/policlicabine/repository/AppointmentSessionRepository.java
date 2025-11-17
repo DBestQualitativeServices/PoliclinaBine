@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,28 +55,28 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
      */
     @EntityGraph(attributePaths = {"patient", "doctor"})
     List<AppointmentSession> findWithBasicRelationshipsByDoctorDoctorIdAndScheduledDateTimeBetweenAndStatusNot(
-            UUID doctorId, LocalDateTime start, LocalDateTime end, SessionStatus excludeStatus);
+            UUID doctorId, OffsetDateTime start, OffsetDateTime end, SessionStatus excludeStatus);
 
     // ============= Standard Query Methods =============
 
     List<AppointmentSession> findByPatientPatientIdOrderByScheduledDateTimeDesc(UUID patientId);
 
     List<AppointmentSession> findByDoctorDoctorIdAndScheduledDateTimeBetween(
-            UUID doctorId, LocalDateTime start, LocalDateTime end);
+            UUID doctorId, OffsetDateTime start, OffsetDateTime end);
 
     List<AppointmentSession> findByDoctorDoctorIdAndScheduledDateTimeBetweenAndStatusNot(
-            UUID doctorId, LocalDateTime start, LocalDateTime end, SessionStatus status);
+            UUID doctorId, OffsetDateTime start, OffsetDateTime end, SessionStatus status);
 
     boolean existsByDoctorDoctorIdAndPatientPatientIdAndScheduledDateTimeBetweenAndStatusNot(
-            UUID doctorId, UUID patientId, LocalDateTime start, LocalDateTime end, SessionStatus status);
+            UUID doctorId, UUID patientId, OffsetDateTime start, OffsetDateTime end, SessionStatus status);
 
     @Query("SELECT a FROM AppointmentSession a WHERE a.doctor.doctorId = :doctorId " +
            "AND a.scheduledDateTime BETWEEN :start AND :end " +
            "AND a.status = :status")
     List<AppointmentSession> findDoctorAppointmentsByDateAndStatus(
             @Param("doctorId") UUID doctorId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end,
             @Param("status") SessionStatus status);
 
     List<AppointmentSession> findByStatus(SessionStatus status);

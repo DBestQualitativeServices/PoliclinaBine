@@ -3,7 +3,8 @@ package com.example.policlicabine.builder;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
@@ -32,8 +33,8 @@ public class UserTestBuilder {
     private String password = "$2a$10$dummyHashedPassword";
     private boolean enabled = true;
     private boolean accountNonLocked = true;
-    private LocalDateTime createdAt = LocalDateTime.now();
-    private LocalDateTime lastLogin = null;
+    private OffsetDateTime createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+    private OffsetDateTime lastLogin = null;
 
     public static UserTestBuilder aUser() {
         return new UserTestBuilder();
@@ -92,12 +93,12 @@ public class UserTestBuilder {
         return this;
     }
 
-    public UserTestBuilder withCreatedAt(LocalDateTime createdAt) {
+    public UserTestBuilder withCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
         return this;
     }
 
-    public UserTestBuilder withLastLogin(LocalDateTime lastLogin) {
+    public UserTestBuilder withLastLogin(OffsetDateTime lastLogin) {
         this.lastLogin = lastLogin;
         return this;
     }

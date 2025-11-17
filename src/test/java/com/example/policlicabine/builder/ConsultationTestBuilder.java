@@ -4,7 +4,7 @@ import com.example.policlicabine.entity.Consultation;
 import com.example.policlicabine.entity.enums.Specialty;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -32,7 +32,7 @@ public class ConsultationTestBuilder {
     private Integer durationMinutes = 30;
     private Boolean requiresSurgeryRoom = false;
     private Boolean isActive = true;
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private OffsetDateTime createdAt = OffsetDateTime.now();
 
     public static ConsultationTestBuilder aConsultation() {
         return new ConsultationTestBuilder();
@@ -111,7 +111,7 @@ public class ConsultationTestBuilder {
         return this;
     }
 
-    public ConsultationTestBuilder withCreatedAt(LocalDateTime createdAt) {
+    public ConsultationTestBuilder withCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
         return this;
     }

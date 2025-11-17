@@ -9,7 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -73,7 +74,7 @@ class PatientMapperTest {
                 .email(null) // Null email
                 .address(null) // Null address
                 .consentFileUrl(null) // Null consent
-                .registrationDate(LocalDateTime.now())
+                .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
         // When
@@ -113,7 +114,7 @@ class PatientMapperTest {
                 .email("jane.smith@test.com")
                 .address("456 Another Street")
                 .consentFileUrl("https://storage.example.com/consent2.pdf")
-                .registrationDate(LocalDateTime.now())
+                .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
         // When
@@ -141,7 +142,7 @@ class PatientMapperTest {
                 .lastName("Doe")
                 .phone("0700123456")
                 .email("john.doe@test.com")
-                .registrationDate(LocalDateTime.now())
+                .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
         // When
@@ -176,7 +177,7 @@ class PatientMapperTest {
                 .email(null)
                 .address(null)
                 .consentFileUrl(null)
-                .registrationDate(LocalDateTime.now())
+                .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
         // When
@@ -236,7 +237,7 @@ class PatientMapperTest {
                 .email("")
                 .address("")
                 .consentFileUrl("")
-                .registrationDate(LocalDateTime.now())
+                .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
         // When

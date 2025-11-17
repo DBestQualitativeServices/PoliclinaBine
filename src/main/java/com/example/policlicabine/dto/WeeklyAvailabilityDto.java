@@ -6,8 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -18,8 +17,8 @@ public class WeeklyAvailabilityDto {
 
     private UUID id;
     private DayOfWeek dayOfWeek;
-    private LocalTime startTime;
-    private LocalTime endTime;
-    private LocalDateTime effectiveFrom;
-    private LocalDateTime effectiveTo;
+    private OffsetDateTime startTime;
+    private OffsetDateTime endTime;
+    private OffsetDateTime effectiveFrom;
+    private OffsetDateTime effectiveTo;
 }

@@ -10,7 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -98,8 +98,8 @@ public class PatientDto {
 
     @Schema(
             description = "Timestamp when patient was registered in the system",
-            example = "2025-01-15T10:30:00",
+            example = "2025-01-15T10:30:00Z",
             accessMode = Schema.AccessMode.READ_ONLY
     )
-    private LocalDateTime registrationDate;
+    private OffsetDateTime registrationDate;
 }

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,7 +22,7 @@ public class SessionBillingDto {
     private BigDecimal totalDiscountAmount;
     private BigDecimal finalAmount;
     private List<BillingDiscountDto> discounts;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     // Note: Does NOT include invoices[] to avoid circular dependency
     // Invoice → SessionBilling (DOWN hierarchy)

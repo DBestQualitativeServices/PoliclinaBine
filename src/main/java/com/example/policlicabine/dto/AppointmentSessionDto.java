@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,7 +27,7 @@ public class AppointmentSessionDto {
     private List<AnswerDto> answers;
 
     // Session details
-    private LocalDateTime scheduledDateTime;
+    private OffsetDateTime scheduledDateTime;
     private Boolean isEmergency;
     private SessionStatus status;
     private String freeTextDiagnosis;
@@ -36,8 +36,8 @@ public class AppointmentSessionDto {
     private String cancellationReason;
     private Integer contactAttempts;
     private Integer rescheduleCount;
-    private LocalDateTime createdAt;
-    private LocalDateTime completedAt;
-    private LocalDateTime cancelledAt;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime completedAt;
+    private OffsetDateTime cancelledAt;
     private BigDecimal subtotalAmount;
 }

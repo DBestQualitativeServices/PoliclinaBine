@@ -10,7 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -61,8 +62,8 @@ public class MedicalFileAccessService {
                 return Result.failure("Patient ID is required");
             }
 
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
 
             // Check for future appointments (not cancelled) via AppointmentSessionService
             boolean hasAccess = appointmentSessionService.hasAppointmentsInRange(
@@ -98,8 +99,8 @@ public class MedicalFileAccessService {
                 return Result.failure("Doctor ID is required");
             }
 
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
 
             // Get all future appointments (not cancelled) with patients loaded via AppointmentSessionService
             List<AppointmentSession> futureAppointments = appointmentSessionService
@@ -142,8 +143,8 @@ public class MedicalFileAccessService {
                 return Result.failure("Patient ID is required");
             }
 
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime futureLimit = now.plusYears(1); // Check full year
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime futureLimit = now.plusYears(1); // Check full year
 
             // Check via AppointmentSessionService
             boolean hasAppointments = appointmentSessionService.hasAppointmentsInRange(

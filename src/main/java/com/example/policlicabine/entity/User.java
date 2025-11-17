@@ -4,7 +4,8 @@ import com.example.policlicabine.entity.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -41,10 +42,11 @@ public class User {
     @Column(nullable = false)
     private boolean accountNonLocked = true;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime createdAt;
 
-    private LocalDateTime lastLogin;
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime lastLogin;
 
     @PrePersist
     void generateId() {
@@ -52,7 +54,7 @@ public class User {
             userId = UUID.randomUUID();
         }
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = OffsetDateTime.now(ZoneOffset.UTC);
         }
     }
 

@@ -15,7 +15,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -71,7 +72,7 @@ public class AppointmentSessionService {
      */
     public Result<AppointmentSessionDto> scheduleAppointment(UUID patientId, UUID doctorId,
                                                            List<String> consultationNames,
-                                                           LocalDateTime scheduledDateTime,
+                                                           OffsetDateTime scheduledDateTime,
                                                            boolean isEmergency) {
         try {
             // Input validation
@@ -221,7 +222,7 @@ public class AppointmentSessionService {
             // Publish domain event (patient and doctor already loaded via EntityGraph)
             eventPublisher.publishEvent(new SessionStarted(
                 sessionId, session.getPatient().getPatientId(),
-                session.getDoctor().getDoctorId(), LocalDateTime.now()));
+                session.getDoctor().getDoctorId(), OffsetDateTime.now(ZoneOffset.UTC)));
 
             log.info("Session started: {}", sessionId);
 
@@ -322,7 +323,7 @@ public class AppointmentSessionService {
             session.setTreatmentInstructions(treatmentInstructions);
             session.setFreeTextObservations(freeTextObservations);
             session.setStatus(SessionStatus.COMPLETED);
-            session.setCompletedAt(LocalDateTime.now());
+            session.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
 
             AppointmentSession savedSession = appointmentRepository.save(session);
 
@@ -334,7 +335,7 @@ public class AppointmentSessionService {
 
             eventPublisher.publishEvent(new SessionCompleted(
                 sessionId, session.getPatient().getPatientId(),
-                session.getDoctor().getDoctorId(), LocalDateTime.now(),
+                session.getDoctor().getDoctorId(), OffsetDateTime.now(ZoneOffset.UTC),
                 getConsultationNames(session)));
 
             log.info("Session completed: {}", sessionId);
@@ -374,7 +375,7 @@ public class AppointmentSessionService {
             SessionStatus newStatus = wasNoShow ? SessionStatus.NO_SHOW : SessionStatus.CANCELLED;
             session.setStatus(newStatus);
             session.setCancellationReason(reason);
-            session.setCancelledAt(LocalDateTime.now());
+            session.setCancelledAt(OffsetDateTime.now(ZoneOffset.UTC));
 
             AppointmentSession savedSession = appointmentRepository.save(session);
 
@@ -549,7 +550,7 @@ public class AppointmentSessionService {
      */
     @Transactional(readOnly = true)
     public boolean hasAppointmentsInRange(UUID doctorId, UUID patientId,
-                                         LocalDateTime fromDate, LocalDateTime toDate,
+                                         OffsetDateTime fromDate, OffsetDateTime toDate,
                                          SessionStatus excludeStatus) {
         if (doctorId == null || patientId == null || fromDate == null || toDate == null) {
             return false;
@@ -573,8 +574,8 @@ public class AppointmentSessionService {
      */
     @Transactional(readOnly = true)
     public List<AppointmentSession> getAppointmentsInRangeWithPatient(UUID doctorId,
-                                                                      LocalDateTime fromDate,
-                                                                      LocalDateTime toDate,
+                                                                      OffsetDateTime fromDate,
+                                                                      OffsetDateTime toDate,
                                                                       SessionStatus excludeStatus) {
         if (doctorId == null || fromDate == null || toDate == null) {
             return List.of();

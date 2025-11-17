@@ -12,7 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Service
@@ -42,7 +43,7 @@ public class PasswordResetTokenService {
 
             // Generate token and expiry date
             String token = UUID.randomUUID().toString();
-            LocalDateTime expiryDate = LocalDateTime.now().plusSeconds(tokenExpirationMs / 1000);
+            OffsetDateTime expiryDate = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(tokenExpirationMs / 1000);
 
             PasswordResetToken resetToken = PasswordResetToken.builder()
                     .token(token)
@@ -80,7 +81,7 @@ public class PasswordResetTokenService {
                 return Result.failure("Reset token has already been used");
             }
 
-            if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            if (resetToken.getExpiryDate().isBefore(OffsetDateTime.now(ZoneOffset.UTC))) {
                 log.warn("Expired reset token attempted: {}", token);
                 return Result.failure("Reset token has expired");
             }
@@ -120,7 +121,7 @@ public class PasswordResetTokenService {
      */
     public void cleanupExpiredTokens() {
         try {
-            resetTokenRepository.deleteByExpiryDateBefore(LocalDateTime.now());
+            resetTokenRepository.deleteByExpiryDateBefore(OffsetDateTime.now(ZoneOffset.UTC));
             log.info("Cleaned up expired password reset tokens");
         } catch (Exception e) {
             log.error("Error cleaning up expired tokens: {}", e.getMessage(), e);

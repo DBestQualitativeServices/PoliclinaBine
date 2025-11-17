@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -106,7 +107,7 @@ public class PaymentService {
                 .invoices(invoices)
                 .generatedBy(processedBy)
                 .amount(amount)
-                .paymentDate(LocalDateTime.now())
+                .paymentDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .paymentType(paymentType)
                 .notes(notes != null ? notes.trim() : null)
                 .build();

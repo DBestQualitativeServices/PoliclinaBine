@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,14 +32,17 @@ public class WeeklyAvailability {
     @Column(nullable = false)
     private DayOfWeek dayOfWeek;
 
-    @Column(nullable = false)
-    private LocalTime startTime;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime startTime;
 
-    @Column(nullable = false)
-    private LocalTime endTime;
+    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime endTime;
 
-    private LocalDateTime effectiveFrom;
-    private LocalDateTime effectiveTo;
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime effectiveFrom;
+
+    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime effectiveTo;
 
     @PrePersist
     void generateId() {

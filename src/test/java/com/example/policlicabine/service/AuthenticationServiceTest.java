@@ -25,7 +25,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -402,7 +403,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token("reset-token-123")
                 .user(testUser)
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
                 .used(false)
                 .build();
 
@@ -460,7 +461,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .tokenId(UUID.randomUUID())
                 .token("valid-token")
                 .user(testUser)
-                .expiryDate(LocalDateTime.now().plusHours(1))
+                .expiryDate(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
                 .used(false)
                 .build();
 

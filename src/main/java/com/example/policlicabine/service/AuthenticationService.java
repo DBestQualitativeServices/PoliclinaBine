@@ -21,7 +21,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Service
 @RequiredArgsConstructor
@@ -113,7 +114,7 @@ public class AuthenticationService {
             }
 
             // Update last login
-            user.setLastLogin(LocalDateTime.now());
+            user.setLastLogin(OffsetDateTime.now(ZoneOffset.UTC));
             userRepository.save(user);
 
             // Generate tokens
@@ -127,7 +128,7 @@ public class AuthenticationService {
             eventPublisher.publishEvent(new UserAuthenticated(
                     user.getUserId(),
                     user.getUsername(),
-                    LocalDateTime.now(),
+                    OffsetDateTime.now(ZoneOffset.UTC),
                     ipAddress != null ? ipAddress : "unknown"
             ));
 
@@ -237,7 +238,7 @@ public class AuthenticationService {
             eventPublisher.publishEvent(new PasswordChanged(
                     user.getUserId(),
                     user.getUsername(),
-                    LocalDateTime.now()
+                    OffsetDateTime.now(ZoneOffset.UTC)
             ));
 
             return Result.success(null);
@@ -321,7 +322,7 @@ public class AuthenticationService {
             eventPublisher.publishEvent(new PasswordReset(
                     user.getUserId(),
                     user.getUsername(),
-                    LocalDateTime.now()
+                    OffsetDateTime.now(ZoneOffset.UTC)
             ));
 
             return Result.success(null);

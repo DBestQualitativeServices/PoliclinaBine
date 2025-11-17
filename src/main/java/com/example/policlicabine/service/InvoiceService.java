@@ -17,7 +17,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -135,7 +135,7 @@ public class InvoiceService extends BaseServiceImpl<Invoice, InvoiceDto, UUID> {
      * @param sessionBillingIds List of session billing IDs to include
      * @return Result containing InvoiceDto or error message
      */
-    public Result<InvoiceDto> createInvoice(String invoiceNumber, LocalDate invoiceDate,
+    public Result<InvoiceDto> createInvoice(String invoiceNumber, OffsetDateTime invoiceDate,
                                            UUID generatedByUserId, Boolean isProforma,
                                            List<UUID> sessionBillingIds) {
         try {

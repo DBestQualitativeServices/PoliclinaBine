@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -21,5 +21,5 @@ public class AnswerDto {
     private UUID consultationId;
     private String consultationName;
     private String answerText;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 }
