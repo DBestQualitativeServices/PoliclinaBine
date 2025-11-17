@@ -1,21 +1,31 @@
 package com.example.policlicabine.listener;
 
 import com.example.policlicabine.dto.SecurityAuditLogDto;
+import com.example.policlicabine.entity.SecurityAuditLog;
 import com.example.policlicabine.entity.enums.AuditEventType;
 import com.example.policlicabine.entity.enums.AuditSeverity;
 import com.example.policlicabine.event.*;
+import com.example.policlicabine.service.ApplicationInsightsService;
 import com.example.policlicabine.service.SecurityAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 /**
  * Event listener for security-related domain events.
  * Automatically logs security events to the audit trail.
+ *
+ * <p>Dual tracking:
+ * <ul>
+ *   <li>Database: Via SecurityAuditService (persistent audit trail)</li>
+ *   <li>Azure Application Insights: For real-time monitoring and analytics</li>
+ * </ul>
  *
  * Listens to existing security events and creates audit log entries asynchronously.
  */
@@ -25,6 +35,9 @@ import java.time.ZoneOffset;
 public class SecurityAuditEventListener {
 
     private final SecurityAuditService auditService;
+
+    @Autowired(required = false)
+    private ApplicationInsightsService appInsightsService;
 
     /**
      * Listen to UserAuthenticated events (successful login).
@@ -41,7 +54,7 @@ public class SecurityAuditEventListener {
             .reason("User successfully authenticated")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
     /**
@@ -59,7 +72,7 @@ public class SecurityAuditEventListener {
             .reason("New user registered in the system")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
     /**
@@ -77,7 +90,7 @@ public class SecurityAuditEventListener {
             .reason("User account created")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
     /**
@@ -94,7 +107,7 @@ public class SecurityAuditEventListener {
             .reason("User password changed successfully")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
     /**
@@ -111,7 +124,7 @@ public class SecurityAuditEventListener {
             .reason("Password reset requested")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
     /**
@@ -128,9 +141,25 @@ public class SecurityAuditEventListener {
             .reason("Password reset completed successfully")
             .build();
 
-        auditService.logEventAsync(auditLog);
+        logToAuditTrail(auditLog);
     }
 
-    // Add more event listeners for other security events as needed
-    // Examples: SessionStarted, SessionCompleted, etc.
+    /**
+     * Helper method to log security events to both database and Application Insights.
+     *
+     * @param auditLogDto The audit log DTO to persist and track
+     */
+    private void logToAuditTrail(SecurityAuditLogDto auditLogDto) {
+        // Log to database (persistent audit trail)
+        SecurityAuditLog savedLog = auditService.logEventAsync(auditLogDto);
+
+        // Track in Azure Application Insights (real-time monitoring)
+        if (appInsightsService != null && savedLog != null) {
+            try {
+                appInsightsService.trackSecurityEvent(savedLog);
+            } catch (Exception e) {
+                log.warn("Failed to track security event in Application Insights: {}", e.getMessage());
+            }
+        }
+    }
 }
