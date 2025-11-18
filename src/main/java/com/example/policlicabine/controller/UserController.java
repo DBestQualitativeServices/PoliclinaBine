@@ -3,6 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ErrorResponse;
 import com.example.policlicabine.dto.UserDto;
+import com.example.policlicabine.dto.UserFilterCriteria;
 import com.example.policlicabine.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -129,6 +133,62 @@ public class UserController {
                             request.getRequestURI()
                     ));
         }
+    }
+
+    @Operation(
+            summary = "Search users with filters",
+            description = """
+                    Searches and filters users with pagination and sorting support.
+
+                    **Query Parameter Format:**
+                    All parameters are flat query parameters (no nesting required).
+                    Simply append filters and pagination params directly to the URL.
+
+                    **Filter Options (all optional):**
+                    - `username` - Partial match, case-insensitive (e.g., "joh" matches "john.doe")
+                    - `fullName` - Partial match, case-insensitive (e.g., "doe" matches "John Doe")
+                    - `role` - Exact match (values: DOCTOR, RECEPTIONIST, ADMIN)
+                    - `enabled` - Boolean: true = enabled users, false = disabled users
+                    - `accountNonLocked` - Boolean: true = unlocked accounts, false = locked accounts
+                    - `createdAfter` - Filter users created on or after this date (ISO 8601 format)
+                    - `createdBefore` - Filter users created on or before this date (ISO 8601 format)
+
+                    **Pagination Parameters:**
+                    - `page` - Page number (0-indexed, default: 0)
+                    - `size` - Page size (default: 20, max: 100)
+                    - `sort` - Sort criteria (e.g., "username,asc" or "createdAt,desc")
+
+                    **Examples:**
+                    - `/api/users/search?username=john&page=0&size=10`
+                    - `/api/users/search?role=DOCTOR&sort=username,asc`
+                    - `/api/users/search?enabled=true&accountNonLocked=true`
+                    - `/api/users/search?fullName=doe&role=DOCTOR&page=1&size=50`
+                    - `/api/users/search?createdAfter=2025-01-01T00:00:00Z&createdBefore=2025-12-31T23:59:59Z`
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Paginated user results with metadata"
+    )
+    @GetMapping("/search")
+    public ResponseEntity<Page<UserDto>> searchUsers(
+            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+            @ModelAttribute UserFilterCriteria criteria,
+
+            @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
+            @PageableDefault(size = 20, sort = "username")
+            Pageable pageable
+    ) {
+        log.info("REST: Searching users with criteria: {} and pageable: {}", criteria, pageable);
+
+        Page<UserDto> result = userService.search(criteria, pageable);
+
+        log.info("REST: User search returned {} results (page {}/{})",
+                result.getNumberOfElements(),
+                result.getNumber() + 1,
+                result.getTotalPages());
+
+        return ResponseEntity.ok(result);
     }
 
     @Operation(

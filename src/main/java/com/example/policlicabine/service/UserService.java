@@ -2,14 +2,19 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.UserDto;
+import com.example.policlicabine.dto.UserFilterCriteria;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.UserCreated;
 import com.example.policlicabine.mapper.UserMapper;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.specification.UserSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,13 +46,16 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserSpecificationBuilder specificationBuilder;
 
     public UserService(UserRepository userRepository, UserMapper userMapper,
-                      ApplicationEventPublisher eventPublisher) {
+                      ApplicationEventPublisher eventPublisher,
+                      UserSpecificationBuilder specificationBuilder) {
         super(userRepository, userMapper);
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.eventPublisher = eventPublisher;
+        this.specificationBuilder = specificationBuilder;
     }
 
     @Override
@@ -116,6 +124,51 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
         } catch (Exception e) {
             log.error("Error creating user", e);
             return Result.failure("Failed to create user: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Searches users with dynamic filtering and pagination.
+     * <p>
+     * Supports filtering by:
+     * <ul>
+     *   <li>username (partial match, case-insensitive)</li>
+     *   <li>fullName (partial match, case-insensitive)</li>
+     *   <li>role (exact match)</li>
+     *   <li>enabled status (boolean)</li>
+     *   <li>accountNonLocked status (boolean)</li>
+     *   <li>createdAt date range (createdAfter, createdBefore)</li>
+     * </ul>
+     * </p>
+     *
+     * @param criteria filter criteria (all fields optional)
+     * @param pageable pagination and sorting parameters
+     * @return Page of UserDto with pagination metadata
+     */
+    @Transactional(readOnly = true)
+    public Page<UserDto> search(UserFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching users with criteria: {} and pageable: {}", criteria, pageable);
+
+        try {
+            // Build dynamic specification from filter criteria
+            Specification<User> spec = specificationBuilder.build(criteria);
+
+            // Execute query with pagination
+            Page<User> entityPage = userRepository.findAll(spec, pageable);
+
+            // Map entities to DTOs using Spring's Page.map()
+            Page<UserDto> dtoPage = entityPage.map(this::toDto);
+
+            log.info("User search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+
+        } catch (Exception e) {
+            log.error("Error searching users with criteria: {}", criteria, e);
+            throw new RuntimeException("Failed to search users: " + e.getMessage(), e);
         }
     }
 
