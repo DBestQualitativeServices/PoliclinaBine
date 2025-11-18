@@ -1,6 +1,8 @@
 package com.example.policlicabine.controller;
 
 import com.example.policlicabine.dto.ErrorResponse;
+import com.example.policlicabine.exception.FileStorageException;
+import com.example.policlicabine.exception.InvalidFileTypeException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Global exception handler for all REST controllers.
@@ -21,6 +24,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <ul>
  *   <li>{@link DataIntegrityViolationException} → 409 Conflict (duplicate data)</li>
  *   <li>{@link ConstraintViolationException} → 400 Bad Request (validation errors)</li>
+ *   <li>{@link MaxUploadSizeExceededException} → 413 Payload Too Large (file too big)</li>
+ *   <li>{@link FileStorageException} → 500 Internal Server Error (storage failures)</li>
+ *   <li>{@link InvalidFileTypeException} → 400 Bad Request (unsupported file type)</li>
  * </ul>
  *
  * <p><strong>Architecture Notes:</strong></p>
@@ -126,6 +132,92 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(
                         HttpStatus.BAD_REQUEST.value(),
                         message,
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Handles file upload size exceeded exceptions.
+     *
+     * <p>Thrown when uploaded file exceeds the maximum size configured in
+     * {@code spring.servlet.multipart.max-file-size} or {@code file.storage.max-file-size}.</p>
+     *
+     * @param ex Max upload size exceeded exception
+     * @param request HTTP request that caused the error
+     * @return 413 Payload Too Large response
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeException(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request) {
+
+        log.warn("File upload size exceeded at {}: {}", request.getRequestURI(), ex.getMessage());
+
+        String message = "File size exceeds maximum limit of 25MB. Please upload a smaller file.";
+
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponse.of(
+                        HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                        message,
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Handles file storage exceptions (I/O errors, storage failures).
+     *
+     * <p>Thrown when file cannot be saved to storage due to:
+     * <ul>
+     *   <li>Disk full or insufficient permissions</li>
+     *   <li>Network issues (for cloud storage)</li>
+     *   <li>Storage service unavailable</li>
+     * </ul></p>
+     *
+     * @param ex File storage exception
+     * @param request HTTP request that caused the error
+     * @return 500 Internal Server Error response
+     */
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ErrorResponse> handleFileStorageException(
+            FileStorageException ex,
+            HttpServletRequest request) {
+
+        log.error("File storage error at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+
+        String message = "Failed to store file: " + ex.getMessage();
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.of(
+                        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                        message,
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Handles invalid file type exceptions.
+     *
+     * <p>Thrown when uploaded file type is not in the allowed MIME types list.
+     * Currently allowed: image/png, image/jpeg, image/jpg.</p>
+     *
+     * @param ex Invalid file type exception
+     * @param request HTTP request that caused the error
+     * @return 400 Bad Request response
+     */
+    @ExceptionHandler(InvalidFileTypeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFileTypeException(
+            InvalidFileTypeException ex,
+            HttpServletRequest request) {
+
+        log.warn("Invalid file type at {}: {}", request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(
+                        HttpStatus.BAD_REQUEST.value(),
+                        ex.getMessage(),
                         request.getRequestURI()
                 ));
     }
