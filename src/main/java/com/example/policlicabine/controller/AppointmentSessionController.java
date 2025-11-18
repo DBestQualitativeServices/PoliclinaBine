@@ -2,6 +2,7 @@ package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.AppointmentSessionDto;
+import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
 import com.example.policlicabine.dto.ErrorResponse;
 import com.example.policlicabine.service.AppointmentSessionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +15,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -168,6 +172,69 @@ public class AppointmentSessionController {
                             request.getRequestURI()
                     ));
         }
+    }
+
+    @Operation(
+            summary = "Search and filter appointment sessions",
+            description = """
+                    Searches appointment sessions with advanced filtering and pagination.
+
+                    **Supported Filters:**
+                    - **patientId**: Exact patient ID match
+                    - **patientName**: Partial match on patient first name OR last name (case-insensitive)
+                    - **doctorId**: Exact doctor ID match
+                    - **doctorName**: Partial match on doctor's user full name (case-insensitive)
+                    - **scheduledAfter**: Sessions scheduled on or after this date/time (inclusive)
+                    - **scheduledBefore**: Sessions scheduled on or before this date/time (inclusive)
+                    - **completedAfter**: Sessions completed on or after this date/time (inclusive)
+                    - **completedBefore**: Sessions completed on or before this date/time (inclusive)
+                    - **status**: Session status (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)
+                    - **consultationNames**: Sessions containing ANY of the specified consultation types
+
+                    **Pagination & Sorting:**
+                    - **page**: Page number (0-indexed, default: 0)
+                    - **size**: Page size (default: 20, max: 100)
+                    - **sort**: Sort criteria (e.g., "scheduledDateTime,desc" or "status,asc")
+
+                    **Example Queries:**
+                    ```
+                    # Search by patient name with pagination
+                    GET /api/appointments/search?patientName=john&page=0&size=10
+
+                    # Filter by status and date range
+                    GET /api/appointments/search?status=COMPLETED&scheduledAfter=2025-01-01T00:00:00Z&scheduledBefore=2025-12-31T23:59:59Z
+
+                    # Complex multi-filter query
+                    GET /api/appointments/search?doctorName=smith&status=IN_PROGRESS&page=0&size=20&sort=scheduledDateTime,desc
+                    ```
+
+                    **Response:**
+                    Returns paginated results with full nested DTOs including patient, doctor, consultations, diagnoses, and answers.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Paginated appointment session results with metadata"
+    )
+    @GetMapping("/search")
+    public ResponseEntity<Page<AppointmentSessionDto>> searchAppointments(
+            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+            @ModelAttribute AppointmentSessionFilterCriteria criteria,
+
+            @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
+            @PageableDefault(size = 20, sort = "scheduledDateTime", direction = org.springframework.data.domain.Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        log.info("REST: Searching appointment sessions with criteria: {} and pageable: {}", criteria, pageable);
+
+        Page<AppointmentSessionDto> result = appointmentSessionService.search(criteria, pageable);
+
+        log.info("REST: Appointment session search returned {} results (page {}/{})",
+                result.getNumberOfElements(),
+                result.getNumber() + 1,
+                result.getTotalPages());
+
+        return ResponseEntity.ok(result);
     }
 
     @Operation(

@@ -4,6 +4,7 @@ import com.example.policlicabine.entity.AppointmentSession;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface AppointmentSessionRepository extends JpaRepository<AppointmentSession, UUID> {
+public interface AppointmentSessionRepository extends JpaRepository<AppointmentSession, UUID>,
+                                                       JpaSpecificationExecutor<AppointmentSession> {
 
     // ============= EntityGraph Query Methods =============
     // These methods use @EntityGraph to prevent N+1 query problems

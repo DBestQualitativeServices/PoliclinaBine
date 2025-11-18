@@ -2,16 +2,21 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.AppointmentSessionDto;
+import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import com.example.policlicabine.event.*;
 import com.example.policlicabine.mapper.AppointmentSessionMapper;
 import com.example.policlicabine.repository.AppointmentSessionRepository;
+import com.example.policlicabine.specification.AppointmentSessionSpecificationBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +51,9 @@ public class AppointmentSessionService {
     private final ConsultationService consultationService;
     private final DiagnosisService diagnosisService;
 
-    // Mapper and event publisher
+    // Mapper, specification builder, and event publisher
     private final AppointmentSessionMapper appointmentMapper;
+    private final AppointmentSessionSpecificationBuilder specificationBuilder;
     private final ApplicationEventPublisher eventPublisher;
 
     // EntityManager for creating entity references without DB hits
@@ -450,6 +456,59 @@ public class AppointmentSessionService {
         } catch (Exception e) {
             log.error("Error getting appointment session by ID", e);
             return Result.failure("Failed to get appointment session: " + e.getMessage());
+        }
+    }
+
+    /**
+     * PUBLIC: Searches and filters appointment sessions with pagination.
+     * <p>
+     * Supports multiple filter criteria:
+     * <ul>
+     *   <li>Patient filters: Exact ID or partial name match</li>
+     *   <li>Doctor filters: Exact ID or partial name match</li>
+     *   <li>Date range filters: Scheduled and completion dates</li>
+     *   <li>Status filter: Session status</li>
+     *   <li>Consultation types filter: Sessions containing specified consultations</li>
+     * </ul>
+     * </p>
+     * <p>
+     * Architecture notes:
+     * - Uses JPA Specifications for dynamic query building
+     * - All filters combined with AND logic
+     * - Uses EntityGraph via Specification to prevent N+1 queries
+     * - Returns paginated results with full nested DTOs
+     * </p>
+     *
+     * @param criteria Filter criteria (all fields optional)
+     * @param pageable Pagination parameters (page, size, sort)
+     * @return Page of AppointmentSessionDto with pagination metadata
+     */
+    @Transactional(readOnly = true)
+    public Page<AppointmentSessionDto> search(AppointmentSessionFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching appointment sessions with criteria: {} and pageable: {}", criteria, pageable);
+
+        try {
+            // Build dynamic specification from filter criteria
+            Specification<AppointmentSession> spec = specificationBuilder.build(criteria);
+
+            // Execute query with pagination
+            // Note: The specification will automatically handle joins for patient/doctor name searches
+            Page<AppointmentSession> entityPage = appointmentRepository.findAll(spec, pageable);
+
+            // Map entities to DTOs using Spring's Page.map()
+            // This preserves all pagination metadata (totalElements, totalPages, etc.)
+            Page<AppointmentSessionDto> dtoPage = entityPage.map(appointmentMapper::toDto);
+
+            log.info("Appointment session search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+
+        } catch (Exception e) {
+            log.error("Error searching appointment sessions with criteria: {}", criteria, e);
+            throw new RuntimeException("Failed to search appointment sessions: " + e.getMessage(), e);
         }
     }
 
