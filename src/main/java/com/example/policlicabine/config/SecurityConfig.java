@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/security/log",  // Security audit logging from frontend
+                                "/api/files/*/download",  // TODO: File download endpoint (temporary - will use pre-signed URLs later)
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
