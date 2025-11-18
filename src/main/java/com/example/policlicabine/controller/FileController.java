@@ -23,6 +23,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaTypeFactory;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -75,9 +77,6 @@ public class FileController {
             @Parameter(description = "File category", required = true)
             @RequestParam("category") @NotNull FileCategory category,
 
-            @Parameter(description = "UUID of user uploading the file", required = true)
-            @RequestParam("uploadedByUserId") @NotNull UUID uploadedByUserId,
-
             @Parameter(description = "Start date of file validity (ISO date format: YYYY-MM-DD)")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate validFrom,
@@ -86,13 +85,15 @@ public class FileController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate validUntil,
 
+            @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest request
     ) {
+        String username = userDetails.getUsername();
         log.info("File upload request: {} ({} bytes) by user: {}",
-                file.getOriginalFilename(), file.getSize(), uploadedByUserId);
+                file.getOriginalFilename(), file.getSize(), username);
 
         Result<FileDto> result = fileService.uploadFile(
-                file, category, uploadedByUserId, validFrom, validUntil
+                file, category, username, validFrom, validUntil
         );
 
         if (result.isFailure()) {
@@ -121,16 +122,15 @@ public class FileController {
             @Parameter(description = "New file version")
             @RequestParam("file") @NotNull MultipartFile file,
 
-            @Parameter(description = "UUID of user uploading")
-            @RequestParam("uploadedByUserId") @NotNull UUID uploadedByUserId,
-
+            @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest request
     ) {
+        String username = userDetails.getUsername();
         log.info("New version upload request for file: {} by user: {}",
-                previousFileId, uploadedByUserId);
+                previousFileId, username);
 
         Result<FileDto> result = fileService.uploadNewVersion(
-                previousFileId, file, uploadedByUserId
+                previousFileId, file, username
         );
 
         if (result.isFailure()) {
@@ -276,14 +276,13 @@ public class FileController {
             @Parameter(description = "UUID of the file to delete")
             @PathVariable UUID fileId,
 
-            @Parameter(description = "UUID of user performing deletion")
-            @RequestParam UUID deletedByUserId,
-
+            @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest request
     ) {
-        log.info("File deletion request: {} by user: {}", fileId, deletedByUserId);
+        String username = userDetails.getUsername();
+        log.info("File deletion request: {} by user: {}", fileId, username);
 
-        Result<Void> result = fileService.softDeleteFile(fileId, deletedByUserId);
+        Result<Void> result = fileService.softDeleteFile(fileId, username);
 
         if (result.isFailure()) {
             return ResponseEntity.badRequest()

@@ -61,7 +61,7 @@ public class FileService {
      *
      * @param multipartFile    the file to upload
      * @param category        file category
-     * @param uploadedByUserId UUID of user uploading the file
+     * @param username        username of user uploading the file (from JWT token)
      * @param validFrom       start date of validity (optional)
      * @param validUntil      end date of validity (optional)
      * @return Result containing FileDto or error message
@@ -69,7 +69,7 @@ public class FileService {
     public Result<FileDto> uploadFile(
             MultipartFile multipartFile,
             FileCategory category,
-            UUID uploadedByUserId,
+            String username,
             LocalDate validFrom,
             LocalDate validUntil
     ) {
@@ -84,10 +84,16 @@ public class FileService {
             return Result.failure("Valid until date must be after valid from date");
         }
 
-        // Get uploader
+        // Resolve username to User entity
+        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
+        if (userResult.isFailure()) {
+            return Result.failure("Authenticated user not found: " + username);
+        }
+
+        UUID uploadedByUserId = userResult.getValue().getUserId();
         User uploader = userService.getEntityById(uploadedByUserId);
         if (uploader == null) {
-            return Result.failure("User not found: " + uploadedByUserId);
+            return Result.failure("User not found: " + username);
         }
 
         // Generate unique filename
@@ -140,13 +146,13 @@ public class FileService {
      *
      * @param previousFileId   UUID of the file to replace
      * @param multipartFile    the new file
-     * @param uploadedByUserId UUID of user uploading
+     * @param username        username of user uploading (from JWT token)
      * @return Result containing new FileDto or error message
      */
     public Result<FileDto> uploadNewVersion(
             UUID previousFileId,
             MultipartFile multipartFile,
-            UUID uploadedByUserId
+            String username
     ) {
         // Load previous version
         File previousFile = fileRepository
@@ -161,7 +167,7 @@ public class FileService {
         Result<FileDto> uploadResult = uploadFile(
                 multipartFile,
                 previousFile.getFileCategory(),
-                uploadedByUserId,
+                username,
                 previousFile.getValidFrom(),
                 previousFile.getValidUntil()
         );
@@ -178,7 +184,13 @@ public class FileService {
         newVersion.setVersion(previousFile.getVersion() + 1);
         newVersion.setPreviousVersionId(previousFileId);
 
-        // Soft delete old version
+        // Resolve username to User entity for soft delete
+        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
+        if (userResult.isFailure()) {
+            return Result.failure("Authenticated user not found: " + username);
+        }
+
+        UUID uploadedByUserId = userResult.getValue().getUserId();
         User uploader = userService.getEntityById(uploadedByUserId);
         previousFile.softDelete(uploader);
 
@@ -313,10 +325,10 @@ public class FileService {
      * Soft delete a file
      *
      * @param fileId           the file UUID
-     * @param deletedByUserId  UUID of user deleting the file
+     * @param username        username of user deleting the file (from JWT token)
      * @return Result success or failure
      */
-    public Result<Void> softDeleteFile(UUID fileId, UUID deletedByUserId) {
+    public Result<Void> softDeleteFile(UUID fileId, String username) {
         File file = fileRepository.findById(fileId).orElse(null);
         if (file == null) {
             return Result.failure("File not found: " + fileId);
@@ -326,11 +338,18 @@ public class FileService {
             return Result.failure("File already deleted");
         }
 
+        // Resolve username to User entity
+        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
+        if (userResult.isFailure()) {
+            return Result.failure("Authenticated user not found: " + username);
+        }
+
+        UUID deletedByUserId = userResult.getValue().getUserId();
         User deletedBy = userService.getEntityById(deletedByUserId);
         file.softDelete(deletedBy);
         fileRepository.save(file);
 
-        log.info("File soft-deleted: {} by user: {}", fileId, deletedByUserId);
+        log.info("File soft-deleted: {} by user: {}", fileId, username);
 
         // Publish event
         eventPublisher.publishEvent(new FileDeleted(
