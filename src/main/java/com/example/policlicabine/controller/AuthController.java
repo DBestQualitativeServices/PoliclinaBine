@@ -60,7 +60,7 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/refresh")
+    @PostMapping("/refresh-token")
     @Operation(summary = "Refresh access token", description = "Generate a new access token using refresh token")
     public ResponseEntity<?> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request,
