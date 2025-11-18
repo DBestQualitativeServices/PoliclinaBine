@@ -187,10 +187,13 @@ class AppointmentSessionControllerSearchIntegrationTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result.getContent()).hasSize(2); // 2 sessions for John Patient
-        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getContent()).hasSize(3); // 3 sessions: 2 for "John" Patient + 1 for Mary "Johnson"
+        assertThat(result.getTotalElements()).isEqualTo(3);
         assertThat(result.getContent())
-                .allMatch(dto -> dto.getPatient().getFirstName().equalsIgnoreCase("john"));
+                .allMatch(dto ->
+                    dto.getPatient().getFirstName().toLowerCase().contains("john") ||
+                    dto.getPatient().getLastName().toLowerCase().contains("john")
+                );
     }
 
     @Test

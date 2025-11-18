@@ -3,6 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.builder.UserTestBuilder;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
+import com.example.policlicabine.repository.AppointmentSessionRepository;
 import com.example.policlicabine.repository.DoctorRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.service.UserService;
@@ -44,11 +45,15 @@ class UserControllerSearchIntegrationTest {
     @Autowired
     private DoctorRepository doctorRepository;
 
+    @Autowired
+    private AppointmentSessionRepository appointmentRepository;
+
     @BeforeEach
     void setUp() {
         // Clean database before each test - correct order to avoid FK violations
-        doctorRepository.deleteAll();  // Delete child entities first
-        userRepository.deleteAll();    // Delete parent entities last
+        appointmentRepository.deleteAll();  // Delete appointments first (references doctors)
+        doctorRepository.deleteAll();        // Delete doctors second (references users)
+        userRepository.deleteAll();          // Delete users last
 
         // Create test users with different attributes
         User doctor1 = UserTestBuilder.aDoctor()
