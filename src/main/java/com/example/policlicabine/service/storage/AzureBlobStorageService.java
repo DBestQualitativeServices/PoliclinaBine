@@ -1,50 +1,27 @@
 package com.example.policlicabine.service.storage;
 
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.BlobStorageException;
+import com.azure.storage.blob.sas.BlobSasPermission;
+import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.config.properties.FileStorageProperties;
+import com.example.policlicabine.config.properties.AzureBlobStorageProperties;
 import com.example.policlicabine.entity.FileCategory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-/**
- * Azure Blob Storage implementation of file storage (future implementation).
- *
- * <p>This is a stub implementation for future Azure Blob Storage integration.
- * When implemented, it will:
- * <ul>
- *   <li>Upload files to Azure Blob Storage containers</li>
- *   <li>Generate SAS tokens for secure file access</li>
- *   <li>Support CDN integration for faster downloads</li>
- *   <li>Provide automatic backup and geo-redundancy</li>
- * </ul>
- *
- * <p>Activated when {@code file.storage.storage-type=AZURE}
- *
- * <h3>Required Configuration:</h3>
- * <pre>
- * file.storage.storage-type=AZURE
- * file.storage.azure.account-name=your-account
- * file.storage.azure.account-key=your-key
- * file.storage.azure.container-name=files
- * file.storage.azure.endpoint=https://your-account.blob.core.windows.net
- * </pre>
- *
- * <h3>Required Dependencies:</h3>
- * <pre>{@code
- * <dependency>
- *     <groupId>com.azure</groupId>
- *     <artifactId>azure-storage-blob</artifactId>
- *     <version>12.x.x</version>
- * </dependency>
- * }</pre>
- *
- * @author PoliclicaBine System
- * @see <a href="https://learn.microsoft.com/azure/storage/blobs/">Azure Blob Storage Docs</a>
- */
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.security.MessageDigest;
+import java.time.OffsetDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -54,10 +31,8 @@ import org.springframework.web.multipart.MultipartFile;
 )
 public class AzureBlobStorageService implements FileStorageService {
 
-    private final FileStorageProperties properties;
-
-    // TODO: Inject Azure BlobServiceClient when implementing
-    // private final BlobServiceClient blobServiceClient;
+    private final BlobServiceClient blobServiceClient;
+    private final AzureBlobStorageProperties properties;
 
     @Override
     public Result<StorageResult> storeFile(
@@ -65,59 +40,161 @@ public class AzureBlobStorageService implements FileStorageService {
             FileCategory category,
             String uniqueFilename
     ) {
-        log.warn("Azure Blob Storage not yet implemented");
+        if (file == null || file.isEmpty()) {
+            return Result.failure("File is empty or null");
+        }
 
-        // TODO: Implement Azure Blob Storage upload
-        // 1. Get BlobContainerClient
-        // 2. Create blob client with category/uniqueFilename path
-        // 3. Upload file content
-        // 4. Generate SAS token or public URL
-        // 5. Calculate checksum
-        // 6. Return StorageResult
+        try {
+            String blobPath = buildBlobPath(category, uniqueFilename);
+            BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(properties.getContainerName());
+            BlobClient blobClient = containerClient.getBlobClient(blobPath);
 
-        throw new UnsupportedOperationException(
-                "Azure Blob Storage integration not yet implemented. " +
-                "Please set file.storage.storage-type=LOCAL or implement this method."
-        );
+            try (InputStream inputStream = file.getInputStream()) {
+                String checksum = calculateChecksum(inputStream);
+
+                inputStream.reset();
+                blobClient.upload(inputStream, file.getSize(), true);
+
+                log.info("File uploaded successfully to Azure Blob Storage: {}", blobPath);
+
+                StorageResult result = StorageResult.builder()
+                        .storagePath(blobPath)
+                        .storedFilename(uniqueFilename)
+                        .fileSize(file.getSize())
+                        .checksum(checksum)
+                        .build();
+
+                return Result.success(result);
+
+            }
+        } catch (BlobStorageException e) {
+            log.error("Azure Blob Storage error during upload: {}", e.getMessage(), e);
+            return Result.failure("Failed to upload file to Azure: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during file upload: {}", e.getMessage(), e);
+            return Result.failure("Failed to upload file: " + e.getMessage());
+        }
     }
 
     @Override
     public Result<Resource> loadFile(String storagePath) {
-        log.warn("Azure Blob Storage not yet implemented");
+        if (storagePath == null || storagePath.trim().isEmpty()) {
+            return Result.failure("Storage path is required");
+        }
 
-        // TODO: Implement Azure Blob download
-        // 1. Get blob client
-        // 2. Generate SAS token for temporary access
-        // 3. Return UrlResource with SAS URL
+        try {
+            BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(properties.getContainerName());
+            BlobClient blobClient = containerClient.getBlobClient(storagePath);
 
-        throw new UnsupportedOperationException("Azure Blob Storage not yet implemented");
+            if (!blobClient.exists()) {
+                return Result.failure("File not found: " + storagePath);
+            }
+
+            String sasUrl = generateSasUrl(blobClient);
+            Resource resource = new UrlResource(sasUrl);
+
+            log.info("Generated SAS URL for file: {}", storagePath);
+            return Result.success(resource);
+
+        } catch (MalformedURLException e) {
+            log.error("Invalid SAS URL generated: {}", e.getMessage(), e);
+            return Result.failure("Failed to generate download URL: " + e.getMessage());
+        } catch (BlobStorageException e) {
+            log.error("Azure Blob Storage error during file load: {}", e.getMessage(), e);
+            return Result.failure("Failed to load file from Azure: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during file load: {}", e.getMessage(), e);
+            return Result.failure("Failed to load file: " + e.getMessage());
+        }
     }
 
     @Override
     public Result<Void> deleteFile(String storagePath) {
-        log.warn("Azure Blob Storage not yet implemented");
+        if (storagePath == null || storagePath.trim().isEmpty()) {
+            return Result.failure("Storage path is required");
+        }
 
-        // TODO: Implement Azure Blob deletion
-        // 1. Get blob client
-        // 2. Call deleteIfExists()
-        // 3. Return Result
+        try {
+            BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(properties.getContainerName());
+            BlobClient blobClient = containerClient.getBlobClient(storagePath);
 
-        throw new UnsupportedOperationException("Azure Blob Storage not yet implemented");
+            boolean deleted = blobClient.deleteIfExists();
+
+            if (deleted) {
+                log.info("File deleted successfully from Azure: {}", storagePath);
+                return Result.success(null);
+            } else {
+                log.warn("File not found for deletion: {}", storagePath);
+                return Result.failure("File not found: " + storagePath);
+            }
+
+        } catch (BlobStorageException e) {
+            log.error("Azure Blob Storage error during deletion: {}", e.getMessage(), e);
+            return Result.failure("Failed to delete file from Azure: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during file deletion: {}", e.getMessage(), e);
+            return Result.failure("Failed to delete file: " + e.getMessage());
+        }
     }
 
     @Override
     public boolean fileExists(String storagePath) {
-        log.warn("Azure Blob Storage not yet implemented");
+        if (storagePath == null || storagePath.trim().isEmpty()) {
+            return false;
+        }
 
-        // TODO: Implement Azure Blob existence check
-        // 1. Get blob client
-        // 2. Call exists()
+        try {
+            BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(properties.getContainerName());
+            BlobClient blobClient = containerClient.getBlobClient(storagePath);
+            return blobClient.exists();
 
-        return false;
+        } catch (BlobStorageException e) {
+            log.error("Azure Blob Storage error checking file existence: {}", e.getMessage(), e);
+            return false;
+        } catch (Exception e) {
+            log.error("Unexpected error checking file existence: {}", e.getMessage(), e);
+            return false;
+        }
     }
 
     @Override
     public String getStorageType() {
         return "AZURE";
+    }
+
+    private String buildBlobPath(FileCategory category, String filename) {
+        return category.name().toLowerCase().replace('_', '-') + "/" + filename;
+    }
+
+    private String generateSasUrl(BlobClient blobClient) {
+        OffsetDateTime expiryTime = OffsetDateTime.now().plusMinutes(properties.getSasExpiryMinutes());
+
+        BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
+        BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiryTime, permission);
+
+        String sasToken = blobClient.generateSas(sasValues);
+        return blobClient.getBlobUrl() + "?" + sasToken;
+    }
+
+    private String calculateChecksum(InputStream inputStream) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] buffer = new byte[8192];
+        int bytesRead;
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            digest.update(buffer, 0, bytesRead);
+        }
+
+        byte[] hashBytes = digest.digest();
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hashBytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+
+        return hexString.toString();
     }
 }
