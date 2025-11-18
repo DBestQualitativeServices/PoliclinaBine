@@ -3,6 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.builder.UserTestBuilder;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
+import com.example.policlicabine.repository.DoctorRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,10 +41,14 @@ class UserControllerSearchIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private DoctorRepository doctorRepository;
+
     @BeforeEach
     void setUp() {
-        // Clean database before each test
-        userRepository.deleteAll();
+        // Clean database before each test - correct order to avoid FK violations
+        doctorRepository.deleteAll();  // Delete child entities first
+        userRepository.deleteAll();    // Delete parent entities last
 
         // Create test users with different attributes
         User doctor1 = UserTestBuilder.aDoctor()
