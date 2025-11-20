@@ -1,6 +1,6 @@
 package com.example.policlicabine.dto;
 
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -58,6 +58,10 @@ public class FileDto {
 
     @Schema(description = "User who uploaded the file")
     private UserDto uploadedBy;
+
+    @Schema(description = "Patient who owns this file (optional - not all files are patient-specific)",
+            example = "018e1234-5678-7abc-def0-123456789abc")
+    private UUID patientId;
 
     @Schema(description = "Version number of the file", example = "1")
     private Integer version;

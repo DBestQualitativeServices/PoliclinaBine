@@ -1,15 +1,14 @@
 package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.dto.ConsultationDto;
+import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.DoctorDto;
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.Doctor;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.Specialty;
 import com.example.policlicabine.entity.enums.UserRole;
-import com.example.policlicabine.event.DoctorProfileCreated;
-import com.example.policlicabine.mapper.ConsultationMapper;
+import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.mapper.DoctorMapper;
 import com.example.policlicabine.repository.DoctorRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
@@ -55,14 +54,14 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
     private final ConsultationService consultationService;
 
     private final DoctorMapper doctorMapper;
-    private final ConsultationMapper consultationMapper;
+    private final ConsultationTypeMapper consultationMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     public DoctorService(DoctorRepository doctorRepository,
                         UserService userService,
                         ConsultationService consultationService,
                         DoctorMapper doctorMapper,
-                        ConsultationMapper consultationMapper,
+                        ConsultationTypeMapper consultationMapper,
                         ApplicationEventPublisher eventPublisher) {
         super(doctorRepository, doctorMapper);
         this.doctorRepository = doctorRepository;
@@ -136,15 +135,6 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
 
             Doctor savedDoctor = doctorRepository.save(doctor);
 
-            // Publish domain event (asynchronous processing)
-            DoctorProfileCreated event = new DoctorProfileCreated(
-                savedDoctor.getDoctorId(),
-                userId,
-                user.getUsername(),
-                specialties
-            );
-            eventPublisher.publishEvent(event);
-
             log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), userId);
 
             return Result.success(doctorMapper.toDto(savedDoctor));
@@ -163,10 +153,10 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
      * - Uses ConsultationService to get consultations by specialties (service-to-service communication)
      *
      * @param doctorId Doctor identifier
-     * @return Result containing list of ConsultationDto or error message
+     * @return Result containing list of ConsultationTypeDto or error message
      */
     @Transactional(readOnly = true)
-    public Result<List<ConsultationDto>> getConsultationsForDoctor(UUID doctorId) {
+    public Result<List<ConsultationTypeDto>> getConsultationsForDoctor(UUID doctorId) {
         try {
             if (doctorId == null) {
                 return Result.failure("Doctor ID is required");
@@ -179,10 +169,10 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
             }
 
             // Get consultations matching doctor's specialties via ConsultationService
-            List<Consultation> consultations = consultationService
+            List<ConsultationType> consultations = consultationService
                 .getEntitiesBySpecialties(doctor.getSpecialties());
 
-            List<ConsultationDto> consultationDtos = consultations.stream()
+            List<ConsultationTypeDto> consultationDtos = consultations.stream()
                 .map(consultationMapper::toDto)
                 .collect(Collectors.toList());
 

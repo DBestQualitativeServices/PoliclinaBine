@@ -3,12 +3,10 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.base.BaseServiceTest;
 import com.example.policlicabine.builder.ConsultationTestBuilder;
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.dto.ConsultationDto;
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.dto.ConsultationTypeDto;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
-import com.example.policlicabine.event.ConsultationActivated;
-import com.example.policlicabine.event.ConsultationDeactivated;
-import com.example.policlicabine.mapper.ConsultationMapper;
+import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.repository.ConsultationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,24 +43,23 @@ class ConsultationServiceTest extends BaseServiceTest {
     private ConsultationRepository consultationRepository;
 
     @Mock
-    private ConsultationMapper consultationMapper;
+    private ConsultationTypeMapper consultationTypeMapper;
 
     @InjectMocks
     private ConsultationService consultationService;
 
-    private Consultation testConsultation;
-    private ConsultationDto testConsultationDto;
+    private ConsultationType testConsultation;
+    private ConsultationTypeDto testConsultationTypeDto;
 
     @BeforeEach
     void setUp() {
-        eventPublisher = createEventPublisher();
-        consultationService = new ConsultationService(consultationRepository, consultationMapper, eventPublisher);
+        consultationService = new ConsultationService(consultationRepository, consultationTypeMapper);
 
         testConsultation = ConsultationTestBuilder.generalConsultation()
                 .withIsActive(true)
                 .build();
 
-        testConsultationDto = ConsultationDto.builder()
+        testConsultationTypeDto = ConsultationTypeDto.builder()
                 .consultationId(testConsultation.getConsultationId())
                 .name(testConsultation.getName())
                 .specialty(testConsultation.getSpecialty())
@@ -81,11 +78,11 @@ class ConsultationServiceTest extends BaseServiceTest {
         // Given
         UUID consultationId = testConsultation.getConsultationId();
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
-        when(consultationRepository.save(any(Consultation.class))).thenReturn(testConsultation);
-        when(consultationMapper.toDto(any(Consultation.class))).thenReturn(testConsultationDto);
+        when(consultationRepository.save(any(ConsultationType.class))).thenReturn(testConsultation);
+        when(consultationTypeMapper.toDto(any(ConsultationType.class))).thenReturn(testConsultationTypeDto);
 
         // When
-        Result<ConsultationDto> result = consultationService.deactivateConsultation(consultationId);
+        Result<ConsultationTypeDto> result = consultationService.deactivateConsultation(consultationId);
 
         // Then
         assertThat(result).isSuccess().hasValue();
@@ -93,13 +90,7 @@ class ConsultationServiceTest extends BaseServiceTest {
         // Verify entity was deactivated
         assertThat(testConsultation.getIsActive()).isFalse();
 
-        // Verify domain event was published
-        ArgumentCaptor<ConsultationDeactivated> eventCaptor = ArgumentCaptor.forClass(ConsultationDeactivated.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-
-        ConsultationDeactivated event = eventCaptor.getValue();
-        assertThat(event.consultationId()).isEqualTo(consultationId);
-        assertThat(event.consultationName()).isEqualTo(testConsultation.getName());
+        // Events are no longer published for simple CRUD operations
     }
 
     @Test
@@ -110,12 +101,12 @@ class ConsultationServiceTest extends BaseServiceTest {
         when(consultationRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
         // When
-        Result<ConsultationDto> result = consultationService.deactivateConsultation(nonExistentId);
+        Result<ConsultationTypeDto> result = consultationService.deactivateConsultation(nonExistentId);
 
         // Then
         assertThat(result)
                 .isFailure()
-                .hasErrorMessageContaining("Consultation not found");
+                .hasErrorMessageContaining("ConsultationType not found");
 
         verify(consultationRepository).findById(nonExistentId);
         verify(consultationRepository, never()).save(any());
@@ -131,7 +122,7 @@ class ConsultationServiceTest extends BaseServiceTest {
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
 
         // When
-        Result<ConsultationDto> result = consultationService.deactivateConsultation(consultationId);
+        Result<ConsultationTypeDto> result = consultationService.deactivateConsultation(consultationId);
 
         // Then
         assertThat(result)
@@ -154,11 +145,11 @@ class ConsultationServiceTest extends BaseServiceTest {
         testConsultation.setIsActive(false);
         UUID consultationId = testConsultation.getConsultationId();
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
-        when(consultationRepository.save(any(Consultation.class))).thenReturn(testConsultation);
-        when(consultationMapper.toDto(any(Consultation.class))).thenReturn(testConsultationDto);
+        when(consultationRepository.save(any(ConsultationType.class))).thenReturn(testConsultation);
+        when(consultationTypeMapper.toDto(any(ConsultationType.class))).thenReturn(testConsultationTypeDto);
 
         // When
-        Result<ConsultationDto> result = consultationService.activateConsultation(consultationId);
+        Result<ConsultationTypeDto> result = consultationService.activateConsultation(consultationId);
 
         // Then
         assertThat(result).isSuccess().hasValue();
@@ -166,12 +157,7 @@ class ConsultationServiceTest extends BaseServiceTest {
         // Verify entity was activated
         assertThat(testConsultation.getIsActive()).isTrue();
 
-        // Verify domain event was published
-        ArgumentCaptor<ConsultationActivated> eventCaptor = ArgumentCaptor.forClass(ConsultationActivated.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-
-        ConsultationActivated event = eventCaptor.getValue();
-        assertThat(event.consultationId()).isEqualTo(consultationId);
+        // Events are no longer published for simple CRUD operations
     }
 
     // ========================================================================
@@ -182,15 +168,15 @@ class ConsultationServiceTest extends BaseServiceTest {
     @DisplayName("Should retrieve consultation entities by names for service calls")
     void getEntitiesByNames_Success() {
         // Given
-        Consultation cardiology = ConsultationTestBuilder.cardiologyConsultation().build();
-        Consultation dermatology = ConsultationTestBuilder.dermatologyConsultation().build();
+        ConsultationType cardiology = ConsultationTestBuilder.cardiologyConsultation().build();
+        ConsultationType dermatology = ConsultationTestBuilder.dermatologyConsultation().build();
 
-        List<String> names = Arrays.asList("Cardiology Consultation", "Dermatology Consultation");
+        List<String> names = Arrays.asList("Cardiology ConsultationType", "Dermatology ConsultationType");
         when(consultationRepository.findByNameInAndIsActiveTrue(names))
                 .thenReturn(Arrays.asList(cardiology, dermatology));
 
         // When
-        List<Consultation> result = consultationService.getEntitiesByNames(names);
+        List<ConsultationType> result = consultationService.getEntitiesByNames(names);
 
         // Then
         assertThat(result).hasSize(2);
@@ -203,12 +189,12 @@ class ConsultationServiceTest extends BaseServiceTest {
     @DisplayName("Should return empty list when no consultations match names")
     void getEntitiesByNames_NoMatches_EmptyList() {
         // Given
-        List<String> names = Arrays.asList("Non-existent Consultation");
+        List<String> names = Arrays.asList("Non-existent ConsultationType");
         when(consultationRepository.findByNameInAndIsActiveTrue(names))
                 .thenReturn(List.of());
 
         // When
-        List<Consultation> result = consultationService.getEntitiesByNames(names);
+        List<ConsultationType> result = consultationService.getEntitiesByNames(names);
 
         // Then
         assertThat(result).isEmpty();
@@ -227,7 +213,7 @@ class ConsultationServiceTest extends BaseServiceTest {
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
 
         // When
-        Consultation result = consultationService.getEntityById(consultationId);
+        ConsultationType result = consultationService.getEntityById(consultationId);
 
         // Then
         assertThat(result).isNotNull();
@@ -243,7 +229,7 @@ class ConsultationServiceTest extends BaseServiceTest {
         when(consultationRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
         // When
-        Consultation result = consultationService.getEntityById(nonExistentId);
+        ConsultationType result = consultationService.getEntityById(nonExistentId);
 
         // Then
         assertThat(result).isNull();
@@ -260,13 +246,13 @@ class ConsultationServiceTest extends BaseServiceTest {
         // Given
         UUID consultationId = testConsultation.getConsultationId();
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
-        when(consultationMapper.toDto(testConsultation)).thenReturn(testConsultationDto);
+        when(consultationTypeMapper.toDto(testConsultation)).thenReturn(testConsultationTypeDto);
 
         // When
-        Result<ConsultationDto> result = consultationService.findById(consultationId);
+        Result<ConsultationTypeDto> result = consultationService.findById(consultationId);
 
         // Then
-        assertThat(result).isSuccess().hasValue(testConsultationDto);
+        assertThat(result).isSuccess().hasValue(testConsultationTypeDto);
     }
 
     @Test
@@ -274,19 +260,19 @@ class ConsultationServiceTest extends BaseServiceTest {
     void update_UpdatePrice_Success() {
         // Given
         UUID consultationId = testConsultation.getConsultationId();
-        ConsultationDto updateDto = ConsultationDto.builder()
+        ConsultationTypeDto updateDto = ConsultationTypeDto.builder()
                 .consultationId(consultationId)
-                .name("General Consultation")
+                .name("General ConsultationType")
                 .specialty(Specialty.GENERAL_DERMATOLOGY)
                 .price(new BigDecimal("200.00"))
                 .build();
 
         when(consultationRepository.findById(consultationId)).thenReturn(Optional.of(testConsultation));
-        when(consultationRepository.save(any(Consultation.class))).thenReturn(testConsultation);
-        when(consultationMapper.toDto(any(Consultation.class))).thenReturn(updateDto);
+        when(consultationRepository.save(any(ConsultationType.class))).thenReturn(testConsultation);
+        when(consultationTypeMapper.toDto(any(ConsultationType.class))).thenReturn(updateDto);
 
         // When
-        Result<ConsultationDto> result = consultationService.update(consultationId, updateDto);
+        Result<ConsultationTypeDto> result = consultationService.update(consultationId, updateDto);
 
         // Then
         assertThat(result).isSuccess().hasValue();

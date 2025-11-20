@@ -152,7 +152,7 @@ public final class ServiceHelper {
     /**
      * Formats a "not found" error message.
      *
-     * @param entityName Entity name (e.g., "Patient", "Consultation")
+     * @param entityName Entity name (e.g., "Patient", "ConsultationType")
      * @return Formatted error message
      */
     public static String notFoundMessage(String entityName) {
@@ -162,7 +162,7 @@ public final class ServiceHelper {
     /**
      * Formats a "not found with identifier" error message.
      *
-     * @param entityName Entity name (e.g., "Patient", "Consultation")
+     * @param entityName Entity name (e.g., "Patient", "ConsultationType")
      * @param identifier Identifier value
      * @return Formatted error message
      */
@@ -173,7 +173,7 @@ public final class ServiceHelper {
     /**
      * Formats an "already exists" error message.
      *
-     * @param entityName Entity name (e.g., "Patient", "Consultation")
+     * @param entityName Entity name (e.g., "Patient", "ConsultationType")
      * @param fieldName Field name that's duplicated
      * @return Formatted error message
      */
@@ -185,7 +185,7 @@ public final class ServiceHelper {
      * Formats a generic operation failure message.
      *
      * @param operation Operation name (e.g., "create", "update", "delete")
-     * @param entityName Entity name (e.g., "Patient", "Consultation")
+     * @param entityName Entity name (e.g., "Patient", "ConsultationType")
      * @return Formatted error message
      */
     public static String operationFailedMessage(String operation, String entityName) {

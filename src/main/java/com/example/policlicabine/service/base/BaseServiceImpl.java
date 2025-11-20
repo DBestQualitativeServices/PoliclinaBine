@@ -289,7 +289,7 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      * Returns the entity name for error messages.
      * Used in logging and error message formatting.
      *
-     * @return Entity name (e.g., "Patient", "Consultation", "Diagnosis")
+     * @return Entity name (e.g., "Patient", "ConsultationType", "Diagnosis")
      */
     protected abstract String getEntityName();
 

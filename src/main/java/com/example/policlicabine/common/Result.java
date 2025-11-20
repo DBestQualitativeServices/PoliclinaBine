@@ -37,23 +37,23 @@ public class Result<T> {
     private final List<String> errors;
 
     public static <T> Result<T> success(T value) {
-        return new Result<>(true, value, null, null);
+        return new Result<T>(true, value, null, null);
     }
 
     public static Result<Void> success() {
-        return new Result<>(true, null, null, null);
+        return new Result<Void>(true, null, null, null);
     }
 
     public static <T> Result<T> failure(String errorMessage) {
-        return new Result<>(false, null, errorMessage, null);
+        return new Result<T>(false, null, errorMessage, null);
     }
 
     public static <T> Result<T> failure(List<String> errors) {
-        return new Result<>(false, null, null, errors);
+        return new Result<T>(false, null, null, errors);
     }
 
     public static <T> Result<T> failure(String errorMessage, List<String> errors) {
-        return new Result<>(false, null, errorMessage, errors);
+        return new Result<T>(false, null, errorMessage, errors);
     }
 
     public boolean isSuccess() {

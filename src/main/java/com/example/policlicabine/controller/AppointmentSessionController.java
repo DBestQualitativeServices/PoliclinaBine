@@ -75,7 +75,7 @@ public class AppointmentSessionController {
             @RequestParam UUID patientId,
             @Parameter(description = "Doctor UUID", required = true)
             @RequestParam UUID doctorId,
-            @Parameter(description = "Consultation type names", required = true)
+            @Parameter(description = "ConsultationType type names", required = true)
             @RequestParam List<String> consultationNames,
             @Parameter(description = "Scheduled date and time (ISO format: yyyy-MM-dd'T'HH:mm:ss)", required = true)
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime scheduledDateTime,
@@ -244,15 +244,15 @@ public class AppointmentSessionController {
 
                     **Business Rules:**
                     - Appointment must be in SCHEDULED or IN_PROGRESS status
-                    - Consultation must be active
+                    - ConsultationType must be active
                     """
     )
-    @ApiResponse(responseCode = "200", description = "Consultation added successfully")
+    @ApiResponse(responseCode = "200", description = "ConsultationType added successfully")
     @PatchMapping("/{sessionId}/consultations")
     public ResponseEntity<?> addConsultation(
             @Parameter(description = "Appointment Session UUID", required = true)
             @PathVariable UUID sessionId,
-            @Parameter(description = "Consultation type name", required = true)
+            @Parameter(description = "ConsultationType type name", required = true)
             @RequestParam String consultationName,
             HttpServletRequest request
     ) {

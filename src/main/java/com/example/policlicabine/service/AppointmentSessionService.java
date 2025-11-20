@@ -5,7 +5,7 @@ import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.SessionStatus;
-import com.example.policlicabine.event.*;
+import com.example.policlicabine.event.SessionCompleted;
 import com.example.policlicabine.mapper.AppointmentSessionMapper;
 import com.example.policlicabine.repository.AppointmentSessionRepository;
 import com.example.policlicabine.specification.AppointmentSessionSpecificationBuilder;
@@ -102,7 +102,7 @@ public class AppointmentSessionService {
             }
 
             // Get consultation entities via ConsultationService (internal method, returns entities directly)
-            List<Consultation> consultations = consultationService.getEntitiesByNames(consultationNames);
+            List<ConsultationType> consultations = consultationService.getEntitiesByNames(consultationNames);
             if (consultations.size() != consultationNames.size()) {
                 return Result.failure("Some consultations not found or inactive");
             }
@@ -117,17 +117,12 @@ public class AppointmentSessionService {
                 .patient(patientRef)
                 .doctor(doctorRef)
                 .scheduledDateTime(scheduledDateTime)
-                .consultations(consultations)
+                .consultationTypes(consultations)
                 .isEmergency(isEmergency)
                 .status(SessionStatus.SCHEDULED)
                 .build();
 
             AppointmentSession savedSession = appointmentRepository.save(session);
-
-            // Publish domain event for cross-service communication
-            eventPublisher.publishEvent(new AppointmentScheduled(
-                savedSession.getSessionId(), patientId, doctorId,
-                scheduledDateTime, consultationNames, isEmergency));
 
             log.info("Appointment scheduled: {} for patient {} with doctor {} at {}",
                 savedSession.getSessionId(), patientId, doctorId, scheduledDateTime);
@@ -157,7 +152,7 @@ public class AppointmentSessionService {
                 return Result.failure("Session ID is required");
             }
             if (consultationName == null || consultationName.trim().isEmpty()) {
-                return Result.failure("Consultation name is required");
+                return Result.failure("ConsultationType name is required");
             }
 
             // Use EntityGraph to load session with consultations collection
@@ -173,20 +168,16 @@ public class AppointmentSessionService {
             }
 
             // Get consultation entity via ConsultationService
-            Consultation consultation = consultationService.getEntityByName(consultationName.trim());
+            ConsultationType consultation = consultationService.getEntityByName(consultationName.trim());
             if (consultation == null) {
-                return Result.failure("Consultation not found or inactive");
+                return Result.failure("ConsultationType not found or inactive");
             }
 
             // Add consultation to session
-            session.getConsultations().add(consultation);
+            session.getConsultationTypes().add(consultation);
             AppointmentSession savedSession = appointmentRepository.save(session);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new ConsultationTypeAdded(
-                sessionId, consultationName, true, consultation.getPrice()));
-
-            log.info("Consultation {} added to session {}", consultationName, sessionId);
+            log.info("ConsultationType {} added to session {}", consultationName, sessionId);
 
             return Result.success(appointmentMapper.toDto(savedSession));
 
@@ -224,11 +215,6 @@ public class AppointmentSessionService {
 
             session.setStatus(SessionStatus.IN_PROGRESS);
             AppointmentSession savedSession = appointmentRepository.save(session);
-
-            // Publish domain event (patient and doctor already loaded via EntityGraph)
-            eventPublisher.publishEvent(new SessionStarted(
-                sessionId, session.getPatient().getPatientId(),
-                session.getDoctor().getDoctorId(), OffsetDateTime.now(ZoneOffset.UTC)));
 
             log.info("Session started: {}", sessionId);
 
@@ -320,6 +306,7 @@ public class AppointmentSessionService {
                 return Result.failure("Session not found");
             }
 
+            // Validate session status before allowing completion
             if (session.getStatus() != SessionStatus.IN_PROGRESS) {
                 return Result.failure("Only in-progress sessions can be completed");
             }
@@ -333,12 +320,7 @@ public class AppointmentSessionService {
 
             AppointmentSession savedSession = appointmentRepository.save(session);
 
-            // Publish domain events (relationships already loaded via EntityGraph)
-            eventPublisher.publishEvent(new SessionDocumentationCompleted(
-                sessionId, session.getPatient().getPatientId(),
-                session.getDoctor().getDoctorId(), freeTextDiagnosis,
-                treatmentInstructions, getConsultationNames(session)));
-
+            // Publish domain event (BillingService listens for billing calculation)
             eventPublisher.publishEvent(new SessionCompleted(
                 sessionId, session.getPatient().getPatientId(),
                 session.getDoctor().getDoctorId(), OffsetDateTime.now(ZoneOffset.UTC),
@@ -384,10 +366,6 @@ public class AppointmentSessionService {
             session.setCancelledAt(OffsetDateTime.now(ZoneOffset.UTC));
 
             AppointmentSession savedSession = appointmentRepository.save(session);
-
-            // Publish domain event (patient already loaded via EntityGraph)
-            eventPublisher.publishEvent(new AppointmentCancelled(
-                sessionId, session.getPatient().getPatientId(), reason, wasNoShow));
 
             log.info("Appointment cancelled: {} (wasNoShow: {})", sessionId, wasNoShow);
 
@@ -468,7 +446,7 @@ public class AppointmentSessionService {
      *   <li>Doctor filters: Exact ID or partial name match</li>
      *   <li>Date range filters: Scheduled and completion dates</li>
      *   <li>Status filter: Session status</li>
-     *   <li>Consultation types filter: Sessions containing specified consultations</li>
+     *   <li>ConsultationType types filter: Sessions containing specified consultations</li>
      * </ul>
      * </p>
      * <p>
@@ -513,8 +491,8 @@ public class AppointmentSessionService {
     }
 
     private List<String> getConsultationNames(AppointmentSession session) {
-        return session.getConsultations().stream()
-            .map(Consultation::getName)
+        return session.getConsultationTypes().stream()
+            .map(ConsultationType::getName)
             .collect(Collectors.toList());
     }
 
@@ -544,7 +522,7 @@ public class AppointmentSessionService {
         }
 
         // Validate that question's consultation is in session's consultations
-        boolean validQuestion = session.getConsultations().stream()
+        boolean validQuestion = session.getConsultationTypes().stream()
             .anyMatch(c -> c.getConsultationId().equals(questionConsultationId));
 
         if (!validQuestion) {

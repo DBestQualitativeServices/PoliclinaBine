@@ -1,7 +1,7 @@
 package com.example.policlicabine.repository;
 
 import com.example.policlicabine.entity.File;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

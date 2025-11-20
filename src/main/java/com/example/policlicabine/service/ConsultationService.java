@@ -1,18 +1,13 @@
 package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.dto.ConsultationDto;
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.dto.ConsultationTypeDto;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
-import com.example.policlicabine.event.ConsultationActivated;
-import com.example.policlicabine.event.ConsultationCreated;
-import com.example.policlicabine.event.ConsultationDeactivated;
-import com.example.policlicabine.event.ConsultationPriceUpdated;
-import com.example.policlicabine.mapper.ConsultationMapper;
+import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.repository.ConsultationRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +17,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Service for managing Consultation entities.
+ * Service for managing ConsultationType entities.
  * Consultations are the services offered by the clinic.
  *
  * Architecture:
@@ -31,41 +26,38 @@ import java.util.stream.Collectors;
  * - BigDecimal for monetary amounts
  *
  * Inherited Methods (from BaseServiceImpl):
- * - findById(UUID) → Result&lt;ConsultationDto&gt;
+ * - findById(UUID) → Result&lt;ConsultationTypeDto&gt;
  * - validateExists(UUID) → Result&lt;Void&gt;
- * - getEntityById(UUID) → Consultation
- * - findAll() → Result&lt;List&lt;ConsultationDto&gt;&gt;
+ * - getEntityById(UUID) → ConsultationType
+ * - findAll() → Result&lt;List&lt;ConsultationTypeDto&gt;&gt;
  */
 @Service
 @Slf4j
 @Transactional
-public class ConsultationService extends BaseServiceImpl<Consultation, ConsultationDto, UUID> {
+public class ConsultationService extends BaseServiceImpl<ConsultationType, ConsultationTypeDto, UUID> {
 
     private final ConsultationRepository consultationRepository;
-    private final ConsultationMapper consultationMapper;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ConsultationTypeMapper consultationTypeMapper;
 
     public ConsultationService(ConsultationRepository consultationRepository,
-                              ConsultationMapper consultationMapper,
-                              ApplicationEventPublisher eventPublisher) {
-        super(consultationRepository, consultationMapper);
+                              ConsultationTypeMapper consultationTypeMapper) {
+        super(consultationRepository, consultationTypeMapper);
         this.consultationRepository = consultationRepository;
-        this.consultationMapper = consultationMapper;
-        this.eventPublisher = eventPublisher;
+        this.consultationTypeMapper = consultationTypeMapper;
     }
 
     @Override
-    protected ConsultationDto toDto(Consultation entity) {
-        return consultationMapper.toDto(entity);
+    protected ConsultationTypeDto toDto(ConsultationType entity) {
+        return consultationTypeMapper.toDto(entity);
     }
 
     @Override
     protected String getEntityName() {
-        return "Consultation";
+        return "ConsultationType";
     }
 
     @Override
-    protected void updateEntityFromDto(Consultation entity, ConsultationDto dto) {
+    protected void updateEntityFromDto(ConsultationType entity, ConsultationTypeDto dto) {
         // Update mutable fields (NOT consultationId)
         if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
             entity.setName(dto.getName().trim());
@@ -94,21 +86,21 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
     /**
      * Creates a new consultation service.
      *
-     * @param name Consultation name
+     * @param name ConsultationType name
      * @param specialty Medical specialty
      * @param price Service price
      * @param priceCurrency Currency code (e.g., "RON")
      * @param durationMinutes Expected duration
      * @param requiresSurgeryRoom Whether surgery room is needed
-     * @return Result containing ConsultationDto or error message
+     * @return Result containing ConsultationTypeDto or error message
      */
-    public Result<ConsultationDto> createConsultation(String name, Specialty specialty,
+    public Result<ConsultationTypeDto> createConsultation(String name, Specialty specialty,
                                                      BigDecimal price, String priceCurrency,
                                                      Integer durationMinutes,
                                                      Boolean requiresSurgeryRoom) {
         try {
             if (name == null || name.trim().isEmpty()) {
-                return Result.failure("Consultation name is required");
+                return Result.failure("ConsultationType name is required");
             }
 
             if (specialty == null) {
@@ -119,7 +111,7 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
                 return Result.failure("Valid price is required");
             }
 
-            Consultation consultation = Consultation.builder()
+            ConsultationType consultation = ConsultationType.builder()
                 .name(name.trim())
                 .specialty(specialty)
                 .price(price)
@@ -129,22 +121,11 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
                 .isActive(true)
                 .build();
 
-            Consultation savedConsultation = consultationRepository.save(consultation);
+            ConsultationType savedConsultation = consultationRepository.save(consultation);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new ConsultationCreated(
-                savedConsultation.getConsultationId(),
-                savedConsultation.getName(),
-                savedConsultation.getSpecialty(),
-                savedConsultation.getPrice(),
-                savedConsultation.getPriceCurrency(),
-                savedConsultation.getDurationMinutes(),
-                savedConsultation.getRequiresSurgeryRoom()
-            ));
+            log.info("ConsultationType created: {} - {}", savedConsultation.getConsultationId(), name);
 
-            log.info("Consultation created: {} - {}", savedConsultation.getConsultationId(), name);
-
-            return Result.success(consultationMapper.toDto(savedConsultation));
+            return Result.success(consultationTypeMapper.toDto(savedConsultation));
 
         } catch (Exception e) {
             log.error("Error creating consultation", e);
@@ -155,15 +136,15 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
     /**
      * Retrieves all active consultations.
      *
-     * @return Result containing list of ConsultationDto or error message
+     * @return Result containing list of ConsultationTypeDto or error message
      */
     @Transactional(readOnly = true)
-    public Result<List<ConsultationDto>> getAllActiveConsultations() {
+    public Result<List<ConsultationTypeDto>> getAllActiveConsultations() {
         try {
-            List<Consultation> consultations = consultationRepository.findByIsActiveTrue();
+            List<ConsultationType> consultations = consultationRepository.findByIsActiveTrue();
 
-            List<ConsultationDto> consultationDtos = consultations.stream()
-                .map(consultationMapper::toDto)
+            List<ConsultationTypeDto> consultationDtos = consultations.stream()
+                .map(consultationTypeMapper::toDto)
                 .collect(Collectors.toList());
 
             return Result.success(consultationDtos);
@@ -178,20 +159,20 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Retrieves all consultations for a specific specialty.
      *
      * @param specialty Medical specialty
-     * @return Result containing list of ConsultationDto or error message
+     * @return Result containing list of ConsultationTypeDto or error message
      */
     @Transactional(readOnly = true)
-    public Result<List<ConsultationDto>> getConsultationsBySpecialty(Specialty specialty) {
+    public Result<List<ConsultationTypeDto>> getConsultationsBySpecialty(Specialty specialty) {
         try {
             if (specialty == null) {
                 return Result.failure("Specialty is required");
             }
 
-            List<Consultation> consultations = consultationRepository
+            List<ConsultationType> consultations = consultationRepository
                 .findBySpecialty(specialty);
 
-            List<ConsultationDto> consultationDtos = consultations.stream()
-                .map(consultationMapper::toDto)
+            List<ConsultationTypeDto> consultationDtos = consultations.stream()
+                .map(consultationTypeMapper::toDto)
                 .collect(Collectors.toList());
 
             return Result.success(consultationDtos);
@@ -206,54 +187,46 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Finds a consultation by its unique identifier.
      * Delegates to inherited findById() method from BaseServiceImpl.
      *
-     * @param consultationId Consultation identifier
-     * @return Result containing ConsultationDto or error message
+     * @param consultationId ConsultationType identifier
+     * @return Result containing ConsultationTypeDto or error message
      */
     @Transactional(readOnly = true)
-    public Result<ConsultationDto> findConsultationById(UUID consultationId) {
+    public Result<ConsultationTypeDto> findConsultationById(UUID consultationId) {
         return findById(consultationId);
     }
 
     /**
      * Updates consultation pricing.
      *
-     * @param consultationId Consultation identifier
+     * @param consultationId ConsultationType identifier
      * @param newPrice New price
-     * @return Result containing updated ConsultationDto or error message
+     * @return Result containing updated ConsultationTypeDto or error message
      */
-    public Result<ConsultationDto> updatePrice(UUID consultationId, BigDecimal newPrice) {
+    public Result<ConsultationTypeDto> updatePrice(UUID consultationId, BigDecimal newPrice) {
         try {
             if (consultationId == null) {
-                return Result.failure("Consultation ID is required");
+                return Result.failure("ConsultationType ID is required");
             }
 
             if (newPrice == null || newPrice.compareTo(BigDecimal.ZERO) < 0) {
                 return Result.failure("Valid price is required");
             }
 
-            Consultation consultation = consultationRepository.findById(consultationId)
+            ConsultationType consultation = consultationRepository.findById(consultationId)
                 .orElse(null);
             if (consultation == null) {
-                return Result.failure("Consultation not found");
+                return Result.failure("ConsultationType not found");
             }
 
             // Store old price for event
             BigDecimal oldPrice = consultation.getPrice();
 
             consultation.setPrice(newPrice);
-            Consultation savedConsultation = consultationRepository.save(consultation);
+            ConsultationType savedConsultation = consultationRepository.save(consultation);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new ConsultationPriceUpdated(
-                consultationId,
-                consultation.getName(),
-                oldPrice,
-                newPrice
-            ));
+            log.info("ConsultationType price updated: {} to {}", consultationId, newPrice);
 
-            log.info("Consultation price updated: {} to {}", consultationId, newPrice);
-
-            return Result.success(consultationMapper.toDto(savedConsultation));
+            return Result.success(consultationTypeMapper.toDto(savedConsultation));
 
         } catch (Exception e) {
             log.error("Error updating consultation price", e);
@@ -265,37 +238,31 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Deactivates a consultation (soft delete).
      * Inactive consultations cannot be used for new appointments.
      *
-     * @param consultationId Consultation identifier
-     * @return Result containing updated ConsultationDto or error message
+     * @param consultationId ConsultationType identifier
+     * @return Result containing updated ConsultationTypeDto or error message
      */
-    public Result<ConsultationDto> deactivateConsultation(UUID consultationId) {
+    public Result<ConsultationTypeDto> deactivateConsultation(UUID consultationId) {
         try {
             if (consultationId == null) {
-                return Result.failure("Consultation ID is required");
+                return Result.failure("ConsultationType ID is required");
             }
 
-            Consultation consultation = consultationRepository.findById(consultationId)
+            ConsultationType consultation = consultationRepository.findById(consultationId)
                 .orElse(null);
             if (consultation == null) {
-                return Result.failure("Consultation not found");
+                return Result.failure("ConsultationType not found");
             }
 
             if (!consultation.getIsActive()) {
-                return Result.failure("Consultation is already inactive");
+                return Result.failure("ConsultationType is already inactive");
             }
 
             consultation.setIsActive(false);
-            Consultation savedConsultation = consultationRepository.save(consultation);
+            ConsultationType savedConsultation = consultationRepository.save(consultation);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new ConsultationDeactivated(
-                consultationId,
-                consultation.getName()
-            ));
+            log.info("ConsultationType deactivated: {}", consultationId);
 
-            log.info("Consultation deactivated: {}", consultationId);
-
-            return Result.success(consultationMapper.toDto(savedConsultation));
+            return Result.success(consultationTypeMapper.toDto(savedConsultation));
 
         } catch (Exception e) {
             log.error("Error deactivating consultation", e);
@@ -306,33 +273,27 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
     /**
      * Reactivates a previously deactivated consultation.
      *
-     * @param consultationId Consultation identifier
-     * @return Result containing updated ConsultationDto or error message
+     * @param consultationId ConsultationType identifier
+     * @return Result containing updated ConsultationTypeDto or error message
      */
-    public Result<ConsultationDto> activateConsultation(UUID consultationId) {
+    public Result<ConsultationTypeDto> activateConsultation(UUID consultationId) {
         try {
             if (consultationId == null) {
-                return Result.failure("Consultation ID is required");
+                return Result.failure("ConsultationType ID is required");
             }
 
-            Consultation consultation = consultationRepository.findById(consultationId)
+            ConsultationType consultation = consultationRepository.findById(consultationId)
                 .orElse(null);
             if (consultation == null) {
-                return Result.failure("Consultation not found");
+                return Result.failure("ConsultationType not found");
             }
 
             consultation.setIsActive(true);
-            Consultation savedConsultation = consultationRepository.save(consultation);
+            ConsultationType savedConsultation = consultationRepository.save(consultation);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new ConsultationActivated(
-                consultationId,
-                consultation.getName()
-            ));
+            log.info("ConsultationType activated: {}", consultationId);
 
-            log.info("Consultation activated: {}", consultationId);
-
-            return Result.success(consultationMapper.toDto(savedConsultation));
+            return Result.success(consultationTypeMapper.toDto(savedConsultation));
 
         } catch (Exception e) {
             log.error("Error activating consultation", e);
@@ -349,10 +310,10 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Returns entities directly without Result wrapper for simplicity.
      *
      * @param names List of consultation names
-     * @return List of Consultation entities (may be empty, never null)
+     * @return List of ConsultationType entities (may be empty, never null)
      */
     @Transactional(readOnly = true)
-    public List<Consultation> getEntitiesByNames(List<String> names) {
+    public List<ConsultationType> getEntitiesByNames(List<String> names) {
         if (names == null || names.isEmpty()) {
             return List.of();
         }
@@ -364,11 +325,11 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Used by AppointmentSessionService for validation.
      * Returns entity directly, null if not found.
      *
-     * @param name Consultation name
-     * @return Consultation entity or null if not found
+     * @param name ConsultationType name
+     * @return ConsultationType entity or null if not found
      */
     @Transactional(readOnly = true)
-    public Consultation getEntityByName(String name) {
+    public ConsultationType getEntityByName(String name) {
         if (name == null || name.trim().isEmpty()) {
             return null;
         }
@@ -382,10 +343,10 @@ public class ConsultationService extends BaseServiceImpl<Consultation, Consultat
      * Returns entities directly without Result wrapper for simplicity.
      *
      * @param specialties List of specialties
-     * @return List of Consultation entities (may be empty, never null)
+     * @return List of ConsultationType entities (may be empty, never null)
      */
     @Transactional(readOnly = true)
-    public List<Consultation> getEntitiesBySpecialties(List<Specialty> specialties) {
+    public List<ConsultationType> getEntitiesBySpecialties(List<Specialty> specialties) {
         if (specialties == null || specialties.isEmpty()) {
             return List.of();
         }

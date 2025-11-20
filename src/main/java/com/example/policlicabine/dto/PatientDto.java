@@ -35,6 +35,12 @@ public class PatientDto {
     )
     private UUID patientId;
 
+    @Schema(
+            description = "Patient user account (for portal login). Null if patient has no account yet.",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private UserDto user;
+
     @NotBlank
     @Size(min = 2, max = 100)
     @Schema(

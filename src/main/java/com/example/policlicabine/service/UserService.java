@@ -5,6 +5,7 @@ import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.dto.UserFilterCriteria;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
+import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.event.UserCreated;
 import com.example.policlicabine.mapper.UserMapper;
 import com.example.policlicabine.repository.UserRepository;
@@ -12,6 +13,7 @@ import com.example.policlicabine.service.base.BaseServiceImpl;
 import com.example.policlicabine.specification.UserSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -256,5 +258,19 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
     @Transactional(readOnly = true)
     public Result<Void> validateUserExists(UUID userId) {
         return validateExists(userId);
+    }
+
+    // ============= EVENT LISTENERS =============
+
+    /**
+     * Listens for NewPatientRegisteredEvent and logs that a patient account is ready for activation.
+     * This is a hook for future user account creation logic when patients register.
+     *
+     * @param event NewPatientRegisteredEvent containing patient information
+     */
+    @EventListener
+    public void onNewPatientRegistered(NewPatientRegisteredEvent event) {
+        log.info("New patient account preparation: Patient {} ({} {}) is ready for user account creation. Email: {}",
+                event.patientId(), event.firstName(), event.lastName(), event.email());
     }
 }

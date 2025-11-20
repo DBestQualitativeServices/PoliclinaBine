@@ -4,8 +4,7 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.dto.PatientFilterCriteria;
 import com.example.policlicabine.entity.Patient;
-import com.example.policlicabine.event.PatientPersonalInfoUpdated;
-import com.example.policlicabine.event.PatientRegistered;
+import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
@@ -124,12 +123,15 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
 
             Patient savedPatient = patientRepository.save(patient);
 
-            // Publish domain event (asynchronous processing)
-            PatientRegistered event = new PatientRegistered(
-                savedPatient.getPatientId(), firstName, lastName, phone, email);
-            eventPublisher.publishEvent(event);
-
             log.info("New patient registered: {} {} (ID: {})", firstName, lastName, savedPatient.getPatientId());
+
+            // Publish event for account creation and other downstream processes
+            eventPublisher.publishEvent(new NewPatientRegisteredEvent(
+                savedPatient.getPatientId(),
+                savedPatient.getFirstName(),
+                savedPatient.getLastName(),
+                savedPatient.getEmail()
+            ));
 
             return Result.success(patientMapper.toDto(savedPatient));
 
@@ -176,15 +178,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             }
 
             Patient savedPatient = patientRepository.save(patient);
-
-            // Publish event if something changed
-            if (!Objects.equals(oldPhone, patient.getPhone()) ||
-                !Objects.equals(oldEmail, patient.getEmail()) ||
-                !Objects.equals(oldAddress, patient.getAddress())) {
-
-                eventPublisher.publishEvent(new PatientPersonalInfoUpdated(
-                    patientId, patient.getPhone(), patient.getEmail(), patient.getAddress()));
-            }
 
             log.info("Patient personal info updated: {}", patientId);
 

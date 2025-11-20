@@ -24,7 +24,7 @@ import java.util.UUID;
  *   <li>Doctor filters: Exact ID match or partial name match (case-insensitive)</li>
  *   <li>Date range filters: scheduledAfter, scheduledBefore, completedAfter, completedBefore</li>
  *   <li>Status filter: Exact match (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)</li>
- *   <li>Consultation types filter: Sessions containing ANY of the specified consultation types</li>
+ *   <li>ConsultationType types filter: Sessions containing ANY of the specified consultation types</li>
  * </ul>
  * </p>
  *
@@ -112,7 +112,7 @@ public class AppointmentSessionFilterCriteria {
      * Filter sessions containing ANY of the specified consultation types.
      * <p>
      * Sessions that have at least one consultation matching any name in this list will be included.
-     * Example: ["General Checkup", "Dental Consultation"]
+     * Example: ["General Checkup", "Dental ConsultationType"]
      * </p>
      */
     private List<String> consultationNames;

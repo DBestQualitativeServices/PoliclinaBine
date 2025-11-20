@@ -7,9 +7,8 @@ import org.mapstruct.Mapper;
 @Mapper(componentModel = "spring", uses = {
     PatientMapper.class,
     DoctorMapper.class,
-    ConsultationMapper.class,
-    DiagnosisMapper.class,
-    AnswerMapper.class
+    ConsultationTypeMapper.class,
+    DiagnosisMapper.class
 })
 public interface AppointmentSessionMapper {
 
@@ -19,9 +18,8 @@ public interface AppointmentSessionMapper {
      * MapStruct automatically maps:
      * - patient → PatientDto (via PatientMapper)
      * - doctor → DoctorDto (via DoctorMapper)
-     * - consultations → List<ConsultationDto> (via ConsultationMapper)
+     * - consultationTypes → List<ConsultationTypeDto> (via ConsultationTypeMapper)
      * - diagnoses → List<DiagnosisDto> (via DiagnosisMapper)
-     * - answers → List<AnswerDto> (via AnswerMapper)
      */
     AppointmentSessionDto toDto(AppointmentSession session);
 }

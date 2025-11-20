@@ -2,12 +2,9 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.entity.AppointmentSession;
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.SessionBilling;
 import com.example.policlicabine.entity.User;
-import com.example.policlicabine.entity.enums.SessionStatus;
-import com.example.policlicabine.event.ManualDiscountApplied;
-import com.example.policlicabine.event.SessionBillingCalculated;
 import com.example.policlicabine.event.SessionCompleted;
 import com.example.policlicabine.repository.SessionBillingRepository;
 import jakarta.persistence.EntityManager;
@@ -99,13 +96,6 @@ public class BillingService {
 
             SessionBilling savedBilling = sessionBillingRepository.save(billing);
 
-            // Publish domain event (session already loaded with relationships)
-            eventPublisher.publishEvent(new SessionBillingCalculated(
-                savedBilling.getBillingId(), sessionId,
-                session.getPatient().getPatientId(),
-                savedBilling.getSubtotalAmount(), savedBilling.getFinalAmount(),
-                getConsultationNames(session)));
-
             log.info("Session billing created: {} for session {} with subtotal {}",
                 savedBilling.getBillingId(), sessionId, savedBilling.getSubtotalAmount());
 
@@ -170,10 +160,6 @@ public class BillingService {
             // Apply discount using helper method
             billing.addDiscount(user, discountAmount, reason.trim());
             SessionBilling savedBilling = sessionBillingRepository.save(billing);
-
-            // Publish domain event
-            eventPublisher.publishEvent(new ManualDiscountApplied(
-                billing.getBillingId(), sessionId, discountAmount, reason, userId));
 
             log.info("Discount of {} applied to session {} by user {}. New final amount: {}",
                 discountAmount, sessionId, userId, savedBilling.getFinalAmount());
@@ -271,8 +257,8 @@ public class BillingService {
     }
 
     private List<String> getConsultationNames(AppointmentSession session) {
-        return session.getConsultations().stream()
-            .map(Consultation::getName)
+        return session.getConsultationTypes().stream()
+            .map(ConsultationType::getName)
             .collect(Collectors.toList());
     }
 }

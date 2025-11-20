@@ -1,7 +1,7 @@
 package com.example.policlicabine.service.storage;
 
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 

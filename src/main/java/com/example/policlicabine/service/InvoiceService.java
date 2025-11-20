@@ -5,8 +5,6 @@ import com.example.policlicabine.dto.InvoiceDto;
 import com.example.policlicabine.entity.Invoice;
 import com.example.policlicabine.entity.SessionBilling;
 import com.example.policlicabine.entity.User;
-import com.example.policlicabine.event.InvoiceConvertedToFinal;
-import com.example.policlicabine.event.InvoiceCreated;
 import com.example.policlicabine.mapper.InvoiceMapper;
 import com.example.policlicabine.repository.InvoiceRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
@@ -178,17 +176,6 @@ public class InvoiceService extends BaseServiceImpl<Invoice, InvoiceDto, UUID> {
 
             Invoice savedInvoice = invoiceRepository.save(invoice);
 
-            // Publish domain event
-            eventPublisher.publishEvent(new InvoiceCreated(
-                savedInvoice.getInvoiceId(),
-                savedInvoice.getInvoiceNumber(),
-                savedInvoice.getInvoiceDate(),
-                savedInvoice.getGeneratedBy().getUserId(),
-                savedInvoice.getIsProforma(),
-                sessionBillingIds,
-                savedInvoice.getTotalAmount()
-            ));
-
             log.info("Invoice created: {} (proforma: {})", invoiceNumber, isProforma);
 
             return Result.success(invoiceMapper.toDto(savedInvoice));
@@ -292,11 +279,6 @@ public class InvoiceService extends BaseServiceImpl<Invoice, InvoiceDto, UUID> {
             // Use entity method for business logic
             invoice.convertToFinalInvoice(newInvoiceNumber.trim());
             Invoice savedInvoice = invoiceRepository.save(invoice);
-
-            // Publish domain event
-            eventPublisher.publishEvent(new InvoiceConvertedToFinal(
-                invoiceId, oldInvoiceNumber, newInvoiceNumber.trim()
-            ));
 
             log.info("Proforma invoice {} converted to final invoice {}",
                 invoiceId, newInvoiceNumber);

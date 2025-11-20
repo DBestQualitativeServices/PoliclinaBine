@@ -2,7 +2,7 @@ package com.example.policlicabine.service.storage;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.FileStorageProperties;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.exception.FileStorageException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,6 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;

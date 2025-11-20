@@ -15,7 +15,7 @@ import java.util.List;
  * - Transaction boundaries: readOnly for queries, default for writes
  *
  * Type Parameters:
- * @param <E> Entity type (e.g., Patient, Consultation, Diagnosis)
+ * @param <E> Entity type (e.g., Patient, ConsultationType, Diagnosis)
  * @param <D> DTO type (e.g., PatientDto, ConsultationDto, DiagnosisDto)
  * @param <ID> ID type (typically UUID)
  *

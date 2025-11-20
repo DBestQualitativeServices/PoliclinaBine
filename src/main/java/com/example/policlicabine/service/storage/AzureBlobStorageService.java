@@ -8,7 +8,7 @@ import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.AzureBlobStorageProperties;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

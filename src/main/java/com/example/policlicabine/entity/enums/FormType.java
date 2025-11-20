@@ -1,0 +1,166 @@
+package com.example.policlicabine.entity.enums;
+
+import lombok.Getter;
+
+/**
+ * Enumeration of form types in the medical clinic system.
+ *
+ * <p>Forms are business entities representing documents that require patient/doctor
+ * signatures and have lifecycle states (draft, pending, signed, etc.). Each form type
+ * is associated with a default file category for storage purposes.
+ *
+ * <p><strong>Key Distinction:</strong>
+ * <ul>
+ *   <li><strong>Form</strong> = Business entity (e.g., "Consent Form for Surgery #12345")</li>
+ *   <li><strong>File</strong> = Physical representation (e.g., "consent-signed.pdf")</li>
+ * </ul>
+ *
+ * <p>A single form can have multiple file representations:
+ * <ul>
+ *   <li>Draft PDF (unsigned template)</li>
+ *   <li>Signed PDF (after patient signature)</li>
+ *   <li>Supporting attachments (ID scans, photos)</li>
+ * </ul>
+ *
+ * @author PoliclicaBine System
+ */
+@Getter
+public enum FormType {
+
+    /**
+     * General patient consent form - authorizes medical treatment and data processing.
+     * Typically has validity period (e.g., 1 year).
+     */
+    CONSENT(
+            "Patient Consent Form",
+            FileCategory.CONSENT_FILE,
+            true  // Requires patient signature
+    ),
+
+    /**
+     * Anesthesia consent form - specific consent for anesthesia procedures.
+     * Requires patient signature and often anesthesiologist co-signature.
+     */
+    ANESTHESIA_CONSENT(
+            "Anesthesia Consent Form",
+            FileCategory.CONSENT_FILE,
+            true
+    ),
+
+    /**
+     * Surgery authorization form - patient consent for surgical procedures.
+     * Includes procedure details, risks, and recovery information.
+     */
+    SURGERY_CONSENT(
+            "Surgery Authorization Form",
+            FileCategory.CONSENT_FILE,
+            true
+    ),
+
+    /**
+     * Waste collection documentation form with photos.
+     * Used for medical waste management compliance.
+     */
+    WASTE_COLLECTION(
+            "Waste Collection Documentation",
+            FileCategory.WASTE_COLLECTION_PHOTO,
+            false  // Documentation only, no signature required
+    ),
+
+    /**
+     * Medical history questionnaire - patient-completed health history.
+     * Captured during appointment session via Answer entities.
+     */
+    MEDICAL_HISTORY(
+            "Medical History Questionnaire",
+            FileCategory.MEDICAL_REPORT,
+            true
+    ),
+
+    /**
+     * Treatment plan agreement - doctor-proposed treatment plan requiring patient acceptance.
+     */
+    TREATMENT_PLAN(
+            "Treatment Plan Agreement",
+            FileCategory.MEDICAL_REPORT,
+            true
+    ),
+
+    /**
+     * Discharge summary - document provided when patient leaves hospital.
+     * Contains diagnoses, treatments, and follow-up instructions.
+     */
+    DISCHARGE_SUMMARY(
+            "Discharge Summary",
+            FileCategory.MEDICAL_REPORT,
+            false  // Doctor-generated, no patient signature
+    ),
+
+    /**
+     * Prescription form - medication orders from doctor.
+     */
+    PRESCRIPTION(
+            "Prescription Form",
+            FileCategory.PRESCRIPTION,
+            false  // Doctor-signed only
+    ),
+
+    /**
+     * Laboratory test requisition form - orders for lab tests.
+     */
+    LAB_REQUISITION(
+            "Laboratory Test Requisition",
+            FileCategory.LAB_RESULT,
+            false  // Doctor-generated
+    ),
+
+    /**
+     * Radiology imaging order - orders for X-rays, CT scans, MRIs.
+     */
+    RADIOLOGY_ORDER(
+            "Radiology Imaging Order",
+            FileCategory.RADIOLOGY_IMAGE,
+            false  // Doctor-generated
+    );
+
+    /**
+     * Human-readable display name for the form type.
+     */
+    private final String displayName;
+
+    /**
+     * Default file category for storing files related to this form type.
+     * Files associated with this form will typically use this category.
+     */
+    private final FileCategory defaultFileCategory;
+
+    /**
+     * Whether this form type requires patient signature.
+     * If true, form lifecycle includes signature collection workflow.
+     */
+    private final boolean requiresPatientSignature;
+
+    FormType(String displayName, FileCategory defaultFileCategory, boolean requiresPatientSignature) {
+        this.displayName = displayName;
+        this.defaultFileCategory = defaultFileCategory;
+        this.requiresPatientSignature = requiresPatientSignature;
+    }
+
+    /**
+     * Checks if this form type is a consent form (general, anesthesia, or surgery).
+     *
+     * @return true if this is any type of consent form
+     */
+    public boolean isConsentForm() {
+        return this == CONSENT || this == ANESTHESIA_CONSENT || this == SURGERY_CONSENT;
+    }
+
+    /**
+     * Checks if this form type is doctor-generated (not requiring patient signature).
+     *
+     * @return true if form is generated by doctor only
+     */
+    public boolean isDoctorGenerated() {
+        return !requiresPatientSignature;
+    }
+}

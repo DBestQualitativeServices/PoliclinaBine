@@ -193,7 +193,7 @@ class AppointmentSessionSpecificationBuilderTest {
     @DisplayName("Should build specification with consultationNames filter")
     void build_WithConsultationNamesFilter_CreatesSpecification() {
         // Given
-        List<String> consultationNames = Arrays.asList("General Checkup", "Dental Consultation");
+        List<String> consultationNames = Arrays.asList("General Checkup", "Dental ConsultationType");
         AppointmentSessionFilterCriteria criteria = AppointmentSessionFilterCriteria.builder()
                 .consultationNames(consultationNames)
                 .build();
@@ -442,7 +442,7 @@ class AppointmentSessionSpecificationBuilderTest {
                 "General Checkup",
                 "X-Ray",
                 "Blood Test",
-                "Dental Consultation"
+                "Dental ConsultationType"
         );
 
         AppointmentSessionFilterCriteria criteria = AppointmentSessionFilterCriteria.builder()

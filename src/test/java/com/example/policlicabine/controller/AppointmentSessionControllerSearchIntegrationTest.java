@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,8 +59,8 @@ class AppointmentSessionControllerSearchIntegrationTest {
     private Patient patient2;
     private Doctor doctor1;
     private Doctor doctor2;
-    private Consultation consultation1;
-    private Consultation consultation2;
+    private ConsultationType consultation1;
+    private ConsultationType consultation2;
 
     @BeforeEach
     void setUp() {
@@ -125,13 +124,13 @@ class AppointmentSessionControllerSearchIntegrationTest {
         patient2 = patientRepository.save(patient2);
 
         // Create test consultations
-        consultation1 = Consultation.builder()
+        consultation1 = ConsultationType.builder()
                 .name("General Checkup")
                 .price(BigDecimal.valueOf(50.00))
                 .isActive(true)
                 .build();
 
-        consultation2 = Consultation.builder()
+        consultation2 = ConsultationType.builder()
                 .name("X-Ray")
                 .price(BigDecimal.valueOf(100.00))
                 .isActive(true)
@@ -147,7 +146,7 @@ class AppointmentSessionControllerSearchIntegrationTest {
                 .scheduledDateTime(OffsetDateTime.now(ZoneOffset.UTC).minusDays(10))
                 .status(SessionStatus.COMPLETED)
                 .isEmergency(false)
-                .consultations(Arrays.asList(consultation1))
+                .consultationTypes(Arrays.asList(consultation1))
                 .build();
 
         AppointmentSession session2 = AppointmentSession.builder()
@@ -156,7 +155,7 @@ class AppointmentSessionControllerSearchIntegrationTest {
                 .scheduledDateTime(OffsetDateTime.now(ZoneOffset.UTC).minusDays(5))
                 .status(SessionStatus.SCHEDULED)
                 .isEmergency(false)
-                .consultations(Arrays.asList(consultation2))
+                .consultationTypes(Arrays.asList(consultation2))
                 .build();
 
         AppointmentSession session3 = AppointmentSession.builder()
@@ -165,7 +164,7 @@ class AppointmentSessionControllerSearchIntegrationTest {
                 .scheduledDateTime(OffsetDateTime.now(ZoneOffset.UTC).minusDays(2))
                 .status(SessionStatus.IN_PROGRESS)
                 .isEmergency(true)
-                .consultations(Arrays.asList(consultation1, consultation2))
+                .consultationTypes(Arrays.asList(consultation1, consultation2))
                 .build();
 
         appointmentRepository.save(session1);

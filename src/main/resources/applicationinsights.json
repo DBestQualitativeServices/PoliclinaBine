@@ -1,4 +1,5 @@
 {
+  "connectionString": "InstrumentationKey=2149a452-3872-4a02-843b-7664790695e0;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;ApplicationId=454aeb75-b210-476f-b946-64656a4b4eb1",
   "role": {
     "name": "PoliclinaBine-API",
     "instance": "${WEBSITE_INSTANCE_ID:local}"
@@ -56,6 +57,7 @@
   "customDimensions": {
     "service.name": "PoliclinaBine",
     "service.version": "0.0.1-SNAPSHOT",
-    "environment": "${SPRING_PROFILES_ACTIVE:dev}"
+    "environment": "dev",
+    "instance": "local-dev-instance"
   }
 }

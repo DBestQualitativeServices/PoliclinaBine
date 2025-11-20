@@ -48,9 +48,8 @@ public class OpenApiGroupsConfig {
                 .pathsToMatch(
                         "/api/consultations/**",
                         "/api/diagnoses/**",
-                        "/api/questions/**",
-                        "/api/answers/**",
-                        "/api/medical-files/**"
+                        "/api/medical-files/**",
+                        "/api/forms/**"
                 )
                 .build();
     }

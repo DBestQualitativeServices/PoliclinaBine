@@ -4,11 +4,8 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.FileStorageProperties;
 import com.example.policlicabine.dto.FileDto;
 import com.example.policlicabine.entity.File;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.entity.User;
-import com.example.policlicabine.event.FileDeleted;
-import com.example.policlicabine.event.FileUploaded;
-import com.example.policlicabine.event.FileVersionCreated;
 import com.example.policlicabine.mapper.FileMapper;
 import com.example.policlicabine.repository.FileRepository;
 import com.example.policlicabine.service.storage.FileStorageService;
@@ -16,7 +13,6 @@ import com.example.policlicabine.service.storage.StorageResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +50,6 @@ public class FileService {
     private final FileMapper fileMapper;
     private final UserService userService;
     private final FileStorageProperties properties;
-    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Upload a new file
@@ -129,15 +124,6 @@ public class FileService {
 
         log.info("File uploaded successfully: {} by user: {}", saved.getId(), uploadedByUserId);
 
-        // Publish event AFTER save, BEFORE returning
-        eventPublisher.publishEvent(new FileUploaded(
-                saved.getId(),
-                saved.getOriginalFilename(),
-                category,
-                uploadedByUserId,
-                saved.getFileSize()
-        ));
-
         return Result.success(fileMapper.toDto(saved));
     }
 
@@ -198,14 +184,6 @@ public class FileService {
 
         log.info("New file version created: {} (v{}) replacing: {}",
                 newVersion.getId(), newVersion.getVersion(), previousFileId);
-
-        // Publish event
-        eventPublisher.publishEvent(new FileVersionCreated(
-                newVersion.getId(),
-                previousFileId,
-                newVersion.getVersion(),
-                uploadedByUserId
-        ));
 
         return Result.success(fileMapper.toDto(newVersion));
     }
@@ -350,14 +328,6 @@ public class FileService {
         fileRepository.save(file);
 
         log.info("File soft-deleted: {} by user: {}", fileId, username);
-
-        // Publish event
-        eventPublisher.publishEvent(new FileDeleted(
-                fileId,
-                file.getOriginalFilename(),
-                deletedByUserId,
-                LocalDateTime.now()
-        ));
 
         return Result.success(null);
     }

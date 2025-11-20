@@ -3,7 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ErrorResponse;
 import com.example.policlicabine.dto.FileDto;
-import com.example.policlicabine.entity.FileCategory;
+import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

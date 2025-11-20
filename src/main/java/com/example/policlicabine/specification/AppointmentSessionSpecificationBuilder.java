@@ -3,7 +3,7 @@ package com.example.policlicabine.specification;
 import com.example.policlicabine.common.specification.SpecificationBuilder;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
 import com.example.policlicabine.entity.AppointmentSession;
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.Doctor;
 import com.example.policlicabine.entity.Patient;
 import com.example.policlicabine.entity.User;
@@ -27,7 +27,7 @@ import java.util.UUID;
  * <p>
  * All filters are combined with AND logic. Null filter values are ignored.
  * Text filters use case-insensitive partial matching (LIKE %value%).
- * Supports joins to Patient, Doctor, User, and Consultation entities.
+ * Supports joins to Patient, Doctor, User, and ConsultationType entities.
  * </p>
  *
  * @since 1.0
@@ -219,7 +219,7 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
             if (consultationNames == null || consultationNames.isEmpty()) {
                 return null;
             }
-            Join<AppointmentSession, Consultation> consultationJoin = root.join("consultations");
+            Join<AppointmentSession, ConsultationType> consultationJoin = root.join("consultations");
             return consultationJoin.get("name").in(consultationNames);
         };
     }

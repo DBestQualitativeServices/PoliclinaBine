@@ -46,12 +46,12 @@ public class AppointmentSession {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "session_consultations",
+        name = "session_consultation_types",
         joinColumns = @JoinColumn(name = "session_id"),
-        inverseJoinColumns = @JoinColumn(name = "consultation_id")
+        inverseJoinColumns = @JoinColumn(name = "consultation_type_id")
     )
     @BatchSize(size = 10)
-    private List<Consultation> consultations;
+    private List<ConsultationType> consultationTypes;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -62,9 +62,9 @@ public class AppointmentSession {
     @BatchSize(size = 10)
     private List<Diagnosis> diagnoses;
 
-    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "appointmentSession", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @BatchSize(size = 20)
-    private List<Answer> answers;
+    private List<FormSubmission> formSubmissions;
 
     @Column(columnDefinition = "TEXT")
     private String freeTextDiagnosis;
@@ -105,8 +105,8 @@ public class AppointmentSession {
     }
 
     public boolean requiresSurgeryRoom() {
-        return consultations != null && consultations.stream()
-            .anyMatch(Consultation::getRequiresSurgeryRoom);
+        return consultationTypes != null && consultationTypes.stream()
+            .anyMatch(ConsultationType::getRequiresSurgeryRoom);
     }
 
     public boolean isCompleted() {
@@ -129,30 +129,12 @@ public class AppointmentSession {
     }
 
     public BigDecimal getSubtotalAmount() {
-        if (consultations == null || consultations.isEmpty()) {
+        if (consultationTypes == null || consultationTypes.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        return consultations.stream()
-            .map(consultation -> consultation.getPrice() != null ? consultation.getPrice() : BigDecimal.ZERO)
+        return consultationTypes.stream()
+            .map(consultationType -> consultationType.getPrice() != null ? consultationType.getPrice() : BigDecimal.ZERO)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    public List<Question> getAllQuestions() {
-        if (consultations == null || consultations.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return consultations.stream()
-            .flatMap(consultation -> consultation.getQuestions().stream())
-            .collect(Collectors.toList());
-    }
-
-    public List<Answer> getAnswersForConsultation(Consultation consultation) {
-        if (answers == null || answers.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return answers.stream()
-            .filter(answer -> consultation.equals(answer.getConsultation()))
-            .collect(Collectors.toList());
     }
 
     @Override

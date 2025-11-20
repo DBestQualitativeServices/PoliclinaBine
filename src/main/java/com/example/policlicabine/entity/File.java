@@ -1,5 +1,6 @@
 package com.example.policlicabine.entity;
 
+import com.example.policlicabine.entity.enums.FileCategory;
 import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.*;
 import lombok.*;
@@ -33,7 +34,9 @@ import java.util.UUID;
     @Index(name = "idx_file_uploaded_at", columnList = "uploaded_at"),
     @Index(name = "idx_file_valid_until", columnList = "valid_until"),
     @Index(name = "idx_file_previous_version", columnList = "previous_version_id"),
-    @Index(name = "idx_file_is_deleted", columnList = "is_deleted")
+    @Index(name = "idx_file_is_deleted", columnList = "is_deleted"),
+    @Index(name = "idx_file_form_submission", columnList = "form_submission_id"),
+    @Index(name = "idx_file_patient", columnList = "patient_id")
 })
 @Getter
 @Setter
@@ -127,6 +130,21 @@ public class File {
      */
     @Column(name = "valid_until")
     LocalDate validUntil;
+
+    // ==================== Patient Association ====================
+
+    /**
+     * Patient who owns this file (optional - files can exist without patient association)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_id")
+    Patient patient;
+
+    // ==================== Form Submission Association ====================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "form_submission_id")
+    FormSubmission formSubmission;
 
     // ==================== Soft Delete (Audit Trail) ====================
 

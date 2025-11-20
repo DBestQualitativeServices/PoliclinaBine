@@ -28,7 +28,20 @@ public interface FileMapper {
     @Mapping(target = "isExpired", expression = "java(file.isExpired())")
     @Mapping(target = "isActive", expression = "java(file.isActive())")
     @Mapping(target = "fileSizeFormatted", expression = "java(formatFileSize(file.getFileSize()))")
+    @Mapping(target = "patientId", expression = "java(file.getPatient() != null ? file.getPatient().getPatientId() : null)")
     FileDto toDto(File file);
+
+    /**
+     * Convert FileDto to File entity (for reverse mapping)
+     * Ignores patient field as it's a bidirectional relationship managed by PatientMapper
+     *
+     * @param dto the FileDto
+     * @return File entity
+     */
+    @Mapping(target = "patient", ignore = true)
+    @Mapping(target = "uploadedBy", ignore = true)
+    @Mapping(target = "deletedBy", ignore = true)
+    File toEntity(FileDto dto);
 
     /**
      * Build download URL for a file

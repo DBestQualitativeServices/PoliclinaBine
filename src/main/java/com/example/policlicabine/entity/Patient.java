@@ -14,7 +14,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "patients", indexes = {
     @Index(name = "idx_patient_phone", columnList = "phone"),
-    @Index(name = "idx_patient_email", columnList = "email")
+    @Index(name = "idx_patient_email", columnList = "email"),
+    @Index(name = "idx_patient_user", columnList = "user_id")
 })
 @Getter
 @Setter
@@ -26,6 +27,10 @@ public class Patient {
     @Id
     @Column(columnDefinition = "UUID")
     private UUID patientId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
 
     @Column(nullable = false, length = 100)
     private String firstName;

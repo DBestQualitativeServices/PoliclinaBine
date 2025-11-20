@@ -1,6 +1,6 @@
 package com.example.policlicabine.builder;
 
-import com.example.policlicabine.entity.Consultation;
+import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
 
 import java.math.BigDecimal;
@@ -9,14 +9,14 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Test data builder for Consultation entity using the Builder pattern.
+ * Test data builder for ConsultationType entity using the Builder pattern.
  * <p>
  * Provides default consultation types for common medical services.
  * </p>
  * <p>Example usage:</p>
  * <pre>
- * Consultation generalConsult = ConsultationTestBuilder.generalConsultation().build();
- * Consultation cardiology = ConsultationTestBuilder.aConsultation()
+ * ConsultationType generalConsult = ConsultationTestBuilder.generalConsultation().build();
+ * ConsultationType cardiology = ConsultationTestBuilder.aConsultation()
  *     .withSpecialty(Specialty.CARDIOLOGY)
  *     .withPrice(new BigDecimal("300.00"))
  *     .build();
@@ -25,7 +25,7 @@ import java.util.UUID;
 public class ConsultationTestBuilder {
 
     private UUID consultationId = UUID.randomUUID();
-    private String name = "General Consultation";
+    private String name = "General ConsultationType";
     private Specialty specialty = Specialty.GENERAL_DERMATOLOGY;
     private BigDecimal price = new BigDecimal("150.00");
     private String priceCurrency = "RON";
@@ -40,7 +40,7 @@ public class ConsultationTestBuilder {
 
     public static ConsultationTestBuilder generalConsultation() {
         return new ConsultationTestBuilder()
-                .withName("General Consultation")
+                .withName("General ConsultationType")
                 .withSpecialty(Specialty.GENERAL_DERMATOLOGY)
                 .withPrice(new BigDecimal("150.00"))
                 .withDurationMinutes(30);
@@ -48,7 +48,7 @@ public class ConsultationTestBuilder {
 
     public static ConsultationTestBuilder cardiologyConsultation() {
         return new ConsultationTestBuilder()
-                .withName("Cosmetic Dermatology Consultation")
+                .withName("Cosmetic Dermatology ConsultationType")
                 .withSpecialty(Specialty.COSMETIC_DERMATOLOGY)
                 .withPrice(new BigDecimal("250.00"))
                 .withDurationMinutes(45);
@@ -56,7 +56,7 @@ public class ConsultationTestBuilder {
 
     public static ConsultationTestBuilder dermatologyConsultation() {
         return new ConsultationTestBuilder()
-                .withName("Medical Dermatology Consultation")
+                .withName("Medical Dermatology ConsultationType")
                 .withSpecialty(Specialty.MEDICAL_DERMATOLOGY)
                 .withPrice(new BigDecimal("200.00"))
                 .withDurationMinutes(30);
@@ -64,7 +64,7 @@ public class ConsultationTestBuilder {
 
     public static ConsultationTestBuilder surgeryConsultation() {
         return new ConsultationTestBuilder()
-                .withName("Mole Removal Consultation")
+                .withName("Mole Removal ConsultationType")
                 .withSpecialty(Specialty.MOLES)
                 .withPrice(new BigDecimal("400.00"))
                 .withDurationMinutes(60)
@@ -121,8 +121,8 @@ public class ConsultationTestBuilder {
         return this;
     }
 
-    public Consultation build() {
-        return Consultation.builder()
+    public ConsultationType build() {
+        return ConsultationType.builder()
                 .consultationId(consultationId)
                 .name(name)
                 .specialty(specialty)
@@ -131,9 +131,7 @@ public class ConsultationTestBuilder {
                 .durationMinutes(durationMinutes)
                 .requiresSurgeryRoom(requiresSurgeryRoom)
                 .isActive(isActive)
-                .questions(new ArrayList<>())
                 .sessions(new ArrayList<>())
-                .answers(new ArrayList<>())
                 .createdAt(createdAt)
                 .build();
     }

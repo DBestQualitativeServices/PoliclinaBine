@@ -3,12 +3,10 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.DiagnosisDto;
 import com.example.policlicabine.entity.Diagnosis;
-import com.example.policlicabine.event.DiagnosisCreated;
 import com.example.policlicabine.mapper.DiagnosisMapper;
 import com.example.policlicabine.repository.DiagnosisRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,14 +35,11 @@ public class DiagnosisService extends BaseServiceImpl<Diagnosis, DiagnosisDto, U
 
     private final DiagnosisRepository diagnosisRepository;
     private final DiagnosisMapper diagnosisMapper;
-    private final ApplicationEventPublisher eventPublisher;
 
-    public DiagnosisService(DiagnosisRepository diagnosisRepository, DiagnosisMapper diagnosisMapper,
-                           ApplicationEventPublisher eventPublisher) {
+    public DiagnosisService(DiagnosisRepository diagnosisRepository, DiagnosisMapper diagnosisMapper) {
         super(diagnosisRepository, diagnosisMapper);
         this.diagnosisRepository = diagnosisRepository;
         this.diagnosisMapper = diagnosisMapper;
-        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -87,13 +82,6 @@ public class DiagnosisService extends BaseServiceImpl<Diagnosis, DiagnosisDto, U
                 .build();
 
             Diagnosis savedDiagnosis = diagnosisRepository.save(diagnosis);
-
-            // Publish domain event
-            eventPublisher.publishEvent(new DiagnosisCreated(
-                savedDiagnosis.getDiagnosisId(),
-                savedDiagnosis.getIcd10Code(),
-                savedDiagnosis.getIcd10Description()
-            ));
 
             log.info("Diagnosis created: {} - {}", savedDiagnosis.getDiagnosisId(), icd10Code);
 

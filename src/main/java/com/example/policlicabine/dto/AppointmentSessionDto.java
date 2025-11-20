@@ -22,9 +22,8 @@ public class AppointmentSessionDto {
     // Nested DTOs (going DOWN the hierarchy)
     private PatientDto patient;
     private DoctorDto doctor;
-    private List<ConsultationDto> consultations;
+    private List<ConsultationTypeDto> consultationTypes;
     private List<DiagnosisDto> diagnoses;
-    private List<AnswerDto> answers;
 
     // Session details
     private OffsetDateTime scheduledDateTime;
