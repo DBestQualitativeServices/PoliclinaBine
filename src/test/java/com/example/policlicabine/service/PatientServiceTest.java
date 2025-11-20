@@ -86,7 +86,6 @@ class PatientServiceTest extends BaseServiceTest {
     @DisplayName("Should register new patient successfully")
     void registerNewPatient_Success() {
         // Given
-        when(patientRepository.existsByPhone(anyString())).thenReturn(false);
         when(patientRepository.save(any(Patient.class))).thenReturn(testPatient);
         when(patientMapper.toDto(any(Patient.class))).thenReturn(testPatientDto);
 
@@ -106,7 +105,6 @@ class PatientServiceTest extends BaseServiceTest {
                 });
 
         // Verify repository interactions
-        verify(patientRepository).existsByPhone("0700123456");
         verify(patientRepository).save(any(Patient.class));
 
         // Verify domain event was published
@@ -134,27 +132,6 @@ class PatientServiceTest extends BaseServiceTest {
 
         // Verify no database interaction occurred
         verifyNoInteractions(patientRepository);
-        verifyNoInteractions(eventPublisher);
-    }
-
-    @Test
-    @DisplayName("Should fail when phone already exists")
-    void registerNewPatient_DuplicatePhone_Failure() {
-        // Given
-        when(patientRepository.existsByPhone("0700123456")).thenReturn(true);
-
-        // When
-        Result<PatientDto> result = patientService.registerNewPatient(
-                "John", "Doe", "0700123456", "john.doe@test.com", "123 Test St"
-        );
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("phone number already exists");
-
-        verify(patientRepository).existsByPhone("0700123456");
-        verify(patientRepository, never()).save(any());
         verifyNoInteractions(eventPublisher);
     }
 

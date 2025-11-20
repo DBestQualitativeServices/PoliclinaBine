@@ -11,5 +11,7 @@ public interface PatientMapper {
     PatientDto toDto(Patient patient);
 
     @Mapping(target = "appointments", ignore = true)
+    @Mapping(target = "files", ignore = true)
+    @Mapping(target = "forms", ignore = true)
     Patient toEntity(PatientDto dto);
 }

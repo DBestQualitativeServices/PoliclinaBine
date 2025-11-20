@@ -36,17 +36,46 @@ public class Patient {
     @Column(length = 20)
     private String phone;
 
-    @Column(length = 100, unique = true)
+    @Column(length = 100)
     private String email;
 
     @Column(columnDefinition = "TEXT")
     private String address;
 
-    @Column(length = 500)
-    private String consentFileUrl;
+//    /**
+//     * All forms associated with this patient (consent forms, medical history forms, etc.)
+//     *
+//     * <p>Replaces the old consentFile OneToOne relationship with a more flexible
+//     * OneToMany relationship to Form entities. Patient can have multiple forms:
+//     * <ul>
+//     *   <li>General consent form (with 1-year validity)</li>
+//     *   <li>Anesthesia consent forms (per procedure)</li>
+//     *   <li>Surgery authorization forms (per procedure)</li>
+//     *   <li>Treatment plan agreements</li>
+//     * </ul>
+//     */
+//    @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
+//    @BatchSize(size = 20)
+//    @Builder.Default
+//    private List<Form> forms = new ArrayList<>();
+//
+//    /**
+//     * Patient medical dossier - all files associated with this patient
+//     *
+//     * <p>Note: Files can be associated with patient in two ways:
+//     * <ul>
+//     *   <li><strong>Via Form:</strong> File belongs to a Form (e.g., signed consent PDF)</li>
+//     *   <li><strong>Direct:</strong> Standalone file (e.g., patient-uploaded medical history from another hospital)</li>
+//     * </ul>
+//     */
+//    @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
+//    @BatchSize(size = 20)
+//    @Builder.Default
+//    private List<File> files = new ArrayList<>();
 
     @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
     @BatchSize(size = 20)
+    @Builder.Default
     private List<AppointmentSession> appointments = new ArrayList<>();
 
     @CreationTimestamp
@@ -60,12 +89,26 @@ public class Patient {
         }
     }
 
-    /**
-     * Checks if patient has signed consent file.
-     */
-    public boolean hasConsentSigned() {
-        return consentFileUrl != null && !consentFileUrl.trim().isEmpty();
-    }
+//    /**
+//     * Checks if patient has a valid signed consent form.
+//     *
+//     * <p>A valid consent form must meet ALL criteria:
+//     * <ul>
+//     *   <li>Form type is a consent form (CONSENT, ANESTHESIA_CONSENT, or SURGERY_CONSENT)</li>
+//     *   <li>Form is signed (status = SIGNED, patientSignedAt is set)</li>
+//     *   <li>Form has not expired (validUntil is null or in the future)</li>
+//     *   <li>Form is not soft-deleted</li>
+//     * </ul>
+//     *
+//     * @return true if patient has at least one valid signed consent form
+//     */
+//    public boolean hasConsentSigned() {
+//        return forms.stream()
+//                .anyMatch(form -> form.isConsentForm()
+//                        && form.isSigned()
+//                        && !form.isExpired()
+//                        && !form.getIsDeleted());
+//    }
 
     @Override
     public boolean equals(Object o) {

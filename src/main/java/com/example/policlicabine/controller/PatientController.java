@@ -52,7 +52,7 @@ public class PatientController {
 
                     **Business Rules:**
                     - First name and last name are required
-                    - Phone number must be unique
+                    - Phone number is required
                     - Email must be valid format (if provided)
                     - Publishes PatientRegistered domain event on success
                     """
@@ -65,7 +65,7 @@ public class PatientController {
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "Invalid input data or duplicate CNP/phone",
+                    description = "Invalid input data",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))
             )
     })

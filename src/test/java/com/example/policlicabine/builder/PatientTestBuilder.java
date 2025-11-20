@@ -32,16 +32,10 @@ public class PatientTestBuilder {
     private String phone = "0700" + String.format("%06d", counter.incrementAndGet());
     private String email = "patient" + counter.get() + "@test.com";
     private String address = "123 Test Street, Test City";
-    private String consentFileUrl = null;
     private OffsetDateTime registrationDate = OffsetDateTime.now(ZoneOffset.UTC);
 
     public static PatientTestBuilder aPatient() {
         return new PatientTestBuilder();
-    }
-
-    public static PatientTestBuilder aPatientWithConsent() {
-        return new PatientTestBuilder()
-                .withConsentFileUrl("https://storage.example.com/consents/test-consent.pdf");
     }
 
     public PatientTestBuilder withPatientId(UUID patientId) {
@@ -74,11 +68,6 @@ public class PatientTestBuilder {
         return this;
     }
 
-    public PatientTestBuilder withConsentFileUrl(String consentFileUrl) {
-        this.consentFileUrl = consentFileUrl;
-        return this;
-    }
-
     public PatientTestBuilder withRegistrationDate(OffsetDateTime registrationDate) {
         this.registrationDate = registrationDate;
         return this;
@@ -92,7 +81,7 @@ public class PatientTestBuilder {
                 .phone(phone)
                 .email(email)
                 .address(address)
-                .consentFileUrl(consentFileUrl)
+//                .files(new ArrayList<>())
                 .appointments(new ArrayList<>())
                 .registrationDate(registrationDate)
                 .build();

@@ -44,7 +44,6 @@ class PatientMapperTest {
                 .withPhone("0700123456")
                 .withEmail("john.doe@test.com")
                 .withAddress("123 Test Street")
-                .withConsentFileUrl("https://storage.example.com/consent.pdf")
                 .build();
 
         // When
@@ -58,7 +57,6 @@ class PatientMapperTest {
         assertThat(dto.getPhone()).isEqualTo("0700123456");
         assertThat(dto.getEmail()).isEqualTo("john.doe@test.com");
         assertThat(dto.getAddress()).isEqualTo("123 Test Street");
-        assertThat(dto.getConsentFileUrl()).isEqualTo("https://storage.example.com/consent.pdf");
         assertThat(dto.getRegistrationDate()).isEqualTo(patient.getRegistrationDate());
     }
 
@@ -73,7 +71,6 @@ class PatientMapperTest {
                 .phone("0700123456")
                 .email(null) // Null email
                 .address(null) // Null address
-                .consentFileUrl(null) // Null consent
                 .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
@@ -84,7 +81,6 @@ class PatientMapperTest {
         assertThat(dto).isNotNull();
         assertThat(dto.getEmail()).isNull();
         assertThat(dto.getAddress()).isNull();
-        assertThat(dto.getConsentFileUrl()).isNull();
         assertThat(dto.getFirstName()).isEqualTo("John"); // Required fields still mapped
     }
 
@@ -113,7 +109,6 @@ class PatientMapperTest {
                 .phone("0700999888")
                 .email("jane.smith@test.com")
                 .address("456 Another Street")
-                .consentFileUrl("https://storage.example.com/consent2.pdf")
                 .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
@@ -128,7 +123,6 @@ class PatientMapperTest {
         assertThat(entity.getPhone()).isEqualTo("0700999888");
         assertThat(entity.getEmail()).isEqualTo("jane.smith@test.com");
         assertThat(entity.getAddress()).isEqualTo("456 Another Street");
-        assertThat(entity.getConsentFileUrl()).isEqualTo("https://storage.example.com/consent2.pdf");
         assertThat(entity.getRegistrationDate()).isEqualTo(dto.getRegistrationDate());
     }
 
@@ -176,7 +170,6 @@ class PatientMapperTest {
                 .phone("0700123456")
                 .email(null)
                 .address(null)
-                .consentFileUrl(null)
                 .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 
@@ -187,7 +180,6 @@ class PatientMapperTest {
         assertThat(entity).isNotNull();
         assertThat(entity.getEmail()).isNull();
         assertThat(entity.getAddress()).isNull();
-        assertThat(entity.getConsentFileUrl()).isNull();
     }
 
     // ========================================================================
@@ -217,7 +209,6 @@ class PatientMapperTest {
         assertThat(roundTrippedPatient.getPhone()).isEqualTo(originalPatient.getPhone());
         assertThat(roundTrippedPatient.getEmail()).isEqualTo(originalPatient.getEmail());
         assertThat(roundTrippedPatient.getAddress()).isEqualTo(originalPatient.getAddress());
-        assertThat(roundTrippedPatient.getConsentFileUrl()).isEqualTo(originalPatient.getConsentFileUrl());
         assertThat(roundTrippedPatient.getRegistrationDate()).isEqualTo(originalPatient.getRegistrationDate());
     }
 
@@ -236,7 +227,6 @@ class PatientMapperTest {
                 .phone("")
                 .email("")
                 .address("")
-                .consentFileUrl("")
                 .registrationDate(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
 

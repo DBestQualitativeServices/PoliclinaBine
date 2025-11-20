@@ -4,14 +4,14 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.dto.PatientFilterCriteria;
 import com.example.policlicabine.entity.Patient;
-import com.example.policlicabine.event.PatientConsentStatusChanged;
 import com.example.policlicabine.event.PatientPersonalInfoUpdated;
 import com.example.policlicabine.event.PatientRegistered;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
-import com.example.policlicabine.service.base.ServiceHelper;
 import com.example.policlicabine.specification.PatientSpecificationBuilder;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -71,6 +71,7 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     @Override
     protected void updateEntityFromDto(Patient entity, PatientDto dto) {
         // Update mutable fields only (NOT patientId or registrationDate)
+        // File relationships (consentFile, files) are managed separately via FileService
         if (dto.getFirstName() != null && !dto.getFirstName().trim().isEmpty()) {
             entity.setFirstName(dto.getFirstName().trim());
         }
@@ -86,16 +87,14 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (dto.getAddress() != null) {
             entity.setAddress(dto.getAddress().trim());
         }
-        if (dto.getConsentFileUrl() != null) {
-            entity.setConsentFileUrl(dto.getConsentFileUrl().trim());
-        }
     }
 
     /**
      * Registers a new patient with validation.
+     * Note: Consent is now managed via FormService (form-centric architecture).
      * @param firstName Required first name
      * @param lastName Required last name
-     * @param phone Required phone number (must be unique)
+     * @param phone Required phone number
      * @param email Optional email address
      * @param address Optional address
      * @return Result containing PatientDto or error message
@@ -114,16 +113,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 return Result.failure("Phone number is required");
             }
 
-            // Check for duplicate phone
-            if (patientRepository.existsByPhone(phone.trim())) {
-                return Result.failure("Patient with this phone number already exists");
-            }
-
-            // Check for duplicate email
-            if (email != null && patientRepository.existsByEmail(email.trim())) {
-                return Result.failure(ServiceHelper.alreadyExistsMessage("Patient", "email"));
-            }
-
             // Build and save patient
             Patient patient = Patient.builder()
                 .firstName(firstName.trim())
@@ -131,7 +120,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .phone(phone.trim())
                 .email(email != null ? email.trim() : null)
                 .address(address != null ? address.trim() : null)
-                .consentFileUrl(null)
                 .build();
 
             Patient savedPatient = patientRepository.save(patient);
@@ -205,41 +193,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         } catch (Exception e) {
             log.error("Error updating patient info", e);
             return Result.failure("Failed to update patient info: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Updates the consent file URL for a patient.
-     * @param patientId Patient identifier
-     * @param consentFileUrl URL to consent file
-     * @return Result containing updated PatientDto or error message
-     */
-    public Result<PatientDto> updateConsentFile(UUID patientId, String consentFileUrl) {
-        try {
-            if (patientId == null) {
-                return Result.failure("Patient ID is required");
-            }
-
-            Patient patient = patientRepository.findById(patientId)
-                .orElse(null);
-            if (patient == null) {
-                return Result.failure("Patient not found");
-            }
-
-            patient.setConsentFileUrl(consentFileUrl);
-            Patient savedPatient = patientRepository.save(patient);
-
-            // Publish consent status change event
-            eventPublisher.publishEvent(new PatientConsentStatusChanged(
-                patientId, savedPatient.hasConsentSigned()));
-
-            log.info("Patient consent file updated: {}", patientId);
-
-            return Result.success(patientMapper.toDto(savedPatient));
-
-        } catch (Exception e) {
-            log.error("Error updating consent file", e);
-            return Result.failure("Failed to update consent file: " + e.getMessage());
         }
     }
 

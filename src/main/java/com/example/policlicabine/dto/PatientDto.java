@@ -87,15 +87,6 @@ public class PatientDto {
     )
     private String address;
 
-    @Size(max = 500)
-    @Schema(
-            description = "URL to patient's consent file (if signed)",
-            example = "https://storage.policlicabine.com/consent/patient-123.pdf",
-            maxLength = 500,
-            accessMode = Schema.AccessMode.READ_ONLY
-    )
-    private String consentFileUrl;
-
     @Schema(
             description = "Timestamp when patient was registered in the system",
             example = "2025-01-15T10:30:00Z",
