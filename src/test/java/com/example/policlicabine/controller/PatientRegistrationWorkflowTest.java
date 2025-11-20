@@ -8,7 +8,7 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.entity.*;
-import com.example.policlicabine.event.PatientRegistered;
+import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.repository.*;
 import com.example.policlicabine.service.AppointmentSessionService;
 import com.example.policlicabine.service.PatientService;
@@ -164,13 +164,12 @@ class PatientRegistrationWorkflowTest {
         assertThat(persistedPatient.get().getFirstName()).isEqualTo("John");
         assertThat(persistedPatient.get().getPhone()).isEqualTo("0700123456");
 
-        // Verify PatientRegistered event was published
+        // Verify NewPatientRegisteredEvent event was published
         assertThat(eventListener.getPatientRegisteredEvents()).hasSize(1);
-        PatientRegistered event = eventListener.getPatientRegisteredEvents().get(0);
+        NewPatientRegisteredEvent event = eventListener.getPatientRegisteredEvents().get(0);
         assertThat(event.patientId()).isEqualTo(patientDto.getPatientId());
         assertThat(event.firstName()).isEqualTo("John");
         assertThat(event.lastName()).isEqualTo("Doe");
-        assertThat(event.phone()).isEqualTo("0700123456");
         assertThat(event.email()).isEqualTo("john.doe@test.com");
     }
 
@@ -361,14 +360,14 @@ class PatientRegistrationWorkflowTest {
      */
     public static class PatientTestEventListener {
 
-        private final List<PatientRegistered> patientRegisteredEvents = new ArrayList<>();
+        private final List<NewPatientRegisteredEvent> patientRegisteredEvents = new ArrayList<>();
 
         @EventListener
-        public void handlePatientRegistered(PatientRegistered event) {
+        public void handlePatientRegistered(NewPatientRegisteredEvent event) {
             patientRegisteredEvents.add(event);
         }
 
-        public List<PatientRegistered> getPatientRegisteredEvents() {
+        public List<NewPatientRegisteredEvent> getPatientRegisteredEvents() {
             return patientRegisteredEvents;
         }
 

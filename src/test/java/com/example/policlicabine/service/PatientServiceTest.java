@@ -5,7 +5,7 @@ import com.example.policlicabine.builder.PatientTestBuilder;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.entity.Patient;
-import com.example.policlicabine.event.PatientRegistered;
+import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
 import com.example.policlicabine.specification.PatientSpecificationBuilder;
@@ -108,10 +108,10 @@ class PatientServiceTest extends BaseServiceTest {
         verify(patientRepository).save(any(Patient.class));
 
         // Verify domain event was published
-        ArgumentCaptor<PatientRegistered> eventCaptor = ArgumentCaptor.forClass(PatientRegistered.class);
+        ArgumentCaptor<NewPatientRegisteredEvent> eventCaptor = ArgumentCaptor.forClass(NewPatientRegisteredEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
 
-        PatientRegistered event = eventCaptor.getValue();
+        NewPatientRegisteredEvent event = eventCaptor.getValue();
         assertThat(event.patientId()).isEqualTo(testPatient.getPatientId());
         assertThat(event.firstName()).isEqualTo("John");
         assertThat(event.lastName()).isEqualTo("Doe");

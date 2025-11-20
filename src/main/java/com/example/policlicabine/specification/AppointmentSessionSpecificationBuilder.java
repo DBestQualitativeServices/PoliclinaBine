@@ -171,7 +171,7 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
             if (completedAfter == null) {
                 return null;
             }
-            return cb.greaterThanOrEqualTo(root.get("actualCompletionTime"), completedAfter);
+            return cb.greaterThanOrEqualTo(root.get("completedAt"), completedAfter);
         };
     }
 
@@ -186,7 +186,7 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
             if (completedBefore == null) {
                 return null;
             }
-            return cb.lessThanOrEqualTo(root.get("actualCompletionTime"), completedBefore);
+            return cb.lessThanOrEqualTo(root.get("completedAt"), completedBefore);
         };
     }
 
@@ -219,7 +219,7 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
             if (consultationNames == null || consultationNames.isEmpty()) {
                 return null;
             }
-            Join<AppointmentSession, ConsultationType> consultationJoin = root.join("consultations");
+            Join<AppointmentSession, ConsultationType> consultationJoin = root.join("consultationTypes");
             return consultationJoin.get("name").in(consultationNames);
         };
     }

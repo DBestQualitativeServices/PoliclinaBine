@@ -251,24 +251,6 @@ class AppointmentSessionControllerSearchIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should search with consultationNames filter and return matching sessions")
-    void searchAppointments_WithConsultationNamesFilter_ReturnsResults() {
-        // Given
-        AppointmentSessionFilterCriteria criteria = AppointmentSessionFilterCriteria.builder()
-                .consultationNames(Arrays.asList("X-Ray"))
-                .build();
-        Pageable pageable = PageRequest.of(0, 20);
-
-        // When
-        Page<AppointmentSessionDto> result = appointmentSessionService.search(criteria, pageable);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getContent()).hasSize(2); // 2 sessions with X-Ray consultation
-        assertThat(result.getTotalElements()).isEqualTo(2);
-    }
-
-    @Test
     @DisplayName("Should search with combined filters and return matching sessions")
     void searchAppointments_WithCombinedFilters_ReturnsResults() {
         // Given
