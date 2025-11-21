@@ -35,12 +35,21 @@ public class FormValidationService {
 
             for (FormField field : section.getFields()) {
                 String fieldName = field.getName();
+                String displayName = getFieldDisplayName(field);
                 Object value = data.get(fieldName);
 
                 if (field.getRequired() != null && field.getRequired()) {
-                    if (value == null || value.toString().trim().isEmpty()) {
-                        errors.add("Field '" + field.getLabel() + "' is required");
-                        continue;
+                    // Special handling for checkbox type
+                    if ("checkbox".equals(field.getType())) {
+                        if (value == null || !Boolean.TRUE.equals(value)) {
+                            errors.add("Field '" + displayName + "' is required");
+                            continue;
+                        }
+                    } else {
+                        if (value == null || value.toString().trim().isEmpty()) {
+                            errors.add("Field '" + displayName + "' is required");
+                            continue;
+                        }
                     }
                 }
 
@@ -48,20 +57,20 @@ public class FormValidationService {
                     continue;
                 }
 
-                String valueStr = value.toString();
+                String valueStr = value.toString().trim();
 
                 if (field.getMinLength() != null && valueStr.length() < field.getMinLength()) {
-                    errors.add("Field '" + field.getLabel() + "' must be at least " + field.getMinLength() + " characters");
+                    errors.add("Field '" + displayName + "' must be at least " + field.getMinLength() + " characters");
                 }
 
                 if (field.getMaxLength() != null && valueStr.length() > field.getMaxLength()) {
-                    errors.add("Field '" + field.getLabel() + "' must not exceed " + field.getMaxLength() + " characters");
+                    errors.add("Field '" + displayName + "' must not exceed " + field.getMaxLength() + " characters");
                 }
 
                 if (field.getPattern() != null && !field.getPattern().trim().isEmpty()) {
                     try {
                         if (!Pattern.matches(field.getPattern(), valueStr)) {
-                            errors.add("Field '" + field.getLabel() + "' does not match required pattern");
+                            errors.add("Field '" + displayName + "' does not match required pattern");
                         }
                     } catch (Exception e) {
                         log.warn("Invalid regex pattern for field {}: {}", fieldName, field.getPattern());
@@ -70,7 +79,7 @@ public class FormValidationService {
 
                 if ("email".equals(field.getType())) {
                     if (!isValidEmail(valueStr)) {
-                        errors.add("Field '" + field.getLabel() + "' must be a valid email address");
+                        errors.add("Field '" + displayName + "' must be a valid email address");
                     }
                 }
 
@@ -80,23 +89,29 @@ public class FormValidationService {
                         if (field.getMin() != null) {
                             double min = Double.parseDouble(field.getMin());
                             if (numValue < min) {
-                                errors.add("Field '" + field.getLabel() + "' must be at least " + field.getMin());
+                                errors.add("Field '" + displayName + "' must be at least " + field.getMin());
                             }
                         }
                         if (field.getMax() != null) {
                             double max = Double.parseDouble(field.getMax());
                             if (numValue > max) {
-                                errors.add("Field '" + field.getLabel() + "' must not exceed " + field.getMax());
+                                errors.add("Field '" + displayName + "' must not exceed " + field.getMax());
                             }
                         }
                     } catch (NumberFormatException e) {
-                        errors.add("Field '" + field.getLabel() + "' must be a valid number");
+                        errors.add("Field '" + displayName + "' must be a valid number");
                     }
                 }
             }
         }
 
         return errors;
+    }
+
+    private String getFieldDisplayName(FormField field) {
+        return field.getLabel() != null && !field.getLabel().trim().isEmpty()
+                ? field.getLabel()
+                : field.getName();
     }
 
     private boolean isValidEmail(String email) {

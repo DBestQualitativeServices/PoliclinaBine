@@ -14,5 +14,7 @@ import java.util.List;
 public class FormStructure {
     private String formId;
     private String version;
+    private String title;
+    private String description;
     private List<FormSection> sections;
 }

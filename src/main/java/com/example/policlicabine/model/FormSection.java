@@ -12,7 +12,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FormSection {
-    private String name;
+    private String sectionId;
     private String title;
+    private String description;
     private List<FormField> fields;
+    @Builder.Default
+    private Boolean collapsible = false;
+    private Integer order;
 }

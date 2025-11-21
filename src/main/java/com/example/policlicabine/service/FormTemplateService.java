@@ -2,6 +2,7 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormTemplateDto;
+import com.example.policlicabine.dto.FormTemplateFilterCriteria;
 import com.example.policlicabine.entity.FormTemplate;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.FormPurpose;
@@ -9,10 +10,13 @@ import com.example.policlicabine.mapper.FormTemplateMapper;
 import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.repository.FormTemplateRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.specification.FormTemplateSpecificationBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,19 +31,18 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
 
     private final FormTemplateRepository formTemplateRepository;
     private final FormTemplateMapper formTemplateMapper;
-    private final ApplicationEventPublisher eventPublisher;
-    private final UserService userService;
+    private final FormTemplateSpecificationBuilder specificationBuilder;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public FormTemplateService(FormTemplateRepository repository, FormTemplateMapper mapper,
-                               ApplicationEventPublisher eventPublisher, UserService userService) {
+                               FormTemplateSpecificationBuilder specificationBuilder) {
         super(repository, mapper);
         this.formTemplateRepository = repository;
         this.formTemplateMapper = mapper;
-        this.eventPublisher = eventPublisher;
-        this.userService = userService;
+
+        this.specificationBuilder = specificationBuilder;
     }
 
     @Override
@@ -63,6 +66,16 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
         if (dto.getValidityMonths() != null) {
             entity.setValidityMonths(dto.getValidityMonths());
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Result<FormTemplateDto> findById(UUID id) {
+        FormTemplate template = formTemplateRepository.findById(id).orElse(null);
+        if (template == null || template.getIsDeleted()) {
+            return Result.failure("FormTemplate not found");
+        }
+        return Result.success(formTemplateMapper.toDto(template));
     }
 
     @Transactional
@@ -154,6 +167,50 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
         return Result.success(templates.stream()
                 .map(formTemplateMapper::toDto)
                 .collect(Collectors.toList()));
+    }
+
+    /**
+     * Searches form templates with dynamic filtering, pagination, and sorting.
+     *
+     * This method uses JPA Specifications for building dynamic queries based on
+     * the provided filter criteria. All filters are optional and combined with AND logic.
+     *
+     * Supported filters:
+     * - code, name - partial match, case-insensitive
+     * - purpose - exact match (enum)
+     * - active, isDeleted - boolean filters
+     * - createdAfter, createdBefore - date range filtering
+     * - createdByUserId - filter by creator user
+     *
+     * @param criteria filter criteria (all fields optional)
+     * @param pageable pagination and sorting parameters
+     * @return Page of FormTemplateDto with pagination metadata
+     */
+    @Transactional(readOnly = true)
+    public Page<FormTemplateDto> search(FormTemplateFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching form templates with criteria: {} and pageable: {}", criteria, pageable);
+
+        try {
+            // Build dynamic specification from filter criteria
+            Specification<FormTemplate> spec = specificationBuilder.build(criteria);
+
+            // Execute query with pagination
+            Page<FormTemplate> entityPage = formTemplateRepository.findAll(spec, pageable);
+
+            // Map entities to DTOs using Spring's Page.map()
+            Page<FormTemplateDto> dtoPage = entityPage.map(formTemplateMapper::toDto);
+
+            log.info("FormTemplate search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+
+        } catch (Exception e) {
+            log.error("Error searching form templates with criteria: {}", criteria, e);
+            return Page.empty();
+        }
     }
 
     @Transactional(readOnly = true)

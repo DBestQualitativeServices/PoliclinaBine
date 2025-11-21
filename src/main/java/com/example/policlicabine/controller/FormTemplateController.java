@@ -2,10 +2,15 @@ package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormTemplateDto;
+import com.example.policlicabine.dto.FormTemplateFilterCriteria;
 import com.example.policlicabine.entity.enums.FormPurpose;
 import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.service.FormTemplateService;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,6 +73,19 @@ public class FormTemplateController {
         }
 
         return ResponseEntity.ok(result.getValue());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<FormTemplateDto>> searchFormTemplates(
+            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+            @ModelAttribute FormTemplateFilterCriteria criteria,
+
+            @Parameter(description = "Pagination and sorting parameters")
+            @PageableDefault(size = 20, sort = "createdAt")
+            Pageable pageable
+    ) {
+        Page<FormTemplateDto> result = formTemplateService.search(criteria, pageable);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/purpose/{purpose}")

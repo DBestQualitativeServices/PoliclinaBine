@@ -1,8 +1,8 @@
 package com.example.policlicabine.repository;
 
+import com.example.policlicabine.common.repository.FilterableRepository;
 import com.example.policlicabine.entity.FormTemplate;
 import com.example.policlicabine.entity.enums.FormPurpose;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface FormTemplateRepository extends JpaRepository<FormTemplate, UUID> {
+public interface FormTemplateRepository extends FilterableRepository<FormTemplate, UUID> {
 
     Optional<FormTemplate> findByCode(String code);
 

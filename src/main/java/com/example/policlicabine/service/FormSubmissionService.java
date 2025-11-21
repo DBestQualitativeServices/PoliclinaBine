@@ -68,6 +68,16 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Result<FormSubmissionDto> findById(UUID id) {
+        FormSubmission submission = formSubmissionRepository.findWithDetailsById(id).orElse(null);
+        if (submission == null || submission.getIsDeleted()) {
+            return Result.failure("FormSubmission not found");
+        }
+        return Result.success(formSubmissionMapper.toDto(submission));
+    }
+
     @Transactional
     public Result<FormSubmissionDto> submitForm(UUID templateId, UUID patientId, Map<String, Object> data,
                                                  UUID appointmentSessionId, UUID consultationTypeId, UUID submittedByUserId) {
@@ -210,13 +220,18 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
             return Result.failure("Form submission not found");
         }
 
-        File file = entityManager.getReference(File.class, fileId);
-        submission.attachFile(file);
+        try {
+            File file = entityManager.getReference(File.class, fileId);
+            file.getId(); // Force proxy initialization to check existence
+            submission.attachFile(file);
 
-        FormSubmission saved = formSubmissionRepository.save(submission);
-        log.info("File {} attached to submission {}", fileId, submissionId);
+            FormSubmission saved = formSubmissionRepository.save(submission);
+            log.info("File {} attached to submission {}", fileId, submissionId);
 
-        return Result.success(formSubmissionMapper.toDto(saved));
+            return Result.success(formSubmissionMapper.toDto(saved));
+        } catch (Exception e) {
+            return Result.failure("File not found or invalid");
+        }
     }
 
     @Transactional(readOnly = true)
