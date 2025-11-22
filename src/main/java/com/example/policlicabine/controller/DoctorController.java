@@ -2,6 +2,7 @@ package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.DoctorDto;
+import com.example.policlicabine.dto.DoctorFilterCriteria;
 import com.example.policlicabine.dto.ErrorResponse;
 import com.example.policlicabine.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -144,6 +149,37 @@ public class DoctorController {
         Result<List<DoctorDto>> result = doctorService.findAll();
 
         return ResponseEntity.ok(result.getValue());
+    }
+
+    @Operation(
+            summary = "Search doctors with filters",
+            description = """
+                    Searches and filters doctors with pagination and sorting support.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "Paginated doctor results with metadata"
+    )
+    @GetMapping("/search")
+    public ResponseEntity<Page<DoctorDto>> searchDoctors(
+            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+            @ModelAttribute DoctorFilterCriteria criteria,
+            @ParameterObject
+            @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
+            @PageableDefault(size = 20, sort = "user.fullName")
+            Pageable pageable
+    ) {
+        log.info("REST: Searching doctors with criteria: {} and pageable: {}", criteria, pageable);
+
+        Page<DoctorDto> result = doctorService.search(criteria, pageable);
+
+        log.info("REST: Doctor search returned {} results (page {}/{})",
+                result.getNumberOfElements(),
+                result.getNumber() + 1,
+                result.getTotalPages());
+
+        return ResponseEntity.ok(result);
     }
 
     @Operation(

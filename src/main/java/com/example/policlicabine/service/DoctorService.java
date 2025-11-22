@@ -3,6 +3,7 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.DoctorDto;
+import com.example.policlicabine.dto.DoctorFilterCriteria;
 import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.Doctor;
 import com.example.policlicabine.entity.User;
@@ -12,8 +13,12 @@ import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.mapper.DoctorMapper;
 import com.example.policlicabine.repository.DoctorRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.specification.DoctorSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,13 +61,15 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
     private final DoctorMapper doctorMapper;
     private final ConsultationTypeMapper consultationMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final DoctorSpecificationBuilder specificationBuilder;
 
     public DoctorService(DoctorRepository doctorRepository,
                         UserService userService,
                         ConsultationService consultationService,
                         DoctorMapper doctorMapper,
                         ConsultationTypeMapper consultationMapper,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        DoctorSpecificationBuilder specificationBuilder) {
         super(doctorRepository, doctorMapper);
         this.doctorRepository = doctorRepository;
         this.userService = userService;
@@ -70,6 +77,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         this.doctorMapper = doctorMapper;
         this.consultationMapper = consultationMapper;
         this.eventPublisher = eventPublisher;
+        this.specificationBuilder = specificationBuilder;
     }
 
     @Override
@@ -247,6 +255,54 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         } catch (Exception e) {
             log.error("Error finding doctors by specialty", e);
             return Result.failure("Failed to find doctors: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Searches doctors with dynamic filtering, pagination, and sorting.
+     * <p>
+     * This method uses Spring Data JPA Specifications for building dynamic queries
+     * based on the provided filter criteria. All filters are optional and combined
+     * with AND logic.
+     * </p>
+     * <p>
+     * Supported filters:
+     * <ul>
+     *   <li>fullName - partial match on doctor's user full name, case-insensitive</li>
+     *   <li>specialty - exact match on specialty enum</li>
+     *   <li>enabled - boolean filter for user enabled status</li>
+     *   <li>createdAfter, createdBefore - date range filtering on user creation date</li>
+     * </ul>
+     * </p>
+     *
+     * @param criteria filter criteria (all fields optional)
+     * @param pageable pagination and sorting parameters
+     * @return Page of DoctorDto with pagination metadata
+     */
+    @Transactional(readOnly = true)
+    public Page<DoctorDto> search(DoctorFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching doctors with criteria: {} and pageable: {}", criteria, pageable);
+
+        try {
+            // Build dynamic specification from filter criteria
+            Specification<Doctor> spec = specificationBuilder.build(criteria);
+
+            // Execute query with pagination
+            Page<Doctor> entityPage = doctorRepository.findAll(spec, pageable);
+
+            // Map entities to DTOs using Spring's Page.map()
+            Page<DoctorDto> dtoPage = entityPage.map(this::toDto);
+
+            log.info("Doctor search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+
+        } catch (Exception e) {
+            log.error("Error searching doctors with criteria: {}", criteria, e);
+            throw new RuntimeException("Failed to search doctors: " + e.getMessage(), e);
         }
     }
 
