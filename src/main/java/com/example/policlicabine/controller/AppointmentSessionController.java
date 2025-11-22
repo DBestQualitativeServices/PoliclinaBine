@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -220,7 +221,7 @@ public class AppointmentSessionController {
     public ResponseEntity<Page<AppointmentSessionDto>> searchAppointments(
             @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
             @ModelAttribute AppointmentSessionFilterCriteria criteria,
-
+            @ParameterObject
             @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
             @PageableDefault(size = 20, sort = "scheduledDateTime", direction = org.springframework.data.domain.Sort.Direction.DESC)
             Pageable pageable

@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -175,7 +176,7 @@ public class PatientController {
     public ResponseEntity<Page<PatientDto>> searchPatients(
             @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
             @ModelAttribute PatientFilterCriteria criteria,
-
+            @ParameterObject
             @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
             @PageableDefault(size = 20, sort = "registrationDate")
             Pageable pageable
