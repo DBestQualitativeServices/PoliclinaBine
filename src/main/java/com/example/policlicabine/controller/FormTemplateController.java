@@ -8,6 +8,7 @@ import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.service.FormTemplateService;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -79,7 +80,7 @@ public class FormTemplateController {
     public ResponseEntity<Page<FormTemplateDto>> searchFormTemplates(
             @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
             @ModelAttribute FormTemplateFilterCriteria criteria,
-
+            @ParameterObject
             @Parameter(description = "Pagination and sorting parameters")
             @PageableDefault(size = 20, sort = "createdAt")
             Pageable pageable

@@ -23,6 +23,7 @@ public class FormTemplateDto {
     private FormStructure structure;
     private FormPurpose purpose;
     private Integer validityMonths;
+    private String pdfTemplateUrl;
     private LocalDateTime createdAt;
     private UUID createdByUserId;
 }

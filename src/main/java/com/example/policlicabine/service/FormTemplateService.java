@@ -57,14 +57,23 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
 
     @Override
     protected void updateEntityFromDto(FormTemplate entity, FormTemplateDto dto) {
+        boolean hasChanges = false;
+
         if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
             entity.setName(dto.getName().trim());
+            hasChanges = true;
         }
         if (dto.getStructure() != null) {
             entity.setStructure(dto.getStructure());
+            hasChanges = true;
         }
         if (dto.getValidityMonths() != null) {
             entity.setValidityMonths(dto.getValidityMonths());
+            hasChanges = true;
+        }
+
+        if (hasChanges) {
+            entity.setVersion(entity.getVersion() + 1);
         }
     }
 
