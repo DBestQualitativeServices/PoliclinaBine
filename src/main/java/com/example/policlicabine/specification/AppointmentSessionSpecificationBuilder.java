@@ -110,7 +110,7 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
     }
 
     /**
-     * Filter by doctor name (case-insensitive partial match on doctor's user full name).
+     * Filter by doctor name (case-insensitive partial match on doctor's full name).
      *
      * @param doctorName the doctor name to search for (can be null)
      * @return specification or null if doctorName is null/blank
@@ -121,10 +121,9 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
                 return null;
             }
             Join<AppointmentSession, Doctor> doctorJoin = root.join("doctor");
-            Join<Doctor, User> userJoin = doctorJoin.join("user");
 
             return cb.like(
-                    cb.lower(userJoin.get("fullName")),
+                    cb.lower(doctorJoin.get("fullName")),
                     "%" + doctorName.trim().toLowerCase() + "%"
             );
         };

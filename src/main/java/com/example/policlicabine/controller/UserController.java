@@ -27,13 +27,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * REST Controller for User Management Operations.
- *
- * Provides CRUD endpoints for system user creation, retrieval,
- * update, and deletion. All operations use the UserService
- * for business logic.
- */
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -46,31 +39,6 @@ public class UserController {
 
     private final UserService userService;
 
-    @Operation(
-            summary = "Create a new user",
-            description = """
-                    Creates a new system user account.
-
-                    **Business Rules:**
-                    - Username must be unique
-                    - Password is required (will be hashed)
-                    - Role must be valid (ADMIN, DOCTOR, RECEPTIONIST)
-                    - Email must be unique (if provided)
-                    - Publishes UserCreated domain event on success
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "User created successfully",
-                    content = @Content(schema = @Schema(implementation = UserDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid input data or duplicate username/email",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @PostMapping
     public ResponseEntity<?> createUser(
             @Valid @RequestBody UserDto userDto,
@@ -80,8 +48,7 @@ public class UserController {
 
         Result<UserDto> result = userService.createUser(
                 userDto.getUsername(),
-                userDto.getFullName(),
-                userDto.getRole()
+                userDto.getRoles()
         );
 
         if (result.isSuccess()) {
@@ -97,22 +64,6 @@ public class UserController {
         }
     }
 
-    @Operation(
-            summary = "Get user by ID",
-            description = "Retrieves a user's profile by their unique UUID identifier"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "User found",
-                    content = @Content(schema = @Schema(implementation = UserDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @GetMapping("/{userId}")
     public ResponseEntity<?> getUser(
             @Parameter(description = "User UUID", required = true)
@@ -136,41 +87,6 @@ public class UserController {
         }
     }
 
-    @Operation(
-            summary = "Search users with filters",
-            description = """
-                    Searches and filters users with pagination and sorting support.
-
-                    **Query Parameter Format:**
-                    All parameters are flat query parameters (no nesting required).
-                    Simply append filters and pagination params directly to the URL.
-
-                    **Filter Options (all optional):**
-                    - `username` - Partial match, case-insensitive (e.g., "joh" matches "john.doe")
-                    - `fullName` - Partial match, case-insensitive (e.g., "doe" matches "John Doe")
-                    - `role` - Exact match (values: DOCTOR, RECEPTIONIST, ADMIN)
-                    - `enabled` - Boolean: true = enabled users, false = disabled users
-                    - `accountNonLocked` - Boolean: true = unlocked accounts, false = locked accounts
-                    - `createdAfter` - Filter users created on or after this date (ISO 8601 format)
-                    - `createdBefore` - Filter users created on or before this date (ISO 8601 format)
-
-                    **Pagination Parameters:**
-                    - `page` - Page number (0-indexed, default: 0)
-                    - `size` - Page size (default: 20, max: 100)
-                    - `sort` - Sort criteria (e.g., "username,asc" or "createdAt,desc")
-
-                    **Examples:**
-                    - `/api/users/search?username=john&page=0&size=10`
-                    - `/api/users/search?role=DOCTOR&sort=username,asc`
-                    - `/api/users/search?enabled=true&accountNonLocked=true`
-                    - `/api/users/search?fullName=doe&role=DOCTOR&page=1&size=50`
-                    - `/api/users/search?createdAfter=2025-01-01T00:00:00Z&createdBefore=2025-12-31T23:59:59Z`
-                    """
-    )
-    @ApiResponse(
-            responseCode = "200",
-            description = "Paginated user results with metadata"
-    )
     @GetMapping("/search")
     public ResponseEntity<Page<UserDto>> searchUsers(
             @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
@@ -192,14 +108,6 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
-    @Operation(
-            summary = "Get all users",
-            description = "Retrieves a list of all system users"
-    )
-    @ApiResponse(
-            responseCode = "200",
-            description = "List of users retrieved successfully"
-    )
     @GetMapping
     public ResponseEntity<List<UserDto>> getAllUsers() {
         log.info("REST: Getting all users");
@@ -209,40 +117,6 @@ public class UserController {
         return ResponseEntity.ok(result.getValue());
     }
 
-    @Operation(
-            summary = "Update user information",
-            description = """
-                    Updates mutable fields of an existing user account.
-
-                    **Mutable Fields:**
-                    - Password (will be hashed)
-                    - Email
-                    - Role
-                    - Is active status
-
-                    **Immutable Fields:**
-                    - User ID
-                    - Username (cannot be changed after creation)
-                    - Created timestamp
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "User updated successfully",
-                    content = @Content(schema = @Schema(implementation = UserDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid input data",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @PutMapping("/{userId}")
     public ResponseEntity<?> updateUser(
             @Parameter(description = "User UUID", required = true)
@@ -271,23 +145,6 @@ public class UserController {
         }
     }
 
-    @Operation(
-            summary = "Delete user",
-            description = """
-                    Permanently deletes a user account from the system.
-
-                    **Warning:** This operation cannot be undone.
-                    Use with caution and ensure proper authorization.
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "User deleted successfully"),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @DeleteMapping("/{userId}")
     public ResponseEntity<?> deleteUser(
             @Parameter(description = "User UUID", required = true)

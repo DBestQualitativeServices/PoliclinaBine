@@ -34,29 +34,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // Enable CORS with default configuration (uses CorsConfig bean)
                 .cors(withDefaults())
                 .authorizeHttpRequests(authorize -> authorize
-                        // Public endpoints - no authentication required
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/security/log",  // Security audit logging from frontend
-                                "/api/files/*/download",  // TODO: File download endpoint (temporary - will use pre-signed URLs later)
+                                "/api/security/log",
+                                "/api/files/*/download",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/h2-console/**"
                         ).permitAll()
-                        // Actuator endpoints - role-based access control
-                        .requestMatchers("/actuator/auditevents").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers("/actuator/**").hasRole("ADMIN")
-                        // Role-based authorization
-                        .requestMatchers("/api/admin/**").hasRole("MANAGER")
-                        .requestMatchers("/api/doctor/**").hasAnyRole("DOCTOR", "MANAGER")
-                        .requestMatchers("/api/receptionist/**").hasAnyRole("RECEPTIONIST", "MANAGER")
-                        .requestMatchers("/api/files/**").hasAnyRole("DOCTOR", "RECEPTIONIST", "MANAGER", "ADMIN")
-                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -65,7 +54,6 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // Allow H2 console frames (for development only)
         http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();

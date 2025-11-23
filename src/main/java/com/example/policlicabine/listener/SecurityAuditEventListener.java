@@ -17,18 +17,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
-/**
- * Event listener for security-related domain events.
- * Automatically logs security events to the audit trail.
- *
- * <p>Dual tracking:
- * <ul>
- *   <li>Database: Via SecurityAuditService (persistent audit trail)</li>
- *   <li>Azure Application Insights: For real-time monitoring and analytics</li>
- * </ul>
- *
- * Listens to existing security events and creates audit log entries asynchronously.
- */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -39,9 +27,6 @@ public class SecurityAuditEventListener {
     @Autowired(required = false)
     private ApplicationInsightsService appInsightsService;
 
-    /**
-     * Listen to UserAuthenticated events (successful login).
-     */
     @EventListener
     public void onUserAuthenticated(UserAuthenticated event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -57,9 +42,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Listen to UserRegistered events.
-     */
     @EventListener
     public void onUserRegistered(UserRegistered event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -67,7 +49,7 @@ public class SecurityAuditEventListener {
             .severity(AuditSeverity.INFO)
             .principal(event.username())
             .userId(event.userId().toString())
-            .userRole(event.role().name())
+            .userRole(event.roles().stream().findFirst().map(Enum::name).orElse("UNKNOWN"))
             .timestamp(OffsetDateTime.now(ZoneOffset.UTC))
             .reason("New user registered in the system")
             .build();
@@ -75,9 +57,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Listen to UserCreated events.
-     */
     @EventListener
     public void onUserCreated(UserCreated event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -85,7 +64,7 @@ public class SecurityAuditEventListener {
             .severity(AuditSeverity.INFO)
             .principal(event.username())
             .userId(event.userId().toString())
-            .userRole(event.role().name())
+            .userRole(event.roles().stream().findFirst().map(Enum::name).orElse("UNKNOWN"))
             .timestamp(OffsetDateTime.now(ZoneOffset.UTC))
             .reason("User account created")
             .build();
@@ -93,9 +72,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Listen to PasswordChanged events.
-     */
     @EventListener
     public void onPasswordChanged(PasswordChanged event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -110,9 +86,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Listen to PasswordResetInitiated events.
-     */
     @EventListener
     public void onPasswordResetInitiated(PasswordResetInitiated event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -127,9 +100,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Listen to PasswordReset events (completion).
-     */
     @EventListener
     public void onPasswordReset(PasswordReset event) {
         SecurityAuditLogDto auditLog = SecurityAuditLogDto.builder()
@@ -144,11 +114,6 @@ public class SecurityAuditEventListener {
         logToAuditTrail(auditLog);
     }
 
-    /**
-     * Helper method to log security events to both database and Application Insights.
-     *
-     * @param auditLogDto The audit log DTO to persist and track
-     */
     private void logToAuditTrail(SecurityAuditLogDto auditLogDto) {
         // Log to database (persistent audit trail) and get saved entity
         SecurityAuditLog savedLog = auditService.logEventAndReturnEntity(auditLogDto);

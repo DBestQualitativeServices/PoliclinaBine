@@ -5,7 +5,7 @@ import com.example.policlicabine.entity.Patient;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface PatientMapper {
 
     PatientDto toDto(Patient patient);

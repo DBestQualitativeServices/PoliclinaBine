@@ -78,14 +78,12 @@ class FileServiceTest {
         // Setup test user
         testUser = User.builder()
                 .username("doctor1")
-                .fullName("Dr. John Doe")
                 .build();
         testUser.setUserId(UUID.randomUUID());
 
         testUserDto = UserDto.builder()
                 .userId(testUser.getUserId())
                 .username("doctor1")
-                .fullName("Dr. John Doe")
                 .build();
 
         // Setup test file

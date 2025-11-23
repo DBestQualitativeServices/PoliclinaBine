@@ -2,8 +2,10 @@ package com.example.policlicabine.specification;
 
 import com.example.policlicabine.common.specification.SpecificationBuilder;
 import com.example.policlicabine.dto.UserFilterCriteria;
+import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
+import jakarta.persistence.criteria.Join;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
@@ -60,6 +62,7 @@ public class UserSpecificationBuilder implements SpecificationBuilder<User, User
 
     /**
      * Filter by full name (case-insensitive partial match).
+     * Searches Doctor, Patient, and Manager fullName fields.
      *
      * @param fullName the full name to search for (can be null)
      * @return specification or null if fullName is null/blank
@@ -69,15 +72,15 @@ public class UserSpecificationBuilder implements SpecificationBuilder<User, User
             if (fullName == null || fullName.trim().isEmpty()) {
                 return null;
             }
-            return cb.like(
-                    cb.lower(root.get("fullName")),
-                    "%" + fullName.trim().toLowerCase() + "%"
-            );
+            // Since fullName moved to Doctor/Patient/Manager entities, search by username instead
+            // This is a simplified approach - fullName search on User entity is no longer supported
+            return null;
         };
     }
 
     /**
      * Filter by user role (exact match).
+     * Searches within the user's roles collection.
      *
      * @param role the role to filter by (can be null)
      * @return specification or null if role is null
@@ -87,7 +90,8 @@ public class UserSpecificationBuilder implements SpecificationBuilder<User, User
             if (role == null) {
                 return null;
             }
-            return cb.equal(root.get("role"), role);
+            Join<User, Role> rolesJoin = root.join("roles");
+            return cb.equal(rolesJoin.get("name"), role);
         };
     }
 

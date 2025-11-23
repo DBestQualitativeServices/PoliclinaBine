@@ -1,12 +1,13 @@
 package com.example.policlicabine.entity;
 
-import com.example.policlicabine.entity.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -21,20 +22,24 @@ import java.util.UUID;
 public class User {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "UUID")
     private UUID userId;
 
     @Column(nullable = false, unique = true)
     private String username;
 
-    private String fullName;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserRole role;
-
     @Column(nullable = true)
     private String password;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @Builder.Default
+    private Set<Role> roles = new HashSet<>();
 
     @Column(nullable = false)
     private boolean enabled = true;
@@ -48,11 +53,18 @@ public class User {
     @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime lastLogin;
 
+    public void addRole(Role role) {
+        roles.add(role);
+        role.getUsers().add(this);
+    }
+
+    public void removeRole(Role role) {
+        roles.remove(role);
+        role.getUsers().remove(this);
+    }
+
     @PrePersist
-    void generateId() {
-        if (userId == null) {
-            userId = UUID.randomUUID();
-        }
+    void generateTimestamp() {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now(ZoneOffset.UTC);
         }
@@ -76,8 +88,7 @@ public class User {
         return "User{" +
                 "userId=" + userId +
                 ", username='" + username + '\'' +
-                ", fullName='" + fullName + '\'' +
-                ", role=" + role +
+                ", roles=" + roles.size() +
                 ", enabled=" + enabled +
                 ", accountNonLocked=" + accountNonLocked +
                 ", createdAt=" + createdAt +

@@ -27,13 +27,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * REST Controller for Doctor Management Operations.
- *
- * Provides CRUD endpoints for doctor profile creation, retrieval,
- * update, and deletion. All operations use the DoctorService
- * for business logic.
- */
 @RestController
 @RequestMapping("/api/doctors")
 @RequiredArgsConstructor
@@ -46,29 +39,6 @@ public class DoctorController {
 
     private final DoctorService doctorService;
 
-    @Operation(
-            summary = "Create a new doctor profile",
-            description = """
-                    Creates a new doctor profile linked to a user account.
-
-                    **Business Rules:**
-                    - User must exist before creating doctor profile
-                    - Specialty and license number are required
-                    - Publishes DoctorProfileCreated domain event on success
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Doctor profile created successfully",
-                    content = @Content(schema = @Schema(implementation = DoctorDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid input data or user not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @PostMapping
     public ResponseEntity<?> createDoctor(
             @Valid @RequestBody DoctorDto doctorDto,
@@ -79,6 +49,7 @@ public class DoctorController {
 
         Result<DoctorDto> result = doctorService.createDoctor(
                 doctorDto.getUserId(),
+                doctorDto.getFullName(),
                 doctorDto.getSpecialties()
         );
 
@@ -95,22 +66,6 @@ public class DoctorController {
         }
     }
 
-    @Operation(
-            summary = "Get doctor by ID",
-            description = "Retrieves a doctor's full profile including user information and availability"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Doctor found",
-                    content = @Content(schema = @Schema(implementation = DoctorDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Doctor not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @GetMapping("/{doctorId}")
     public ResponseEntity<?> getDoctor(
             @Parameter(description = "Doctor UUID", required = true)
@@ -134,14 +89,6 @@ public class DoctorController {
         }
     }
 
-    @Operation(
-            summary = "Get all doctors",
-            description = "Retrieves a list of all doctors in the system"
-    )
-    @ApiResponse(
-            responseCode = "200",
-            description = "List of doctors retrieved successfully"
-    )
     @GetMapping
     public ResponseEntity<List<DoctorDto>> getAllDoctors() {
         log.info("REST: Getting all doctors");
@@ -151,23 +98,13 @@ public class DoctorController {
         return ResponseEntity.ok(result.getValue());
     }
 
-    @Operation(
-            summary = "Search doctors with filters",
-            description = """
-                    Searches and filters doctors with pagination and sorting support.
-                    """
-    )
-    @ApiResponse(
-            responseCode = "200",
-            description = "Paginated doctor results with metadata"
-    )
     @GetMapping("/search")
     public ResponseEntity<Page<DoctorDto>> searchDoctors(
             @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
             @ModelAttribute DoctorFilterCriteria criteria,
             @ParameterObject
             @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
-            @PageableDefault(size = 20, sort = "user.fullName")
+            @PageableDefault(size = 20, sort = "user.username")
             Pageable pageable
     ) {
         log.info("REST: Searching doctors with criteria: {} and pageable: {}", criteria, pageable);
@@ -182,40 +119,6 @@ public class DoctorController {
         return ResponseEntity.ok(result);
     }
 
-    @Operation(
-            summary = "Update doctor information",
-            description = """
-                    Updates mutable fields of an existing doctor profile.
-
-                    **Mutable Fields:**
-                    - Specialty
-                    - License number
-                    - Years of experience
-                    - Bio
-
-                    **Immutable Fields:**
-                    - Doctor ID
-                    - User relationship
-                    - Created timestamp
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Doctor updated successfully",
-                    content = @Content(schema = @Schema(implementation = DoctorDto.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Doctor not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid input data",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @PutMapping("/{doctorId}")
     public ResponseEntity<?> updateDoctor(
             @Parameter(description = "Doctor UUID", required = true)
@@ -244,23 +147,6 @@ public class DoctorController {
         }
     }
 
-    @Operation(
-            summary = "Delete doctor",
-            description = """
-                    Permanently deletes a doctor profile from the system.
-
-                    **Warning:** This operation cannot be undone.
-                    Use with caution and ensure proper authorization.
-                    """
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Doctor deleted successfully"),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Doctor not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))
-            )
-    })
     @DeleteMapping("/{doctorId}")
     public ResponseEntity<?> deleteDoctor(
             @Parameter(description = "Doctor UUID", required = true)

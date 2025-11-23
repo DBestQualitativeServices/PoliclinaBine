@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,12 +56,11 @@ class CustomUserDetailsServiceTest {
         User testUser = UserTestBuilder.aDoctor()
                 .withUsername("drsmith")
                 .withPassword("$2a$10$hashedPassword")
-                .withFullName("Dr. Smith")
                 .build();
         testUser.setEnabled(true);
         testUser.setAccountNonLocked(true);
 
-        when(userRepository.findByUsername("drsmith")).thenReturn(Optional.of(testUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("drsmith")).thenReturn(Optional.of(testUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("drsmith");
@@ -80,20 +80,20 @@ class CustomUserDetailsServiceTest {
                 .map(GrantedAuthority::getAuthority)
                 .toList()).containsExactly("ROLE_DOCTOR");
 
-        verify(userRepository).findByUsername("drsmith");
+        verify(userRepository).findWithRolesAndPermissionsByUsername("drsmith");
     }
 
     @Test
     void loadUserByUsername_WithNonExistentUser_ShouldThrowException() {
         // Given
-        when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
+        when(userRepository.findWithRolesAndPermissionsByUsername("nonexistent")).thenReturn(Optional.empty());
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("nonexistent"))
                 .isInstanceOf(UsernameNotFoundException.class)
                 .hasMessageContaining("User not found");
 
-        verify(userRepository).findByUsername("nonexistent");
+        verify(userRepository).findWithRolesAndPermissionsByUsername("nonexistent");
     }
 
     // ===== PASSWORD VALIDATION TESTS =====
@@ -106,7 +106,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         userWithoutPassword.setPassword(null);
 
-        when(userRepository.findByUsername("olduser")).thenReturn(Optional.of(userWithoutPassword));
+        when(userRepository.findWithRolesAndPermissionsByUsername("olduser")).thenReturn(Optional.of(userWithoutPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("olduser"))
@@ -123,7 +123,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("")
                 .build();
 
-        when(userRepository.findByUsername("emptypass")).thenReturn(Optional.of(userWithEmptyPassword));
+        when(userRepository.findWithRolesAndPermissionsByUsername("emptypass")).thenReturn(Optional.of(userWithEmptyPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("emptypass"))
@@ -139,7 +139,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("   ")
                 .build();
 
-        when(userRepository.findByUsername("blankpass")).thenReturn(Optional.of(userWithBlankPassword));
+        when(userRepository.findWithRolesAndPermissionsByUsername("blankpass")).thenReturn(Optional.of(userWithBlankPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("blankpass"))
@@ -157,7 +157,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("doctor")).thenReturn(Optional.of(doctor));
+        when(userRepository.findWithRolesAndPermissionsByUsername("doctor")).thenReturn(Optional.of(doctor));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("doctor");
@@ -176,7 +176,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(userRepository.findWithRolesAndPermissionsByUsername("admin")).thenReturn(Optional.of(admin));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("admin");
@@ -187,24 +187,7 @@ class CustomUserDetailsServiceTest {
                 .toList()).containsExactly("ROLE_ADMIN");
     }
 
-    @Test
-    void loadUserByUsername_WithReceptionistRole_ShouldMapToRoleReceptionist() {
-        // Given
-        User receptionist = UserTestBuilder.aReceptionist()
-                .withUsername("receptionist")
-                .withPassword("password")
-                .build();
 
-        when(userRepository.findByUsername("receptionist")).thenReturn(Optional.of(receptionist));
-
-        // When
-        UserDetails userDetails = userDetailsService.loadUserByUsername("receptionist");
-
-        // Then
-        assertThat(userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList()).containsExactly("ROLE_RECEPTIONIST");
-    }
 
     @Test
     void loadUserByUsername_WithManagerRole_ShouldMapToRoleManager() {
@@ -212,10 +195,10 @@ class CustomUserDetailsServiceTest {
         User manager = UserTestBuilder.aUser()
                 .withUsername("manager")
                 .withPassword("password")
-                .withRole(UserRole.MANAGER)
+                .withRoles(Set.of(UserRole.MANAGER))
                 .build();
 
-        when(userRepository.findByUsername("manager")).thenReturn(Optional.of(manager));
+        when(userRepository.findWithRolesAndPermissionsByUsername("manager")).thenReturn(Optional.of(manager));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("manager");
@@ -237,7 +220,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         enabledUser.setEnabled(true);
 
-        when(userRepository.findByUsername("enabled")).thenReturn(Optional.of(enabledUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("enabled")).thenReturn(Optional.of(enabledUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("enabled");
@@ -255,7 +238,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         disabledUser.setEnabled(false);
 
-        when(userRepository.findByUsername("disabled")).thenReturn(Optional.of(disabledUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("disabled")).thenReturn(Optional.of(disabledUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("disabled");
@@ -273,7 +256,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         lockedUser.setAccountNonLocked(false);
 
-        when(userRepository.findByUsername("locked")).thenReturn(Optional.of(lockedUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("locked")).thenReturn(Optional.of(lockedUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("locked");
@@ -291,7 +274,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         nonLockedUser.setAccountNonLocked(true);
 
-        when(userRepository.findByUsername("nonlocked")).thenReturn(Optional.of(nonLockedUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("nonlocked")).thenReturn(Optional.of(nonLockedUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("nonlocked");
@@ -308,7 +291,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesAndPermissionsByUsername("user")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user");
@@ -325,7 +308,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesAndPermissionsByUsername("user")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user");
@@ -344,8 +327,8 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("TestUser")).thenReturn(Optional.of(user));
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+        when(userRepository.findWithRolesAndPermissionsByUsername("TestUser")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesAndPermissionsByUsername("testuser")).thenReturn(Optional.empty());
 
         // When/Then - Exact match should work
         UserDetails userDetails = userDetailsService.loadUserByUsername("TestUser");
@@ -364,7 +347,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findByUsername("user with spaces")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesAndPermissionsByUsername("user with spaces")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user with spaces");

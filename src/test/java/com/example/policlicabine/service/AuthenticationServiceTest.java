@@ -1,13 +1,16 @@
 package com.example.policlicabine.service;
 
 import com.example.policlicabine.base.BaseServiceTest;
+import com.example.policlicabine.builder.RoleTestBuilder;
 import com.example.policlicabine.builder.UserTestBuilder;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.*;
 import com.example.policlicabine.entity.PasswordResetToken;
+import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.*;
+import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +32,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.example.policlicabine.util.ResultAssertions.assertThat;
@@ -57,6 +61,9 @@ class AuthenticationServiceTest extends BaseServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
     private PasswordResetTokenService passwordResetTokenService;
 
     @Mock
@@ -82,6 +89,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
 
         authenticationService = new AuthenticationService(
                 userRepository,
+                roleRepository,
                 passwordResetTokenService,
                 passwordEncoder,
                 jwtService,
@@ -94,7 +102,6 @@ class AuthenticationServiceTest extends BaseServiceTest {
         testUser = UserTestBuilder.aDoctor()
                 .withUsername("testuser")
                 .withPassword("$2a$10$hashedPassword")
-                .withFullName("Test User")
                 .build();
 
         testUserDetails = org.springframework.security.core.userdetails.User.builder()
@@ -112,12 +119,15 @@ class AuthenticationServiceTest extends BaseServiceTest {
         RegisterRequest request = RegisterRequest.builder()
                 .username("newuser")
                 .password("password123")
-                .fullName("New User")
-                .role(UserRole.DOCTOR)
+                .roles(Set.of(UserRole.DOCTOR))
                 .build();
 
         when(userRepository.existsByUsername("newuser")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$encodedPassword");
+
+        // Mock role repository to return Role entities
+        Role doctorRole = RoleTestBuilder.aRole(UserRole.DOCTOR).build();
+        when(roleRepository.findByNameIn(Set.of(UserRole.DOCTOR))).thenReturn(Set.of(doctorRole));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setUserId(UUID.randomUUID());
@@ -144,8 +154,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .hasValue()
                 .hasValueSatisfying(response -> {
                     assertThat(response.getUsername()).isEqualTo("newuser");
-                    assertThat(response.getFullName()).isEqualTo("New User");
-                    assertThat(response.getRole()).isEqualTo(UserRole.DOCTOR);
+                    assertThat(response.getRoles()).contains(UserRole.DOCTOR);
                     assertThat(response.getAccessToken()).isEqualTo("access-token");
                     assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
                     assertThat(response.getTokenType()).isEqualTo("Bearer");
@@ -157,7 +166,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getUsername()).isEqualTo("newuser");
         assertThat(savedUser.getPassword()).isEqualTo("$2a$10$encodedPassword");
-        assertThat(savedUser.getRole()).isEqualTo(UserRole.DOCTOR);
+        assertThat(savedUser.getRoles()).isNotEmpty();
         assertThat(savedUser.isEnabled()).isTrue();
         assertThat(savedUser.isAccountNonLocked()).isTrue();
 
@@ -166,8 +175,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
         UserRegistered event = eventCaptor.getValue();
         assertThat(event.username()).isEqualTo("newuser");
-        assertThat(event.fullName()).isEqualTo("New User");
-        assertThat(event.role()).isEqualTo(UserRole.DOCTOR);
+        assertThat(event.roles()).contains(UserRole.DOCTOR);
     }
 
     @Test
@@ -176,7 +184,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         RegisterRequest request = RegisterRequest.builder()
                 .username("existinguser")
                 .password("password123")
-                .role(UserRole.DOCTOR)
+                .roles(Set.of(UserRole.DOCTOR))
                 .build();
 
         when(userRepository.existsByUsername("existinguser")).thenReturn(true);

@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * - Bidirectional relationship handling (@Mapping ignore)
  * - Field-level mapping verification
  */
-@SpringBootTest(classes = {PatientMapperImpl.class})
+@SpringBootTest
 @ActiveProfiles("test")
 @DisplayName("PatientMapper Tests")
 class PatientMapperTest {

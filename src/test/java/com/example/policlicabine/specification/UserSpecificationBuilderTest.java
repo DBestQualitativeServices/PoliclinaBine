@@ -53,22 +53,6 @@ class UserSpecificationBuilderTest {
     }
 
     @Test
-    @DisplayName("Should build specification with fullName filter")
-    void build_WithFullNameFilter_CreatesSpecification() {
-        // Given
-        UserFilterCriteria criteria = UserFilterCriteria.builder()
-                .fullName("Doe")
-                .build();
-
-        // When
-        Specification<User> spec = specificationBuilder.build(criteria);
-
-        // Then
-        assertThat(spec).isNotNull();
-        assertThat(spec).isInstanceOf(Specification.class);
-    }
-
-    @Test
     @DisplayName("Should build specification with role filter")
     void build_WithRoleFilter_CreatesSpecification() {
         // Given
@@ -159,7 +143,6 @@ class UserSpecificationBuilderTest {
 
         UserFilterCriteria criteria = UserFilterCriteria.builder()
                 .username("john")
-                .fullName("Doe")
                 .role(UserRole.DOCTOR)
                 .enabled(true)
                 .accountNonLocked(true)
@@ -197,7 +180,6 @@ class UserSpecificationBuilderTest {
         // Given
         UserFilterCriteria criteria = UserFilterCriteria.builder()
                 .username(null)
-                .fullName("")
                 .role(null)
                 .enabled(null)
                 .accountNonLocked(null)
@@ -270,7 +252,6 @@ class UserSpecificationBuilderTest {
         // Given
         UserFilterCriteria criteria = UserFilterCriteria.builder()
                 .username("JOHN")
-                .fullName("DoE")
                 .build();
 
         // When

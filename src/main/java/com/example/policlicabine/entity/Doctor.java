@@ -29,6 +29,9 @@ public class Doctor {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(nullable = false, length = 200)
+    private String fullName;
+
     @ElementCollection(targetClass = Specialty.class, fetch = FetchType.LAZY)
     @CollectionTable(name = "doctor_specialties", joinColumns = @JoinColumn(name = "doctor_id"))
     @Enumerated(EnumType.STRING)

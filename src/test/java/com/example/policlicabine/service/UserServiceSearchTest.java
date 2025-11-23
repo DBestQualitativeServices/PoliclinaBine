@@ -7,6 +7,7 @@ import com.example.policlicabine.dto.UserFilterCriteria;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.mapper.UserMapper;
+import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.specification.UserSpecificationBuilder;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import org.springframework.data.jpa.domain.Specification;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +51,9 @@ class UserServiceSearchTest extends BaseServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
     private UserMapper userMapper;
 
     @Mock
@@ -66,13 +71,12 @@ class UserServiceSearchTest extends BaseServiceTest {
     @BeforeEach
     void setUp() {
         eventPublisher = createEventPublisher();
-        userService = new UserService(userRepository, userMapper, eventPublisher, specificationBuilder);
+        userService = new UserService(userRepository, roleRepository, userMapper, eventPublisher, specificationBuilder);
 
         // Create test users with different attributes
         testUser1 = UserTestBuilder.aUser()
                 .withUsername("john.doe")
-                .withFullName("John Doe")
-                .withRole(UserRole.DOCTOR)
+                .withRoles(Set.of(UserRole.DOCTOR))
                 .withEnabled(true)
                 .withAccountNonLocked(true)
                 .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(10))
@@ -80,8 +84,7 @@ class UserServiceSearchTest extends BaseServiceTest {
 
         testUser2 = UserTestBuilder.aUser()
                 .withUsername("jane.smith")
-                .withFullName("Jane Smith")
-                .withRole(UserRole.RECEPTIONIST)
+                .withRoles(Set.of(UserRole.RECEPTIONIST))
                 .withEnabled(true)
                 .withAccountNonLocked(true)
                 .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(5))
@@ -89,8 +92,7 @@ class UserServiceSearchTest extends BaseServiceTest {
 
         testUser3 = UserTestBuilder.aUser()
                 .withUsername("admin.user")
-                .withFullName("Admin User")
-                .withRole(UserRole.ADMIN)
+                .withRoles(Set.of(UserRole.ADMIN))
                 .withEnabled(false)
                 .withAccountNonLocked(false)
                 .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(1))
@@ -100,22 +102,19 @@ class UserServiceSearchTest extends BaseServiceTest {
         testUserDto1 = UserDto.builder()
                 .userId(testUser1.getUserId())
                 .username(testUser1.getUsername())
-                .fullName(testUser1.getFullName())
-                .role(testUser1.getRole())
+                .roles(Set.of(UserRole.DOCTOR))
                 .build();
 
         testUserDto2 = UserDto.builder()
                 .userId(testUser2.getUserId())
                 .username(testUser2.getUsername())
-                .fullName(testUser2.getFullName())
-                .role(testUser2.getRole())
+                .roles(Set.of(UserRole.RECEPTIONIST))
                 .build();
 
         testUserDto3 = UserDto.builder()
                 .userId(testUser3.getUserId())
                 .username(testUser3.getUsername())
-                .fullName(testUser3.getFullName())
-                .role(testUser3.getRole())
+                .roles(Set.of(UserRole.ADMIN))
                 .build();
     }
 
@@ -178,7 +177,7 @@ class UserServiceSearchTest extends BaseServiceTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getRole()).isEqualTo(UserRole.DOCTOR);
+        assertThat(result.getContent().get(0).getRoles()).contains(UserRole.DOCTOR);
 
         verify(specificationBuilder).build(criteria);
         verify(userRepository).findAll(mockSpec, pageable);
@@ -212,7 +211,7 @@ class UserServiceSearchTest extends BaseServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getUsername()).isEqualTo("john.doe");
-        assertThat(result.getContent().get(0).getRole()).isEqualTo(UserRole.DOCTOR);
+        assertThat(result.getContent().get(0).getRoles()).contains(UserRole.DOCTOR);
 
         verify(specificationBuilder).build(criteria);
         verify(userRepository).findAll(mockSpec, pageable);

@@ -48,58 +48,76 @@ class UserControllerSearchIntegrationTest {
     @Autowired
     private AppointmentSessionRepository appointmentRepository;
 
+    @Autowired
+    private com.example.policlicabine.repository.RoleRepository roleRepository;
+
     @BeforeEach
     void setUp() {
         // Clean database before each test - correct order to avoid FK violations
         appointmentRepository.deleteAll();  // Delete appointments first (references doctors)
         doctorRepository.deleteAll();        // Delete doctors second (references users)
         userRepository.deleteAll();          // Delete users last
+        roleRepository.deleteAll();          // Delete roles
 
-        // Create test users with different attributes
-        User doctor1 = UserTestBuilder.aDoctor()
-                .withUsername("dr.john.doe")
-                .withFullName("Dr. John Doe")
-                .withRole(UserRole.DOCTOR)
-                .withEnabled(true)
-                .withAccountNonLocked(true)
-                .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(10))
+        // Create and save required roles first (before users)
+        com.example.policlicabine.entity.Role doctorRole = com.example.policlicabine.entity.Role.builder()
+                .name(UserRole.DOCTOR)
                 .build();
+        com.example.policlicabine.entity.Role receptionistRole = com.example.policlicabine.entity.Role.builder()
+                .name(UserRole.RECEPTIONIST)
+                .build();
+        com.example.policlicabine.entity.Role adminRole = com.example.policlicabine.entity.Role.builder()
+                .name(UserRole.ADMIN)
+                .build();
+        roleRepository.save(doctorRole);
+        roleRepository.save(receptionistRole);
+        roleRepository.save(adminRole);
 
-        User doctor2 = UserTestBuilder.aDoctor()
-                .withUsername("dr.jane.smith")
-                .withFullName("Dr. Jane Smith")
-                .withRole(UserRole.DOCTOR)
-                .withEnabled(true)
-                .withAccountNonLocked(true)
-                .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(8))
+        // Create test users directly (without UserTestBuilder to avoid transient Role issues)
+        User doctor1 = User.builder()
+                .username("dr.john.doe")
+                .password("password123")
+                .enabled(true)
+                .accountNonLocked(true)
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(10))
                 .build();
+        doctor1.addRole(doctorRole);
 
-        User receptionist = UserTestBuilder.aReceptionist()
-                .withUsername("jane.receptionist")
-                .withFullName("Jane Receptionist")
-                .withRole(UserRole.RECEPTIONIST)
-                .withEnabled(true)
-                .withAccountNonLocked(true)
-                .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(5))
+        User doctor2 = User.builder()
+                .username("dr.jane.smith")
+                .password("password123")
+                .enabled(true)
+                .accountNonLocked(true)
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(8))
                 .build();
+        doctor2.addRole(doctorRole);
 
-        User admin = UserTestBuilder.anAdmin()
-                .withUsername("admin.user")
-                .withFullName("Admin User")
-                .withRole(UserRole.ADMIN)
-                .withEnabled(false)
-                .withAccountNonLocked(false)
-                .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(1))
+        User receptionist = User.builder()
+                .username("jane.receptionist")
+                .password("password123")
+                .enabled(true)
+                .accountNonLocked(true)
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(5))
                 .build();
+        receptionist.addRole(receptionistRole);
 
-        User disabledDoctor = UserTestBuilder.aDoctor()
-                .withUsername("dr.disabled")
-                .withFullName("Dr. Disabled")
-                .withRole(UserRole.DOCTOR)
-                .withEnabled(false)
-                .withAccountNonLocked(true)
-                .withCreatedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(3))
+        User admin = User.builder()
+                .username("admin.user")
+                .password("password123")
+                .enabled(false)
+                .accountNonLocked(false)
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(1))
                 .build();
+        admin.addRole(adminRole);
+
+        User disabledDoctor = User.builder()
+                .username("dr.disabled")
+                .password("password123")
+                .enabled(false)
+                .accountNonLocked(true)
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(3))
+                .build();
+        disabledDoctor.addRole(doctorRole);
 
         // Save all test users
         userRepository.save(doctor1);
@@ -146,7 +164,7 @@ class UserControllerSearchIntegrationTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(3); // 2 enabled + 1 disabled
-        assertThat(result.getContent()).allMatch(user -> user.getRole() == UserRole.DOCTOR);
+        assertThat(result.getContent()).allMatch(user -> user.getRoles().contains(UserRole.DOCTOR));
         assertThat(result.getTotalElements()).isEqualTo(3);
     }
 
@@ -229,7 +247,7 @@ class UserControllerSearchIntegrationTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(2); // Only 2 enabled, unlocked doctors
-        assertThat(result.getContent()).allMatch(user -> user.getRole() == UserRole.DOCTOR);
+        assertThat(result.getContent()).allMatch(user -> user.getRoles().contains(UserRole.DOCTOR));
         assertThat(result.getTotalElements()).isEqualTo(2);
     }
 
@@ -270,25 +288,6 @@ class UserControllerSearchIntegrationTest {
         assertThat(result.getTotalElements()).isEqualTo(0);
         assertThat(result.getTotalPages()).isEqualTo(0);
         assertThat(result.isEmpty()).isTrue();
-    }
-
-    @Test
-    @DisplayName("Should search with fullName filter (case-insensitive)")
-    void searchUsers_WithFullNameFilter_ReturnsCaseInsensitiveResults() {
-        // Given
-        UserFilterCriteria criteria = UserFilterCriteria.builder()
-                .fullName("doe") // Should match "Dr. John Doe"
-                .build();
-        Pageable pageable = PageRequest.of(0, 20);
-
-        // When
-        Page<UserDto> result = userService.search(criteria, pageable);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getFullName()).isEqualTo("Dr. John Doe");
-        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
     @Test

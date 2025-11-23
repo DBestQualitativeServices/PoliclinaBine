@@ -75,8 +75,6 @@ class AppointmentSessionControllerSearchIntegrationTest {
         User user1 = User.builder()
                 .username("dr.john")
                 .password("password")
-                .fullName("Dr. John Smith")
-                .role(UserRole.DOCTOR)
                 .enabled(true)
                 .accountNonLocked(true)
                 .build();
@@ -84,8 +82,6 @@ class AppointmentSessionControllerSearchIntegrationTest {
         User user2 = User.builder()
                 .username("dr.jane")
                 .password("password")
-                .fullName("Dr. Jane Doe")
-                .role(UserRole.DOCTOR)
                 .enabled(true)
                 .accountNonLocked(true)
                 .build();
@@ -96,10 +92,12 @@ class AppointmentSessionControllerSearchIntegrationTest {
         // Create test doctors
         doctor1 = Doctor.builder()
                 .user(user1)
+                .fullName("Dr. John Smith")
                 .build();
 
         doctor2 = Doctor.builder()
                 .user(user2)
+                .fullName("Dr. Jane Doe")
                 .build();
 
         doctor1 = doctorRepository.save(doctor1);

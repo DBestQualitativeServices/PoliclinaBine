@@ -9,6 +9,5 @@ import org.mapstruct.Mapping;
 public interface DoctorMapper {
 
     @Mapping(target = "userId", source = "user.userId")
-    @Mapping(target = "fullName", source = "user.fullName")
     DoctorDto toDto(Doctor doctor);
 }

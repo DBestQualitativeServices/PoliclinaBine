@@ -1,35 +1,21 @@
 package com.example.policlicabine.builder;
 
+import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-/**
- * Test data builder for User entity using the Builder pattern.
- * <p>
- * Provides sensible defaults for test data while allowing customization.
- * </p>
- * <p>Example usage:</p>
- * <pre>
- * User doctor = UserTestBuilder.aDoctor()
- *     .withFullName("Dr. Jane Smith")
- *     .withUsername("jsmith")
- *     .build();
- *
- * User admin = UserTestBuilder.aUser()
- *     .withRole(UserRole.ADMIN)
- *     .build();
- * </pre>
- */
 public class UserTestBuilder {
 
     private UUID userId = UUID.randomUUID();
     private String username = "testuser_" + UUID.randomUUID().toString().substring(0, 8);
-    private String fullName = "Test User";
-    private UserRole role = UserRole.RECEPTIONIST;
+    private Set<UserRole> roles = Set.of(UserRole.RECEPTIONIST);
     private String password = "$2a$10$dummyHashedPassword";
     private boolean enabled = true;
     private boolean accountNonLocked = true;
@@ -42,20 +28,17 @@ public class UserTestBuilder {
 
     public static UserTestBuilder aDoctor() {
         return new UserTestBuilder()
-                .withRole(UserRole.DOCTOR)
-                .withFullName("Dr. Test Doctor");
+                .withRoles(Set.of(UserRole.DOCTOR));
     }
 
     public static UserTestBuilder anAdmin() {
         return new UserTestBuilder()
-                .withRole(UserRole.ADMIN)
-                .withFullName("Admin User");
+                .withRoles(Set.of(UserRole.ADMIN));
     }
 
     public static UserTestBuilder aReceptionist() {
         return new UserTestBuilder()
-                .withRole(UserRole.RECEPTIONIST)
-                .withFullName("Receptionist User");
+                .withRoles(Set.of(UserRole.RECEPTIONIST));
     }
 
     public UserTestBuilder withUserId(UUID userId) {
@@ -68,13 +51,8 @@ public class UserTestBuilder {
         return this;
     }
 
-    public UserTestBuilder withFullName(String fullName) {
-        this.fullName = fullName;
-        return this;
-    }
-
-    public UserTestBuilder withRole(UserRole role) {
-        this.role = role;
+    public UserTestBuilder withRoles(Set<UserRole> roles) {
+        this.roles = roles;
         return this;
     }
 
@@ -104,16 +82,21 @@ public class UserTestBuilder {
     }
 
     public User build() {
-        return User.builder()
+        User user = User.builder()
                 .userId(userId)
                 .username(username)
-                .fullName(fullName)
-                .role(role)
                 .password(password)
                 .enabled(enabled)
                 .accountNonLocked(accountNonLocked)
                 .createdAt(createdAt)
                 .lastLogin(lastLogin)
                 .build();
+
+        Set<Role> roleEntities = roles.stream()
+                .map(userRole -> RoleTestBuilder.aRole(userRole).build())
+                .collect(Collectors.toSet());
+        user.setRoles(roleEntities);
+
+        return user;
     }
 }

@@ -3,8 +3,11 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.*;
 import com.example.policlicabine.entity.PasswordResetToken;
+import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
+import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.*;
+import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.security.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ import java.time.ZoneOffset;
 public class AuthenticationService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordResetTokenService resetTokenService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -37,43 +43,49 @@ public class AuthenticationService {
     private final UserDetailsService userDetailsService;
     private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Register a new user
-     */
     @Transactional
     public Result<AuthResponse> register(RegisterRequest request) {
         try {
-            // Check if username already exists
             if (userRepository.existsByUsername(request.getUsername())) {
                 log.warn("Registration failed: Username already exists: {}", request.getUsername());
                 return Result.failure("Username already exists");
             }
 
-            // Create user
+            if (request.getRoles() == null || request.getRoles().isEmpty()) {
+                return Result.failure("At least one role is required");
+            }
+
+            Set<Role> roles = roleRepository.findByNameIn(request.getRoles());
+
+            if (roles.size() != request.getRoles().size()) {
+                return Result.failure("One or more roles not found in database");
+            }
+
             User user = User.builder()
                     .username(request.getUsername())
                     .password(passwordEncoder.encode(request.getPassword()))
-                    .fullName(request.getFullName())
-                    .role(request.getRole())
                     .enabled(true)
                     .accountNonLocked(true)
                     .build();
 
+            roles.forEach(user::addRole);
+
             User saved = userRepository.save(user);
             log.info("User registered successfully: {}", saved.getUsername());
 
-            // Publish event
             eventPublisher.publishEvent(new UserRegistered(
                     saved.getUserId(),
                     saved.getUsername(),
-                    saved.getFullName(),
-                    saved.getRole()
+                    request.getRoles()
             ));
 
-            // Generate tokens
             UserDetails userDetails = userDetailsService.loadUserByUsername(saved.getUsername());
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+            Set<UserRole> roleNames = saved.getRoles().stream()
+                    .map(Role::getName)
+                    .collect(Collectors.toSet());
 
             return Result.success(AuthResponse.builder()
                     .accessToken(accessToken)
@@ -81,8 +93,7 @@ public class AuthenticationService {
                     .tokenType("Bearer")
                     .userId(saved.getUserId())
                     .username(saved.getUsername())
-                    .fullName(saved.getFullName())
-                    .role(saved.getRole())
+                    .roles(roleNames)
                     .build());
 
         } catch (Exception e) {
@@ -91,9 +102,6 @@ public class AuthenticationService {
         }
     }
 
-    /**
-     * Authenticate user and generate tokens
-     */
     public Result<AuthResponse> authenticate(LoginRequest request, String ipAddress) {
         try {
             // Authenticate with Spring Security
@@ -132,14 +140,17 @@ public class AuthenticationService {
                     ipAddress != null ? ipAddress : "unknown"
             ));
 
+            Set<UserRole> roleNames = user.getRoles().stream()
+                    .map(Role::getName)
+                    .collect(Collectors.toSet());
+
             return Result.success(AuthResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .userId(user.getUserId())
                     .username(user.getUsername())
-                    .fullName(user.getFullName())
-                    .role(user.getRole())
+                    .roles(roleNames)
                     .build());
 
         } catch (BadCredentialsException e) {
@@ -151,9 +162,6 @@ public class AuthenticationService {
         }
     }
 
-    /**
-     * Refresh access token using refresh token
-     */
     @Transactional(readOnly = true)
     public Result<AuthResponse> refreshToken(RefreshTokenRequest request) {
         try {
@@ -187,14 +195,17 @@ public class AuthenticationService {
 
             log.info("Access token refreshed for user: {}", username);
 
+            Set<UserRole> roleNames = user.getRoles().stream()
+                    .map(Role::getName)
+                    .collect(Collectors.toSet());
+
             return Result.success(AuthResponse.builder()
                     .accessToken(newAccessToken)
-                    .refreshToken(refreshToken) // Return same refresh token
+                    .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .userId(user.getUserId())
                     .username(user.getUsername())
-                    .fullName(user.getFullName())
-                    .role(user.getRole())
+                    .roles(roleNames)
                     .build());
 
         } catch (Exception e) {
@@ -203,9 +214,6 @@ public class AuthenticationService {
         }
     }
 
-    /**
-     * Change password for authenticated user
-     */
     @Transactional
     public Result<Void> changePassword(ChangePasswordRequest request) {
         try {
@@ -249,9 +257,6 @@ public class AuthenticationService {
         }
     }
 
-    /**
-     * Initiate password reset flow
-     */
     @Transactional
     public Result<String> initiatePasswordReset(InitiatePasswordResetRequest request) {
         try {
@@ -293,9 +298,6 @@ public class AuthenticationService {
         }
     }
 
-    /**
-     * Reset password using reset token
-     */
     @Transactional
     public Result<Void> resetPassword(ResetPasswordRequest request) {
         try {

@@ -27,6 +27,7 @@ public class DoctorTestBuilder {
 
     private UUID doctorId = UUID.randomUUID();
     private User user = UserTestBuilder.aDoctor().build();
+    private String fullName = "Dr. Test Doctor";
     private List<Specialty> specialties = new ArrayList<>(Arrays.asList(Specialty.GENERAL_DERMATOLOGY));
 
     public static DoctorTestBuilder aDoctor() {
@@ -63,6 +64,11 @@ public class DoctorTestBuilder {
         return this;
     }
 
+    public DoctorTestBuilder withFullName(String fullName) {
+        this.fullName = fullName;
+        return this;
+    }
+
     public DoctorTestBuilder withSpecialties(Specialty... specialties) {
         this.specialties = new ArrayList<>(Arrays.asList(specialties));
         return this;
@@ -82,6 +88,7 @@ public class DoctorTestBuilder {
         return Doctor.builder()
                 .doctorId(doctorId)
                 .user(user)
+                .fullName(fullName)
                 .specialties(specialties)
                 .weeklyAvailability(new ArrayList<>())
                 .appointments(new ArrayList<>())

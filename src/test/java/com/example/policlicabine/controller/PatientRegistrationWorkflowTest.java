@@ -25,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -97,12 +98,19 @@ class PatientRegistrationWorkflowTest {
     private AppointmentSessionRepository appointmentSessionRepository;
 
     @Autowired
+    private RoleRepository roleRepository;
+
+    @PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
+    @Autowired
     private PatientTestEventListener eventListener;
 
     private Doctor testDoctor;
     private ConsultationType testConsultation;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // Clean database for each test
         appointmentSessionRepository.deleteAll();
@@ -110,15 +118,25 @@ class PatientRegistrationWorkflowTest {
         consultationRepository.deleteAll();
         doctorRepository.deleteAll();
         userRepository.deleteAll();
+        roleRepository.deleteAll();
 
         // Reset event listener
         eventListener.clear();
 
-        // Create test doctor with user
-        User doctorUser = UserTestBuilder.aDoctor()
-                .withUsername("dr.smith")
-                .withFullName("Dr. Smith")
+        // Create and save required roles first (before users)
+        Role doctorRole = Role.builder()
+                .name(com.example.policlicabine.entity.enums.UserRole.DOCTOR)
                 .build();
+        roleRepository.save(doctorRole);
+
+        // Create test doctor user directly (without UserTestBuilder to avoid transient Role issues)
+        User doctorUser = User.builder()
+                .username("dr.smith")
+                .password("password123")
+                .enabled(true)
+                .accountNonLocked(true)
+                .build();
+        doctorUser.addRole(doctorRole);
         userRepository.save(doctorUser);
 
         testDoctor = DoctorTestBuilder.aDermatologist()

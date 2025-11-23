@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -16,6 +17,5 @@ public class UserDto {
 
     private UUID userId;
     private String username;
-    private String fullName;
-    private UserRole role;
+    private Set<UserRole> roles;
 }

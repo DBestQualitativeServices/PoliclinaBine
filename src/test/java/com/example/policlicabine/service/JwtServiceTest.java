@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import javax.crypto.SecretKey;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,7 +68,7 @@ class JwtServiceTest {
                 .getPayload();
 
         assertThat(claims.getSubject()).isEqualTo("testuser");
-        assertThat(claims.get("role")).isEqualTo("ROLE_DOCTOR");
+        assertThat(claims.get("roles", List.class)).contains("ROLE_DOCTOR");
         assertThat(claims.getIssuedAt()).isNotNull();
         assertThat(claims.getExpiration()).isNotNull();
 
@@ -103,7 +104,7 @@ class JwtServiceTest {
                 .parseSignedClaims(token)
                 .getPayload();
 
-        assertThat(claims.get("role")).isEqualTo("ROLE_ADMIN");
+        assertThat(claims.get("roles", List.class)).contains("ROLE_ADMIN");
     }
 
     // ===== GENERATE REFRESH TOKEN TESTS =====
