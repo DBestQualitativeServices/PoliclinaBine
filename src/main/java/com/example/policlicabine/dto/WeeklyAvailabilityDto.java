@@ -1,5 +1,6 @@
 package com.example.policlicabine.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +14,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Doctor weekly availability schedule")
 public class WeeklyAvailabilityDto {
 
     private UUID id;

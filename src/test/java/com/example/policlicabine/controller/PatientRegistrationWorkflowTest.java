@@ -66,9 +66,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>PatientControllerTest: Unit tests for HTTP layer</li>
  *   <li>PatientRegistrationWorkflowTest: Integration tests for end-to-end workflows</li>
  * </ul>
- *
- * @see com.example.policlicabine.service.PatientServiceTest
- * @see com.example.policlicabine.controller.PatientControllerTest
  */
 @SpringBootTest
 @ActiveProfiles("test")

@@ -25,7 +25,7 @@ public class JwtService {
 
     private final JwtProperties jwtProperties;
 
-    public String generateToken(UserDetails userDetails) {
+    public String generateToken(UserDetails userDetails, String userId) {
         Map<String, Object> claims = new HashMap<>();
 
         List<String> roles = userDetails.getAuthorities().stream()
@@ -39,6 +39,7 @@ public class JwtService {
                 .distinct()
                 .toList();
 
+        claims.put("userId", userId);
         claims.put("roles", roles);
         claims.put("permissions", permissions);
 
@@ -82,6 +83,11 @@ public class JwtService {
     public List<String> extractPermissions(String token) {
         Claims claims = extractAllClaims(token);
         return claims.get("permissions", List.class);
+    }
+
+    public String extractUserId(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("userId", String.class);
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

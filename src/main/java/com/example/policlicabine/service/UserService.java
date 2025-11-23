@@ -3,11 +3,15 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.dto.UserFilterCriteria;
+import com.example.policlicabine.dto.UserProfileDto;
 import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.event.UserCreated;
+import com.example.policlicabine.mapper.DoctorMapper;
+import com.example.policlicabine.mapper.ManagerMapper;
+import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.mapper.UserMapper;
 import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
@@ -36,17 +40,26 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
+    private final DoctorMapper doctorMapper;
+    private final PatientMapper patientMapper;
+    private final ManagerMapper managerMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final UserSpecificationBuilder specificationBuilder;
 
     public UserService(UserRepository userRepository, RoleRepository roleRepository,
                       UserMapper userMapper,
+                      DoctorMapper doctorMapper,
+                      PatientMapper patientMapper,
+                      ManagerMapper managerMapper,
                       ApplicationEventPublisher eventPublisher,
                       UserSpecificationBuilder specificationBuilder) {
         super(userRepository, userMapper);
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userMapper = userMapper;
+        this.doctorMapper = doctorMapper;
+        this.patientMapper = patientMapper;
+        this.managerMapper = managerMapper;
         this.eventPublisher = eventPublisher;
         this.specificationBuilder = specificationBuilder;
     }
@@ -197,5 +210,55 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
     public void onNewPatientRegistered(NewPatientRegisteredEvent event) {
         log.info("New patient account preparation: Patient {} ({} {}) is ready for user account creation. Email: {}",
                 event.patientId(), event.firstName(), event.lastName(), event.email());
+    }
+
+    /**
+     * Get current user profile with all profile data loaded.
+     * Follows OAuth2/OIDC UserInfo endpoint pattern.
+     *
+     * @param userId the user ID (extracted from JWT token)
+     * @return UserProfileDto with profile data (doctor/patient/manager)
+     */
+    @Transactional(readOnly = true)
+    public Result<UserProfileDto> getCurrentUserProfile(UUID userId) {
+        try {
+            if (userId == null) {
+                return Result.failure("User ID is required");
+            }
+
+            // Load user with all profiles using EntityGraph (prevents N+1 queries)
+            User user = userRepository.findWithProfileByUserId(userId)
+                    .orElse(null);
+
+            if (user == null) {
+                return Result.failure("User not found");
+            }
+
+            // Build UserProfileDto with appropriate profile
+            UserProfileDto profileDto = UserProfileDto.builder()
+                    .userId(user.getUserId())
+                    .username(user.getUsername())
+                    .roles(user.getRoles().stream()
+                            .map(role -> role.getName())
+                            .collect(java.util.stream.Collectors.toSet()))
+                    .doctorProfile(user.getDoctorProfile() != null
+                            ? doctorMapper.toDto(user.getDoctorProfile())
+                            : null)
+                    .patientProfile(user.getPatientProfile() != null
+                            ? patientMapper.toDto(user.getPatientProfile())
+                            : null)
+                    .managerProfile(user.getManagerProfile() != null
+                            ? managerMapper.toDto(user.getManagerProfile())
+                            : null)
+                    .build();
+
+            log.debug("User profile loaded for user {}: type={}", userId, profileDto.getProfileType());
+
+            return Result.success(profileDto);
+
+        } catch (Exception e) {
+            log.error("Error loading user profile for userId: {}", userId, e);
+            return Result.failure("Failed to load user profile: " + e.getMessage());
+        }
     }
 }

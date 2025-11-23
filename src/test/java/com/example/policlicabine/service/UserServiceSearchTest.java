@@ -57,6 +57,15 @@ class UserServiceSearchTest extends BaseServiceTest {
     private UserMapper userMapper;
 
     @Mock
+    private com.example.policlicabine.mapper.DoctorMapper doctorMapper;
+
+    @Mock
+    private com.example.policlicabine.mapper.PatientMapper patientMapper;
+
+    @Mock
+    private com.example.policlicabine.mapper.ManagerMapper managerMapper;
+
+    @Mock
     private UserSpecificationBuilder specificationBuilder;
 
     private UserService userService;
@@ -71,7 +80,8 @@ class UserServiceSearchTest extends BaseServiceTest {
     @BeforeEach
     void setUp() {
         eventPublisher = createEventPublisher();
-        userService = new UserService(userRepository, roleRepository, userMapper, eventPublisher, specificationBuilder);
+        userService = new UserService(userRepository, roleRepository, userMapper,
+                doctorMapper, patientMapper, managerMapper, eventPublisher, specificationBuilder);
 
         // Create test users with different attributes
         testUser1 = UserTestBuilder.aUser()

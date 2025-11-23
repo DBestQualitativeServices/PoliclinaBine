@@ -80,7 +80,7 @@ public class AuthenticationService {
             ));
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(saved.getUsername());
-            String accessToken = jwtService.generateToken(userDetails);
+            String accessToken = jwtService.generateToken(userDetails, saved.getUserId().toString());
             String refreshToken = jwtService.generateRefreshToken(userDetails);
 
             Set<UserRole> roleNames = saved.getRoles().stream()
@@ -127,7 +127,7 @@ public class AuthenticationService {
 
             // Generate tokens
             UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-            String accessToken = jwtService.generateToken(userDetails);
+            String accessToken = jwtService.generateToken(userDetails, user.getUserId().toString());
             String refreshToken = jwtService.generateRefreshToken(userDetails);
 
             log.info("User authenticated successfully: {}", user.getUsername());
@@ -191,7 +191,7 @@ public class AuthenticationService {
             }
 
             // Generate new access token
-            String newAccessToken = jwtService.generateToken(userDetails);
+            String newAccessToken = jwtService.generateToken(userDetails, user.getUserId().toString());
 
             log.info("Access token refreshed for user: {}", username);
 

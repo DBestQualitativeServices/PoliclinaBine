@@ -1,5 +1,6 @@
 package com.example.policlicabine.common;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -30,10 +31,19 @@ import java.util.function.Function;
 @Getter
 @ToString
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Schema(description = "Standard API response wrapper for all operations")
 public class Result<T> {
+    
+    @Schema(description = "Indicates if the operation was successful", example = "true")
     private final boolean success;
+    
+    @Schema(description = "The response data (null if operation failed)")
     private final T value;
+    
+    @Schema(description = "Error message if operation failed (null if successful)", example = "User not found")
     private final String errorMessage;
+    
+    @Schema(description = "List of validation errors if operation failed (null if successful)")
     private final List<String> errors;
 
     public static <T> Result<T> success(T value) {

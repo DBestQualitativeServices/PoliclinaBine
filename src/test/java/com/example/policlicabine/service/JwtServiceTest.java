@@ -22,6 +22,7 @@ class JwtServiceTest {
 
     private JwtService jwtService;
     private UserDetails testUserDetails;
+    private static final String TEST_USER_ID = "123e4567-e89b-12d3-a456-426614174000";
 
     // Test configuration
     private static final String TEST_SECRET = "dGVzdC1zZWNyZXQta2V5LW11c3QtYmUtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItSFMyNTYtYWxnb3JpdGht";
@@ -52,7 +53,7 @@ class JwtServiceTest {
     @Test
     void generateToken_ShouldCreateValidAccessToken() {
         // When
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // Then
         assertThat(token).isNotNull();
@@ -68,6 +69,7 @@ class JwtServiceTest {
                 .getPayload();
 
         assertThat(claims.getSubject()).isEqualTo("testuser");
+        assertThat(claims.get("userId", String.class)).isEqualTo(TEST_USER_ID);
         assertThat(claims.get("roles", List.class)).contains("ROLE_DOCTOR");
         assertThat(claims.getIssuedAt()).isNotNull();
         assertThat(claims.getExpiration()).isNotNull();
@@ -94,7 +96,7 @@ class JwtServiceTest {
                 .build();
 
         // When
-        String token = jwtService.generateToken(multiRoleUser);
+        String token = jwtService.generateToken(multiRoleUser, TEST_USER_ID);
 
         // Then
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
@@ -142,7 +144,7 @@ class JwtServiceTest {
     @Test
     void generateRefreshToken_ShouldHaveLongerExpirationThanAccessToken() {
         // When
-        String accessToken = jwtService.generateToken(testUserDetails);
+        String accessToken = jwtService.generateToken(testUserDetails, TEST_USER_ID);
         String refreshToken = jwtService.generateRefreshToken(testUserDetails);
 
         // Then
@@ -165,7 +167,7 @@ class JwtServiceTest {
     @Test
     void extractUsername_FromValidToken_ShouldReturnCorrectUsername() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // When
         String username = jwtService.extractUsername(token);
@@ -190,12 +192,44 @@ class JwtServiceTest {
                 .build();
 
         // When
-        String token1 = jwtService.generateToken(user1);
-        String token2 = jwtService.generateToken(user2);
+        String token1 = jwtService.generateToken(user1, "user1-id");
+        String token2 = jwtService.generateToken(user2, "user2-id");
 
         // Then
         assertThat(jwtService.extractUsername(token1)).isEqualTo("user1");
         assertThat(jwtService.extractUsername(token2)).isEqualTo("user2");
+    }
+
+    // ===== EXTRACT USER ID TESTS =====
+
+    @Test
+    void extractUserId_FromValidToken_ShouldReturnCorrectUserId() {
+        // Given
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+
+        // When
+        String userId = jwtService.extractUserId(token);
+
+        // Then
+        assertThat(userId).isEqualTo(TEST_USER_ID);
+    }
+
+    @Test
+    void extractUserId_FromTokensWithDifferentUserIds_ShouldReturnCorrectIds() {
+        // Given
+        String userId1 = "user-id-1";
+        String userId2 = "user-id-2";
+        
+        String token1 = jwtService.generateToken(testUserDetails, userId1);
+        String token2 = jwtService.generateToken(testUserDetails, userId2);
+
+        // When
+        String extractedId1 = jwtService.extractUserId(token1);
+        String extractedId2 = jwtService.extractUserId(token2);
+
+        // Then
+        assertThat(extractedId1).isEqualTo(userId1);
+        assertThat(extractedId2).isEqualTo(userId2);
     }
 
     // ===== EXTRACT EXPIRATION TESTS =====
@@ -203,7 +237,7 @@ class JwtServiceTest {
     @Test
     void extractExpiration_FromValidToken_ShouldReturnFutureDate() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
         Date now = new Date();
 
         // When
@@ -222,7 +256,7 @@ class JwtServiceTest {
     @Test
     void isTokenExpired_WithValidToken_ShouldReturnFalse() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // When
         boolean isExpired = jwtService.isTokenExpired(token);
@@ -266,7 +300,7 @@ class JwtServiceTest {
     @Test
     void isTokenValid_WithValidTokenAndMatchingUser_ShouldReturnTrue() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // When
         boolean isValid = jwtService.isTokenValid(token, testUserDetails);
@@ -278,7 +312,7 @@ class JwtServiceTest {
     @Test
     void isTokenValid_WithValidTokenButDifferentUser_ShouldReturnFalse() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         UserDetails differentUser = User.builder()
                 .username("differentuser")
@@ -355,7 +389,7 @@ class JwtServiceTest {
     @Test
     void generateToken_ShouldProduceVerifiableSignature() {
         // Given
-        String token = jwtService.generateToken(testUserDetails);
+        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // When - Parse token to verify signature
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
@@ -373,7 +407,7 @@ class JwtServiceTest {
     @Test
     void tokensForSameUser_ShouldBeDifferent() {
         // When - Generate two tokens for same user at different times
-        String token1 = jwtService.generateToken(testUserDetails);
+        String token1 = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // Delay to ensure different issuedAt timestamp (JWT uses seconds)
         try {
@@ -382,7 +416,7 @@ class JwtServiceTest {
             Thread.currentThread().interrupt();
         }
 
-        String token2 = jwtService.generateToken(testUserDetails);
+        String token2 = jwtService.generateToken(testUserDetails, TEST_USER_ID);
 
         // Then - Tokens should be different (different issuedAt timestamps)
         assertThat(token1).isNotEqualTo(token2);

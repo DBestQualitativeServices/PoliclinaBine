@@ -1,16 +1,16 @@
 package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
-import com.example.policlicabine.dto.ErrorResponse;
+import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.dto.UserFilterCriteria;
+import com.example.policlicabine.dto.UserProfileDto;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
+import com.example.policlicabine.exception.UnauthorizedException;
+import com.example.policlicabine.security.JwtService;
 import com.example.policlicabine.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -31,19 +31,16 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(
-        name = "User Management",
-        description = "APIs for system user management, authentication, and authorization"
-)
+@Tag(name = "User Management")
 public class UserController {
 
     private final UserService userService;
+    private final JwtService jwtService;
 
     @PostMapping
-    public ResponseEntity<?> createUser(
-            @Valid @RequestBody UserDto userDto,
-            HttpServletRequest request
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Create new user", description = "Create a new system user with specified roles")
+    public UserDto createUser(@Valid @RequestBody UserDto userDto) {
         log.info("REST: Creating new user: {}", userDto.getUsername());
 
         Result<UserDto> result = userService.createUser(
@@ -51,120 +48,117 @@ public class UserController {
                 userDto.getRoles()
         );
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getValue());
-        } else {
-            return ResponseEntity
-                    .badRequest()
-                    .body(ErrorResponse.of(
-                            HttpStatus.BAD_REQUEST.value(),
-                            result.getErrorMessage(),
-                            request.getRequestURI()
-                    ));
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return result.getValue();
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<?> getUser(
-            @Parameter(description = "User UUID", required = true)
-            @PathVariable UUID userId,
-            HttpServletRequest request
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Get user by ID")
+    public UserDto getUser(@PathVariable UUID userId) {
         log.info("REST: Getting user by ID: {}", userId);
 
         Result<UserDto> result = userService.findById(userId);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getValue());
-        } else {
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(ErrorResponse.of(
-                            HttpStatus.NOT_FOUND.value(),
-                            result.getErrorMessage(),
-                            request.getRequestURI()
-                    ));
+        if (result.isFailure()) {
+            throw new ResourceNotFoundException("User", userId);
         }
+
+        return result.getValue();
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Page<UserDto>> searchUsers(
-            @Parameter(description = "Filter criteria - all fields are optional flat query parameters")
+    @StandardApiResponses
+    @Operation(summary = "Search users")
+    public Page<UserDto> searchUsers(
             @ModelAttribute UserFilterCriteria criteria,
-            @ParameterObject
-            @Parameter(description = "Pagination and sorting parameters (page, size, sort)")
-            @PageableDefault(size = 20, sort = "username")
-            Pageable pageable
+            @ParameterObject @PageableDefault(size = 20, sort = "username") Pageable pageable
     ) {
         log.info("REST: Searching users with criteria: {} and pageable: {}", criteria, pageable);
-
-        Page<UserDto> result = userService.search(criteria, pageable);
-
-        log.info("REST: User search returned {} results (page {}/{})",
-                result.getNumberOfElements(),
-                result.getNumber() + 1,
-                result.getTotalPages());
-
-        return ResponseEntity.ok(result);
+        return userService.search(criteria, pageable);
     }
 
     @GetMapping
-    public ResponseEntity<List<UserDto>> getAllUsers() {
+    @StandardApiResponses
+    @Operation(summary = "Get all users")
+    public List<UserDto> getAllUsers() {
         log.info("REST: Getting all users");
-
-        Result<List<UserDto>> result = userService.findAll();
-
-        return ResponseEntity.ok(result.getValue());
+        return userService.findAll().getValue();
     }
 
     @PutMapping("/{userId}")
-    public ResponseEntity<?> updateUser(
-            @Parameter(description = "User UUID", required = true)
+    @StandardApiResponses
+    @Operation(summary = "Update user")
+    public UserDto updateUser(
             @PathVariable UUID userId,
-            @Valid @RequestBody UserDto userDto,
-            HttpServletRequest request
+            @Valid @RequestBody UserDto userDto
     ) {
         log.info("REST: Updating user: {}", userId);
 
         Result<UserDto> result = userService.update(userId, userDto);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getValue());
-        } else {
-            HttpStatus status = result.getErrorMessage().contains("not found")
-                    ? HttpStatus.NOT_FOUND
-                    : HttpStatus.BAD_REQUEST;
-
-            return ResponseEntity
-                    .status(status)
-                    .body(ErrorResponse.of(
-                            status.value(),
-                            result.getErrorMessage(),
-                            request.getRequestURI()
-                    ));
+        if (result.isFailure()) {
+            if (result.getErrorMessage().contains("not found")) {
+                throw new ResourceNotFoundException("User", userId);
+            }
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return result.getValue();
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<?> deleteUser(
-            @Parameter(description = "User UUID", required = true)
-            @PathVariable UUID userId,
-            HttpServletRequest request
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Delete user")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable UUID userId) {
         log.info("REST: Deleting user: {}", userId);
 
         Result<Void> result = userService.deleteById(userId);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(ErrorResponse.of(
-                            HttpStatus.NOT_FOUND.value(),
-                            result.getErrorMessage(),
-                            request.getRequestURI()
-                    ));
+        if (result.isFailure()) {
+            throw new ResourceNotFoundException("User", userId);
+        }
+    }
+
+    @GetMapping("/me")
+    @StandardApiResponses
+    @Operation(summary = "Get current user profile")
+    public UserProfileDto getCurrentUserProfile(HttpServletRequest request) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                throw new UnauthorizedException("Missing or invalid Authorization header");
+            }
+
+            String jwt = authHeader.substring(7);
+            String userIdStr = jwtService.extractUserId(jwt);
+
+            if (userIdStr == null) {
+                throw new UnauthorizedException("Invalid token: userId claim not found");
+            }
+
+            UUID userId = UUID.fromString(userIdStr);
+            log.info("REST: Getting current user profile for userId: {}", userId);
+
+            Result<UserProfileDto> result = userService.getCurrentUserProfile(userId);
+
+            if (result.isFailure()) {
+                throw new ResourceNotFoundException("User", userId);
+            }
+
+            return result.getValue();
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format in JWT token: {}", e.getMessage());
+            throw new UnauthorizedException("Invalid token: userId format is invalid");
+        } catch (UnauthorizedException | ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error getting current user profile: {}", e.getMessage(), e);
+            throw new BusinessException("Failed to retrieve user profile");
         }
     }
 }

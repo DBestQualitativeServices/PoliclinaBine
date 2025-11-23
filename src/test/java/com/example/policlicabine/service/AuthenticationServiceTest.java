@@ -39,6 +39,7 @@ import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -142,7 +143,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
                     .authorities(new SimpleGrantedAuthority("ROLE_DOCTOR"))
                     .build();
         });
-        when(jwtService.generateToken(any(UserDetails.class))).thenReturn("access-token");
+        when(jwtService.generateToken(any(UserDetails.class), anyString())).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(UserDetails.class))).thenReturn("refresh-token");
 
         // When
@@ -221,7 +222,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(testUserDetails);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
-        when(jwtService.generateToken(testUserDetails)).thenReturn("access-token");
+        when(jwtService.generateToken(eq(testUserDetails), anyString())).thenReturn("access-token");
         when(jwtService.generateRefreshToken(testUserDetails)).thenReturn("refresh-token");
 
         // When
@@ -285,7 +286,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(testUserDetails);
         when(jwtService.isTokenValid("valid-refresh-token", testUserDetails)).thenReturn(true);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(jwtService.generateToken(any(UserDetails.class))).thenReturn("new-access-token");
+        when(jwtService.generateToken(any(UserDetails.class), anyString())).thenReturn("new-access-token");
 
         // When
         Result<AuthResponse> result = authenticationService.refreshToken(request);

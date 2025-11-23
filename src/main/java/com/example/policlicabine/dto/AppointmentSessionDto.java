@@ -1,6 +1,7 @@
 package com.example.policlicabine.dto;
 
 import com.example.policlicabine.entity.enums.SessionStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Medical appointment session with patient, doctor, consultations, and diagnoses")
 public class AppointmentSessionDto {
 
     private UUID sessionId;

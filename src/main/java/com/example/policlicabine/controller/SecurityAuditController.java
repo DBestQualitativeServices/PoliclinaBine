@@ -1,6 +1,7 @@
 package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
+import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.SecurityAuditLogDto;
 import com.example.policlicabine.dto.SecurityAuditSearchDto;
 import com.example.policlicabine.dto.SecurityAuditStatsDto;
@@ -47,6 +48,7 @@ public class SecurityAuditController {
      * PUBLIC ENDPOINT - No authentication required to prevent recursive errors.
      */
     @PostMapping("/log")
+    @StandardApiResponses
     @Operation(summary = "Log security event from frontend", description = "Endpoint for frontend to log security events")
     public ResponseEntity<Void> logSecurityEvent(@RequestBody SecurityAuditLogDto eventDto) {
         try {
@@ -69,6 +71,7 @@ public class SecurityAuditController {
     @GetMapping("/admin/events/{auditId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Get audit log by ID", description = "Retrieve a single audit log entry")
     public ResponseEntity<Result<SecurityAuditLogDto>> getAuditLog(@PathVariable UUID auditId) {
         Result<SecurityAuditLogDto> result = auditService.findById(auditId);
@@ -85,6 +88,7 @@ public class SecurityAuditController {
     @GetMapping("/admin/events")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Search audit logs", description = "Search and filter audit logs with pagination")
     public ResponseEntity<Result<Page<SecurityAuditLogDto>>> searchAuditLogs(
         @RequestParam(required = false) AuditEventType eventType,
@@ -127,6 +131,7 @@ public class SecurityAuditController {
     @GetMapping("/admin/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Get audit statistics", description = "Get security audit statistics and metrics")
     public ResponseEntity<Result<SecurityAuditStatsDto>> getStatistics(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime after,
@@ -144,6 +149,7 @@ public class SecurityAuditController {
     @GetMapping("/admin/export/csv")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Export audit logs to CSV", description = "Export filtered audit logs as CSV file")
     public ResponseEntity<byte[]> exportToCsv(
         @RequestParam(required = false) AuditEventType eventType,
@@ -181,6 +187,7 @@ public class SecurityAuditController {
     @GetMapping("/admin/export/json")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Export audit logs to JSON", description = "Export filtered audit logs as JSON file")
     public ResponseEntity<byte[]> exportToJson(
         @RequestParam(required = false) AuditEventType eventType,
@@ -218,6 +225,7 @@ public class SecurityAuditController {
     @PostMapping("/admin/cleanup")
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "bearer-jwt")
+    @StandardApiResponses
     @Operation(summary = "Manually cleanup old audit logs", description = "Trigger manual cleanup of audit logs older than specified days")
     public ResponseEntity<String> manualCleanup(@RequestParam(defaultValue = "90") int daysToKeep) {
         try {

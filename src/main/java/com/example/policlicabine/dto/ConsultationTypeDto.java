@@ -16,6 +16,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Medical consultation type with pricing and requirements")
 public class ConsultationTypeDto {
 
     private UUID consultationId;

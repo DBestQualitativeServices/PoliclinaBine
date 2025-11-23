@@ -1,7 +1,10 @@
 package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.Result;
+import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.*;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.UnauthorizedException;
 import com.example.policlicabine.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,26 +27,25 @@ public class AuthController {
     private final AuthenticationService authenticationService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new user", description = "Creates a new user account and returns JWT tokens")
-    public ResponseEntity<?> register(
-            @Valid @RequestBody RegisterRequest request,
-            HttpServletRequest httpRequest
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Register a new user")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         log.info("Registration request for username: {}", request.getUsername());
 
         Result<AuthResponse> result = authenticationService.register(request);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.status(HttpStatus.CREATED).body(result.getValue());
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return result.getValue();
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login", description = "Authenticate user and return JWT tokens")
-    public ResponseEntity<?> login(
+    @StandardApiResponses
+    @Operation(summary = "Login")
+    public AuthResponse login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest
     ) {
@@ -52,85 +54,72 @@ public class AuthController {
         String ipAddress = getClientIp(httpRequest);
         Result<AuthResponse> result = authenticationService.authenticate(request, ipAddress);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getValue());
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new UnauthorizedException(result.getErrorMessage());
         }
+
+        return result.getValue();
     }
 
     @PostMapping("/refresh-token")
-    @Operation(summary = "Refresh access token", description = "Generate a new access token using refresh token")
-    public ResponseEntity<?> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request,
-            HttpServletRequest httpRequest
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Refresh access token")
+    public AuthResponse refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         log.info("Token refresh request");
 
         Result<AuthResponse> result = authenticationService.refreshToken(request);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result.getValue());
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ErrorResponse.of(HttpStatus.UNAUTHORIZED.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new UnauthorizedException(result.getErrorMessage());
         }
+
+        return result.getValue();
     }
 
     @PostMapping("/change-password")
+    @StandardApiResponses
     @SecurityRequirement(name = "bearer-jwt")
-    @Operation(summary = "Change password", description = "Change password for authenticated user")
-    public ResponseEntity<?> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request,
-            HttpServletRequest httpRequest
-    ) {
+    @Operation(summary = "Change password")
+    public MessageResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         log.info("Password change request");
 
         Result<Void> result = authenticationService.changePassword(request);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(new MessageResponse("Password changed successfully"));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return new MessageResponse("Password changed successfully");
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Initiate password reset", description = "Request a password reset token")
-    public ResponseEntity<?> forgotPassword(
-            @Valid @RequestBody InitiatePasswordResetRequest request,
-            HttpServletRequest httpRequest
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Initiate password reset")
+    public MessageResponse forgotPassword(@Valid @RequestBody InitiatePasswordResetRequest request) {
         log.info("Password reset request for username: {}", request.getUsername());
 
         Result<String> result = authenticationService.initiatePasswordReset(request);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(new MessageResponse(result.getValue()));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return new MessageResponse(result.getValue());
     }
 
     @PostMapping("/reset-password")
-    @Operation(summary = "Reset password", description = "Reset password using reset token")
-    public ResponseEntity<?> resetPassword(
-            @Valid @RequestBody ResetPasswordRequest request,
-            HttpServletRequest httpRequest
-    ) {
+    @StandardApiResponses
+    @Operation(summary = "Reset password")
+    public MessageResponse resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         log.info("Password reset completion request");
 
         Result<Void> result = authenticationService.resetPassword(request);
 
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(new MessageResponse("Password reset successfully"));
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), result.getErrorMessage(), httpRequest.getRequestURI()));
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
         }
+
+        return new MessageResponse("Password reset successfully");
     }
 
     /**
