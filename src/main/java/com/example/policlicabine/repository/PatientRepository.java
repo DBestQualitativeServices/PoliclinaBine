@@ -17,23 +17,20 @@ public interface PatientRepository extends FilterableRepository<Patient, UUID> {
     Optional<Patient> findByPhone(String phone);
 
     @EntityGraph(attributePaths = {"consentFile", "consentFile.uploadedBy"})
-    @Query("SELECT p FROM Patient p WHERE p.patientId = :id")
-    Optional<Patient> findWithConsentFileById(UUID id);
+    Optional<Patient> findWithConsentFileByPatientId(UUID id);
 
     @EntityGraph(attributePaths = {"files", "files.uploadedBy"})
-    @Query("SELECT p FROM Patient p WHERE p.patientId = :id")
-    Optional<Patient> findWithFilesById(UUID id);
+    Optional<Patient> findWithFilesByPatientId(UUID id);
 
 
     @EntityGraph(attributePaths = {
         "consentFile", "consentFile.uploadedBy",
         "files", "files.uploadedBy"
     })
-    @Query("SELECT p FROM Patient p WHERE p.patientId = :id")
-    Optional<Patient> findWithAllFilesById(UUID id);
+    Optional<Patient> findWithAllFilesByPatientId(UUID patientId);
 
     @EntityGraph(attributePaths = {"user"})
-    Optional<Patient> findWithUserById(UUID id);
+    Optional<Patient> findWithUserByPatientId(UUID id);
 
     boolean existsByUserUserId(UUID userId);
 }
