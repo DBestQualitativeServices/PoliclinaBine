@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findWithRolesAndPermissionsByUsername(username)
+        User user = userRepository.findWithRolesPermissionsAndProfiles(username)
                 .orElseThrow(() -> {
                     log.warn("User not found with username: {}", username);
                     return new UsernameNotFoundException("User not found: " + username);
@@ -42,15 +42,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         Collection<GrantedAuthority> authorities = buildAuthorities(user);
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getUsername())
-                .password(user.getPassword())
-                .authorities(authorities)
-                .accountExpired(false)
-                .accountLocked(!user.isAccountNonLocked())
-                .credentialsExpired(false)
-                .disabled(!user.isEnabled())
-                .build();
+        return new UserPrincipal(user, authorities);
     }
 
     private Collection<GrantedAuthority> buildAuthorities(User user) {
@@ -62,6 +54,16 @@ public class CustomUserDetailsService implements UserDetailsService {
             for (Permission permission : role.getPermissions()) {
                 authorities.add(new SimpleGrantedAuthority(permission.getName().name()));
             }
+        }
+
+        if (user.getDoctorProfile() != null) {
+            authorities.add(new SimpleGrantedAuthority("PROFILE_DOCTOR"));
+        }
+        if (user.getPatientProfile() != null) {
+            authorities.add(new SimpleGrantedAuthority("PROFILE_PATIENT"));
+        }
+        if (user.getManagerProfile() != null) {
+            authorities.add(new SimpleGrantedAuthority("PROFILE_MANAGER"));
         }
 
         return authorities;

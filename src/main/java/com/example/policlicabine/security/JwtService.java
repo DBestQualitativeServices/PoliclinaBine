@@ -8,14 +8,12 @@ import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
@@ -35,13 +33,26 @@ public class JwtService {
 
         List<String> permissions = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .filter(authority -> !authority.startsWith("ROLE_"))
+                .filter(authority -> !authority.startsWith("ROLE_") && !authority.startsWith("PROFILE_"))
                 .distinct()
+                .toList();
+
+        List<String> profileAuthorities = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(authority -> authority.startsWith("PROFILE_"))
                 .toList();
 
         claims.put("userId", userId);
         claims.put("roles", roles);
         claims.put("permissions", permissions);
+        claims.put("profileAuthorities", profileAuthorities);
+
+        if (userDetails instanceof UserPrincipal) {
+            UserPrincipal principal = (UserPrincipal) userDetails;
+            Map<String, String> profileIds = new HashMap<>();
+            principal.getProfileIds().forEach((key, value) -> profileIds.put(key, value.toString()));
+            claims.put("profiles", profileIds);
+        }
 
         return createToken(claims, userDetails.getUsername(), jwtProperties.getExpiration());
     }
@@ -120,6 +131,48 @@ public class JwtService {
             log.warn("Token validation failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    public boolean isTokenValid(String token) {
+        try {
+            extractAllClaims(token);
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            log.warn("Token validation failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public UserPrincipal buildPrincipalFromToken(String token) {
+        Claims claims = extractAllClaims(token);
+
+        String username = claims.getSubject();
+        UUID userId = UUID.fromString(claims.get("userId", String.class));
+
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        List<String> roles = claims.get("roles", List.class);
+        if (roles != null) {
+            roles.forEach(role -> authorities.add(new SimpleGrantedAuthority(role)));
+        }
+
+        List<String> permissions = claims.get("permissions", List.class);
+        if (permissions != null) {
+            permissions.forEach(perm -> authorities.add(new SimpleGrantedAuthority(perm)));
+        }
+
+        List<String> profileAuthorities = claims.get("profileAuthorities", List.class);
+        if (profileAuthorities != null) {
+            profileAuthorities.forEach(auth -> authorities.add(new SimpleGrantedAuthority(auth)));
+        }
+
+        Map<String, String> profileIdsRaw = claims.get("profiles", Map.class);
+        Map<String, UUID> profileIds = new HashMap<>();
+        if (profileIdsRaw != null) {
+            profileIdsRaw.forEach((key, value) -> profileIds.put(key, UUID.fromString(value)));
+        }
+
+        return UserPrincipal.fromJwtClaims(username, userId, profileIds, authorities);
     }
 
     private SecretKey getSigningKey() {

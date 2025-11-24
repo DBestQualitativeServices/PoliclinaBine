@@ -2,27 +2,25 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.config.properties.JwtProperties;
 import com.example.policlicabine.security.JwtService;
+import com.example.policlicabine.security.UserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.crypto.SecretKey;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JwtServiceTest {
 
     private JwtService jwtService;
-    private UserDetails testUserDetails;
-    private static final String TEST_USER_ID = "123e4567-e89b-12d3-a456-426614174000";
+    private UserPrincipal testUserPrincipal;
+    private static final UUID TEST_USER_ID = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+    private static final UUID TEST_DOCTOR_ID = UUID.fromString("223e4567-e89b-12d3-a456-426614174000");
 
     // Test configuration
     private static final String TEST_SECRET = "dGVzdC1zZWNyZXQta2V5LW11c3QtYmUtYXQtbGVhc3QtMjU2LWJpdHMtbG9uZy1mb3ItSFMyNTYtYWxnb3JpdGht";
@@ -31,36 +29,40 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Create test JwtProperties
         JwtProperties jwtProperties = new JwtProperties();
         jwtProperties.setSecret(TEST_SECRET);
         jwtProperties.setExpiration(ACCESS_TOKEN_EXPIRATION);
         jwtProperties.setRefreshExpiration(REFRESH_TOKEN_EXPIRATION);
 
-        // Create JwtService with test properties
         jwtService = new JwtService(jwtProperties);
 
-        // Create test user details
-        testUserDetails = User.builder()
-                .username("testuser")
-                .password("password")
-                .authorities(new SimpleGrantedAuthority("ROLE_DOCTOR"))
-                .build();
+        Map<String, UUID> profileIds = new HashMap<>();
+        profileIds.put("DOCTOR", TEST_DOCTOR_ID);
+
+        Collection<SimpleGrantedAuthority> authorities = Arrays.asList(
+                new SimpleGrantedAuthority("ROLE_DOCTOR"),
+                new SimpleGrantedAuthority("PROFILE_DOCTOR"),
+                new SimpleGrantedAuthority("ALL")
+        );
+
+        testUserPrincipal = UserPrincipal.fromJwtClaims(
+                "testuser",
+                TEST_USER_ID,
+                profileIds,
+                authorities
+        );
     }
 
     // ===== GENERATE TOKEN TESTS =====
 
     @Test
     void generateToken_ShouldCreateValidAccessToken() {
-        // When
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // Then
         assertThat(token).isNotNull();
         assertThat(token).isNotBlank();
-        assertThat(token.split("\\.")).hasSize(3); // JWT has 3 parts: header.payload.signature
+        assertThat(token.split("\\.")).hasSize(3);
 
-        // Parse and verify token contents
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
         Claims claims = Jwts.parser()
                 .verifyWith(key)
@@ -69,36 +71,42 @@ class JwtServiceTest {
                 .getPayload();
 
         assertThat(claims.getSubject()).isEqualTo("testuser");
-        assertThat(claims.get("userId", String.class)).isEqualTo(TEST_USER_ID);
+        assertThat(claims.get("userId", String.class)).isEqualTo(TEST_USER_ID.toString());
         assertThat(claims.get("roles", List.class)).contains("ROLE_DOCTOR");
+        assertThat(claims.get("profileAuthorities", List.class)).contains("PROFILE_DOCTOR");
+        assertThat(claims.get("permissions", List.class)).contains("ALL");
+
+        Map<String, String> profiles = claims.get("profiles", Map.class);
+        assertThat(profiles).containsEntry("DOCTOR", TEST_DOCTOR_ID.toString());
+
         assertThat(claims.getIssuedAt()).isNotNull();
         assertThat(claims.getExpiration()).isNotNull();
 
-        // Verify expiration is approximately 30 minutes from now
         long expectedExpiration = System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION;
         long actualExpiration = claims.getExpiration().getTime();
         assertThat(actualExpiration).isBetween(
-                expectedExpiration - 5000, // Allow 5 second tolerance
+                expectedExpiration - 5000,
                 expectedExpiration + 5000
         );
     }
 
     @Test
-    void generateToken_WithMultipleRoles_ShouldIncludeFirstRole() {
-        // Given
-        UserDetails multiRoleUser = User.builder()
-                .username("admin")
-                .password("password")
-                .authorities(
-                        new SimpleGrantedAuthority("ROLE_ADMIN"),
-                        new SimpleGrantedAuthority("ROLE_MANAGER")
-                )
-                .build();
+    void generateToken_WithMultipleRoles_ShouldIncludeAllRoles() {
+        Collection<SimpleGrantedAuthority> multipleAuthorities = Arrays.asList(
+                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                new SimpleGrantedAuthority("ROLE_MANAGER"),
+                new SimpleGrantedAuthority("PROFILE_MANAGER")
+        );
 
-        // When
-        String token = jwtService.generateToken(multiRoleUser, TEST_USER_ID);
+        UserPrincipal multiRolePrincipal = UserPrincipal.fromJwtClaims(
+                "admin",
+                TEST_USER_ID,
+                Collections.emptyMap(),
+                multipleAuthorities
+        );
 
-        // Then
+        String token = jwtService.generateToken(multiRolePrincipal, TEST_USER_ID.toString());
+
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
         Claims claims = Jwts.parser()
                 .verifyWith(key)
@@ -106,22 +114,20 @@ class JwtServiceTest {
                 .parseSignedClaims(token)
                 .getPayload();
 
-        assertThat(claims.get("roles", List.class)).contains("ROLE_ADMIN");
+        assertThat(claims.get("roles", List.class)).contains("ROLE_ADMIN", "ROLE_MANAGER");
+        assertThat(claims.get("profileAuthorities", List.class)).contains("PROFILE_MANAGER");
     }
 
     // ===== GENERATE REFRESH TOKEN TESTS =====
 
     @Test
     void generateRefreshToken_ShouldCreateValidRefreshToken() {
-        // When
-        String token = jwtService.generateRefreshToken(testUserDetails);
+        String token = jwtService.generateRefreshToken(testUserPrincipal);
 
-        // Then
         assertThat(token).isNotNull();
         assertThat(token).isNotBlank();
         assertThat(token.split("\\.")).hasSize(3);
 
-        // Parse and verify token contents
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
         Claims claims = Jwts.parser()
                 .verifyWith(key)
@@ -132,7 +138,6 @@ class JwtServiceTest {
         assertThat(claims.getSubject()).isEqualTo("testuser");
         assertThat(claims.get("tokenType")).isEqualTo("refresh");
 
-        // Verify expiration is approximately 7 days from now
         long expectedExpiration = System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION;
         long actualExpiration = claims.getExpiration().getTime();
         assertThat(actualExpiration).isBetween(
@@ -143,21 +148,18 @@ class JwtServiceTest {
 
     @Test
     void generateRefreshToken_ShouldHaveLongerExpirationThanAccessToken() {
-        // When
-        String accessToken = jwtService.generateToken(testUserDetails, TEST_USER_ID);
-        String refreshToken = jwtService.generateRefreshToken(testUserDetails);
+        String accessToken = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
+        String refreshToken = jwtService.generateRefreshToken(testUserPrincipal);
 
-        // Then
         Date accessExpiration = jwtService.extractExpiration(accessToken);
         Date refreshExpiration = jwtService.extractExpiration(refreshToken);
 
         assertThat(refreshExpiration).isAfter(accessExpiration);
 
-        // Verify approximately 7 days difference
         long diffMillis = refreshExpiration.getTime() - accessExpiration.getTime();
         long expectedDiff = REFRESH_TOKEN_EXPIRATION - ACCESS_TOKEN_EXPIRATION;
         assertThat(diffMillis).isBetween(
-                expectedDiff - 10000, // 10 second tolerance
+                expectedDiff - 10000,
                 expectedDiff + 10000
         );
     }
@@ -166,36 +168,32 @@ class JwtServiceTest {
 
     @Test
     void extractUsername_FromValidToken_ShouldReturnCorrectUsername() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // When
         String username = jwtService.extractUsername(token);
 
-        // Then
         assertThat(username).isEqualTo("testuser");
     }
 
     @Test
     void extractUsername_FromDifferentUsers_ShouldReturnDifferentUsernames() {
-        // Given
-        UserDetails user1 = User.builder()
-                .username("user1")
-                .password("password")
-                .authorities(new SimpleGrantedAuthority("ROLE_USER"))
-                .build();
+        UserPrincipal user1 = UserPrincipal.fromJwtClaims(
+                "user1",
+                UUID.randomUUID(),
+                Collections.emptyMap(),
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+        );
 
-        UserDetails user2 = User.builder()
-                .username("user2")
-                .password("password")
-                .authorities(new SimpleGrantedAuthority("ROLE_USER"))
-                .build();
+        UserPrincipal user2 = UserPrincipal.fromJwtClaims(
+                "user2",
+                UUID.randomUUID(),
+                Collections.emptyMap(),
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+        );
 
-        // When
-        String token1 = jwtService.generateToken(user1, "user1-id");
-        String token2 = jwtService.generateToken(user2, "user2-id");
+        String token1 = jwtService.generateToken(user1, user1.getUserId().toString());
+        String token2 = jwtService.generateToken(user2, user2.getUserId().toString());
 
-        // Then
         assertThat(jwtService.extractUsername(token1)).isEqualTo("user1");
         assertThat(jwtService.extractUsername(token2)).isEqualTo("user2");
     }
@@ -204,30 +202,24 @@ class JwtServiceTest {
 
     @Test
     void extractUserId_FromValidToken_ShouldReturnCorrectUserId() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // When
         String userId = jwtService.extractUserId(token);
 
-        // Then
-        assertThat(userId).isEqualTo(TEST_USER_ID);
+        assertThat(userId).isEqualTo(TEST_USER_ID.toString());
     }
 
     @Test
     void extractUserId_FromTokensWithDifferentUserIds_ShouldReturnCorrectIds() {
-        // Given
         String userId1 = "user-id-1";
         String userId2 = "user-id-2";
-        
-        String token1 = jwtService.generateToken(testUserDetails, userId1);
-        String token2 = jwtService.generateToken(testUserDetails, userId2);
 
-        // When
+        String token1 = jwtService.generateToken(testUserPrincipal, userId1);
+        String token2 = jwtService.generateToken(testUserPrincipal, userId2);
+
         String extractedId1 = jwtService.extractUserId(token1);
         String extractedId2 = jwtService.extractUserId(token2);
 
-        // Then
         assertThat(extractedId1).isEqualTo(userId1);
         assertThat(extractedId2).isEqualTo(userId2);
     }
@@ -236,14 +228,11 @@ class JwtServiceTest {
 
     @Test
     void extractExpiration_FromValidToken_ShouldReturnFutureDate() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
         Date now = new Date();
 
-        // When
         Date expiration = jwtService.extractExpiration(token);
 
-        // Then
         assertThat(expiration).isAfter(now);
         assertThat(expiration.getTime()).isBetween(
                 now.getTime() + ACCESS_TOKEN_EXPIRATION - 5000,
@@ -255,13 +244,10 @@ class JwtServiceTest {
 
     @Test
     void isTokenExpired_WithValidToken_ShouldReturnFalse() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // When
         boolean isExpired = jwtService.isTokenExpired(token);
 
-        // Then
         assertThat(isExpired).isFalse();
     }
 
@@ -299,55 +285,46 @@ class JwtServiceTest {
 
     @Test
     void isTokenValid_WithValidTokenAndMatchingUser_ShouldReturnTrue() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // When
-        boolean isValid = jwtService.isTokenValid(token, testUserDetails);
+        boolean isValid = jwtService.isTokenValid(token, testUserPrincipal);
 
-        // Then
         assertThat(isValid).isTrue();
     }
 
     @Test
     void isTokenValid_WithValidTokenButDifferentUser_ShouldReturnFalse() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        UserDetails differentUser = User.builder()
-                .username("differentuser")
-                .password("password")
-                .authorities(new SimpleGrantedAuthority("ROLE_USER"))
-                .build();
+        UserPrincipal differentUser = UserPrincipal.fromJwtClaims(
+                "differentuser",
+                UUID.randomUUID(),
+                Collections.emptyMap(),
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+        );
 
-        // When
         boolean isValid = jwtService.isTokenValid(token, differentUser);
 
-        // Then
         assertThat(isValid).isFalse();
     }
 
     @Test
     void isTokenValid_WithExpiredToken_ShouldReturnFalse() {
-        // Given
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
         String expiredToken = Jwts.builder()
                 .subject("testuser")
                 .issuedAt(new Date(System.currentTimeMillis() - 10000))
-                .expiration(new Date(System.currentTimeMillis() - 5000)) // Expired
+                .expiration(new Date(System.currentTimeMillis() - 5000))
                 .signWith(key)
                 .compact();
 
-        // When
-        boolean isValid = jwtService.isTokenValid(expiredToken, testUserDetails);
+        boolean isValid = jwtService.isTokenValid(expiredToken, testUserPrincipal);
 
-        // Then
         assertThat(isValid).isFalse();
     }
 
     @Test
     void isTokenValid_WithInvalidSignature_ShouldReturnFalse() {
-        // Given - Create token with different secret
         SecretKey differentKey = Jwts.SIG.HS256.key().build();
         String tokenWithWrongSignature = Jwts.builder()
                 .subject("testuser")
@@ -356,31 +333,24 @@ class JwtServiceTest {
                 .signWith(differentKey)
                 .compact();
 
-        // When
-        boolean isValid = jwtService.isTokenValid(tokenWithWrongSignature, testUserDetails);
+        boolean isValid = jwtService.isTokenValid(tokenWithWrongSignature, testUserPrincipal);
 
-        // Then
         assertThat(isValid).isFalse();
     }
 
     @Test
     void isTokenValid_WithMalformedToken_ShouldReturnFalse() {
-        // Given
         String malformedToken = "not.a.valid.jwt.token";
 
-        // When
-        boolean isValid = jwtService.isTokenValid(malformedToken, testUserDetails);
+        boolean isValid = jwtService.isTokenValid(malformedToken, testUserPrincipal);
 
-        // Then
         assertThat(isValid).isFalse();
     }
 
     @Test
     void isTokenValid_WithNullToken_ShouldReturnFalse() {
-        // When
-        boolean isValid = jwtService.isTokenValid(null, testUserDetails);
+        boolean isValid = jwtService.isTokenValid(null, testUserPrincipal);
 
-        // Then
         assertThat(isValid).isFalse();
     }
 
@@ -388,10 +358,8 @@ class JwtServiceTest {
 
     @Test
     void generateToken_ShouldProduceVerifiableSignature() {
-        // Given
-        String token = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // When - Parse token to verify signature
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
         Claims claims = Jwts.parser()
                 .verifyWith(key)
@@ -399,30 +367,55 @@ class JwtServiceTest {
                 .parseSignedClaims(token)
                 .getPayload();
 
-        // Then - If parsing succeeds, signature is valid
         assertThat(claims).isNotNull();
         assertThat(claims.getSubject()).isEqualTo("testuser");
     }
 
     @Test
     void tokensForSameUser_ShouldBeDifferent() {
-        // When - Generate two tokens for same user at different times
-        String token1 = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token1 = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // Delay to ensure different issuedAt timestamp (JWT uses seconds)
         try {
-            Thread.sleep(1001); // Sleep for just over 1 second
+            Thread.sleep(1001);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        String token2 = jwtService.generateToken(testUserDetails, TEST_USER_ID);
+        String token2 = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
 
-        // Then - Tokens should be different (different issuedAt timestamps)
         assertThat(token1).isNotEqualTo(token2);
+        assertThat(jwtService.isTokenValid(token1)).isTrue();
+        assertThat(jwtService.isTokenValid(token2)).isTrue();
+    }
 
-        // But both should be valid for the same user
-        assertThat(jwtService.isTokenValid(token1, testUserDetails)).isTrue();
-        assertThat(jwtService.isTokenValid(token2, testUserDetails)).isTrue();
+    @Test
+    void buildPrincipalFromToken_ShouldReconstructUserPrincipal() {
+        String token = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
+
+        UserPrincipal reconstructed = jwtService.buildPrincipalFromToken(token);
+
+        assertThat(reconstructed).isNotNull();
+        assertThat(reconstructed.getUsername()).isEqualTo("testuser");
+        assertThat(reconstructed.getUserId()).isEqualTo(TEST_USER_ID);
+        assertThat(reconstructed.getAuthorities()).hasSize(3);
+        assertThat(reconstructed.hasProfile("DOCTOR")).isTrue();
+        assertThat(reconstructed.getProfileId("DOCTOR")).contains(TEST_DOCTOR_ID);
+    }
+
+    @Test
+    void isTokenValid_WithoutUserDetails_ShouldValidateCorrectly() {
+        String validToken = jwtService.generateToken(testUserPrincipal, TEST_USER_ID.toString());
+
+        assertThat(jwtService.isTokenValid(validToken)).isTrue();
+
+        SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(TEST_SECRET));
+        String expiredToken = Jwts.builder()
+                .subject("testuser")
+                .issuedAt(new Date(System.currentTimeMillis() - 10000))
+                .expiration(new Date(System.currentTimeMillis() - 5000))
+                .signWith(key)
+                .compact();
+
+        assertThat(jwtService.isTokenValid(expiredToken)).isFalse();
     }
 }
