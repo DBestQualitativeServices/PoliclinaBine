@@ -2,28 +2,35 @@ package com.example.policlicabine.config;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.controller.FormTemplateController;
+import com.example.policlicabine.dto.AuthResponseWrapper;
 import com.example.policlicabine.dto.FormTemplateDto;
+import com.example.policlicabine.dto.ManagerDto;
+import com.example.policlicabine.dto.RegisterManagerRequest;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.FormPurpose;
+import com.example.policlicabine.entity.enums.PermissionEnum;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.model.FieldOption;
 import com.example.policlicabine.model.FormField;
 import com.example.policlicabine.model.FormSection;
 import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.repository.ManagerRepository;
+import com.example.policlicabine.repository.PermissionRepository;
 import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
+import com.example.policlicabine.service.AuthenticationService;
 import com.example.policlicabine.service.FormTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Configuration
@@ -33,10 +40,11 @@ public class InitialConfig {
 
     private final FormTemplateService formTemplateService;
     private final FormTemplateController formTemplateController;
-    private final UserRepository userRepository;
     private final ManagerRepository managerRepository;
     private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationService authenticationService;
 
     @Bean
     CommandLineRunner commandLineRunner() {
@@ -45,6 +53,9 @@ public class InitialConfig {
 //            createGdprConsentFormTemplate();
             List<FormTemplateDto> body = formTemplateController.getAllActiveTemplates().getBody();
             System.out.println("ASD");
+
+            // Initialize permissions and roles FIRST
+            initializePermissionAndRoles();
 
             // Create default manager if no managers exist
             createDefaultManagerIfNeeded();
@@ -288,6 +299,61 @@ public class InitialConfig {
             .build();
     }
 
+    private void initializePermissionAndRoles() {
+        log.info("Initializing permissions and roles...");
+
+        try {
+            // 1. Create or get the 'ALL' permission
+            Permission allPermission = permissionRepository.findByName(PermissionEnum.ALL)
+                    .orElseGet(() -> {
+                        log.info("Creating 'ALL' permission...");
+                        Permission newPermission = Permission.builder()
+                                .name(PermissionEnum.ALL)
+                                .description(PermissionEnum.ALL.getDescription())
+                                .build();
+                        return permissionRepository.save(newPermission);
+                    });
+
+            log.info("'ALL' permission ready with ID: {}", allPermission.getPermissionId());
+
+            // 2. Create all roles with the 'ALL' permission
+            Set<Permission> permissions = new HashSet<>();
+            permissions.add(allPermission);
+
+            for (UserRole roleName : UserRole.values()) {
+                roleRepository.findByName(roleName).ifPresentOrElse(
+                        existingRole -> {
+                            log.info("Role '{}' already exists, skipping creation", roleName);
+                        },
+                        () -> {
+                            log.info("Creating role '{}'...", roleName);
+                            Role newRole = Role.builder()
+                                    .name(roleName)
+                                    .description(getRoleDescription(roleName))
+                                    .permissions(new HashSet<>(permissions))
+                                    .build();
+                            roleRepository.save(newRole);
+                            log.info("Role '{}' created successfully with 'ALL' permission", roleName);
+                        }
+                );
+            }
+
+            log.info("Permission and role initialization completed successfully");
+        } catch (Exception e) {
+            log.error("Failed to initialize permissions and roles: {}", e.getMessage(), e);
+        }
+    }
+
+    private String getRoleDescription(UserRole role) {
+        return switch (role) {
+            case DOCTOR -> "Medical doctor with patient care privileges";
+            case PATIENT -> "Patient with medical record access";
+            case RECEPTIONIST -> "Reception staff with appointment management";
+            case MANAGER -> "Manager with administrative privileges";
+            case ADMIN -> "System administrator with full access";
+        };
+    }
+
     private void createDefaultManagerIfNeeded() {
         // Check if any managers exist
         if (managerRepository.count() > 0) {
@@ -295,49 +361,27 @@ public class InitialConfig {
             return;
         }
 
-        log.info("No managers found in database, creating default manager 'a'...");
+        log.info("No managers found in database, creating default manager...");
 
         try {
-            // 1. Get or create MANAGER role
-            Role managerRole = roleRepository.findByName(UserRole.MANAGER)
-                    .orElseGet(() -> {
-                        log.info("MANAGER role not found, creating it...");
-                        Role newRole = Role.builder()
-                                .name(UserRole.MANAGER)
-                                .description("Manager role with administrative privileges")
-                                .build();
-                        return roleRepository.save(newRole);
-                    });
-
-            // 2. Create User entity with username="a" and password="a"
-            User managerUser = User.builder()
-                    .username("a")
-                    .password(passwordEncoder.encode("a"))
-                    .enabled(true)
-                    .accountNonLocked(true)
-                    .build();
-
-            // 3. Assign MANAGER role using helper method
-            managerUser.addRole(managerRole);
-
-            // 4. Save user (to get generated userId)
-            managerUser = userRepository.save(managerUser);
-
-            // 5. Create Manager profile
-            Manager managerProfile = Manager.builder()
-                    .user(managerUser)
+            // Use the new registerManager method from AuthenticationService
+            RegisterManagerRequest request = RegisterManagerRequest.builder()
+                    .username("manager@gmail.com")
+                    .password("manager@gmail.com")
                     .fullName("Default Manager")
                     .build();
 
-            // 6. Set bidirectional relationship
-            managerUser.setManagerProfile(managerProfile);
+            Result<AuthResponseWrapper<ManagerDto>> result = authenticationService.registerManager(request);
 
-            // 7. Save user again (cascade saves manager profile)
-            userRepository.save(managerUser);
-
-            log.info("Default manager 'a' created successfully with ID: {}", managerUser.getUserId());
+            if (result.isSuccess()) {
+                log.info("Default manager created successfully with username: {} and ID: {}",
+                        result.getValue().getAuthResponse().getUsername(),
+                        result.getValue().getProfile().getManagerId());
+            } else {
+                log.error("Failed to create default manager: {}", result.getErrorMessage());
+            }
         } catch (Exception e) {
-            log.error("Failed to create default manager: {}", e.getMessage(), e);
+            log.error("Exception while creating default manager: {}", e.getMessage(), e);
         }
     }
 }
