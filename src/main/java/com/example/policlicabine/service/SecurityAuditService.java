@@ -2,6 +2,7 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.SecurityAuditLogDto;
+import com.example.policlicabine.service.base.BaseServiceImpl;
 import com.example.policlicabine.dto.SecurityAuditSearchDto;
 import com.example.policlicabine.dto.SecurityAuditStatsDto;
 import com.example.policlicabine.entity.SecurityAuditLog;
@@ -28,48 +29,95 @@ import java.util.stream.Collectors;
 /**
  * Service for managing security audit logs.
  * Handles logging, searching, and statistics for security events.
+ *
+ * Extends BaseServiceImpl to inherit standard CRUD operations.
+ * Note: Audit logs are immutable - update operations are blocked.
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional
-public class SecurityAuditService {
+public class SecurityAuditService extends BaseServiceImpl<SecurityAuditLog, SecurityAuditLogDto, UUID> {
 
     private final SecurityAuditLogRepository auditLogRepository;
     private final SecurityAuditLogMapper auditLogMapper;
     private final ApplicationEventPublisher eventPublisher;
+
+    public SecurityAuditService(
+            SecurityAuditLogRepository repository,
+            SecurityAuditLogMapper mapper,
+            ApplicationEventPublisher eventPublisher) {
+        super(repository, mapper);
+        this.auditLogRepository = repository;
+        this.auditLogMapper = mapper;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // ============= BASE SERVICE ABSTRACT METHOD IMPLEMENTATIONS =============
+
+    @Override
+    protected SecurityAuditLogDto toDto(SecurityAuditLog entity) {
+        return auditLogMapper.toDto(entity);
+    }
+
+    @Override
+    protected String getEntityName() {
+        return "Security Audit Log";
+    }
+
+    @Override
+    protected void updateEntityFromDto(SecurityAuditLog entity, SecurityAuditLogDto dto) {
+        // Audit logs are IMMUTABLE - updates not allowed
+        throw new UnsupportedOperationException("Audit logs cannot be modified");
+    }
+
+    /**
+     * Override update to prevent modifications - audit logs are immutable.
+     */
+    @Override
+    public Result<SecurityAuditLogDto> update(UUID id, SecurityAuditLogDto dto) {
+        return Result.failure("Audit logs are immutable and cannot be updated");
+    }
+
+    // ============= CORE LOGGING INFRASTRUCTURE =============
+
+    /**
+     * Core logging logic - prepares and saves the audit log entity.
+     * Extracts common code from logEventAsync, logEvent, and logEventAndReturnEntity.
+     *
+     * @param dto Security audit log DTO
+     * @return Saved SecurityAuditLog entity
+     */
+    private SecurityAuditLog prepareAndSaveAuditLog(SecurityAuditLogDto dto) {
+        SecurityAuditLog entity = auditLogMapper.toEntity(dto);
+
+        // Set default severity if not provided
+        if (entity.getSeverity() == null) {
+            entity.setSeverity(determineSeverity(entity.getEventType()));
+        }
+
+        // Ensure timestamp is in UTC
+        if (entity.getTimestamp() != null) {
+            entity.setTimestamp(entity.getTimestamp().withOffsetSameInstant(ZoneOffset.UTC));
+        }
+
+        return auditLogRepository.save(entity);
+    }
+
+    // ============= PUBLIC LOGGING METHODS =============
 
     /**
      * Log a security event asynchronously.
      * Called from frontend POST /api/security/log and internal event listeners.
      *
      * @param dto Security audit log DTO
-     * @return Result indicating success or failure
      */
     @Async("auditLogExecutor")
     public void logEventAsync(SecurityAuditLogDto dto) {
         try {
-            SecurityAuditLog entity = auditLogMapper.toEntity(dto);
-
-            // Set default severity if not provided
-            if (entity.getSeverity() == null) {
-                entity.setSeverity(determineSeverity(entity.getEventType()));
-            }
-
-            // Ensure timestamp is in UTC
-            if (entity.getTimestamp() != null) {
-                entity.setTimestamp(entity.getTimestamp().withOffsetSameInstant(ZoneOffset.UTC));
-            }
-
-            // Save to database
-            SecurityAuditLog saved = auditLogRepository.save(entity);
-
+            SecurityAuditLog saved = prepareAndSaveAuditLog(dto);
             log.debug("Audit event logged: {} | Principal: {} | Severity: {}",
                 saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
-
-            // Publish event for alerting (don't wait for result)
             publishAuditEventForAlerting(saved);
-
         } catch (Exception e) {
             log.error("Failed to log security event asynchronously", e);
             // Don't throw - audit logging failure shouldn't break application
@@ -78,32 +126,18 @@ public class SecurityAuditService {
 
     /**
      * Log a security event synchronously (for cases where immediate persistence is needed).
+     *
+     * @param dto Security audit log DTO
+     * @return Result containing the saved DTO or error
      */
     @Transactional
     public Result<SecurityAuditLogDto> logEvent(SecurityAuditLogDto dto) {
         try {
-            SecurityAuditLog entity = auditLogMapper.toEntity(dto);
-
-            // Set default severity if not provided
-            if (entity.getSeverity() == null) {
-                entity.setSeverity(determineSeverity(entity.getEventType()));
-            }
-
-            // Ensure timestamp is in UTC
-            if (entity.getTimestamp() != null) {
-                entity.setTimestamp(entity.getTimestamp().withOffsetSameInstant(ZoneOffset.UTC));
-            }
-
-            SecurityAuditLog saved = auditLogRepository.save(entity);
-
+            SecurityAuditLog saved = prepareAndSaveAuditLog(dto);
             log.info("Audit event logged: {} | Principal: {} | Severity: {}",
                 saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
-
-            // Publish event for alerting
             publishAuditEventForAlerting(saved);
-
             return Result.success(auditLogMapper.toDto(saved));
-
         } catch (Exception e) {
             log.error("Failed to log security event", e);
             return Result.failure("Failed to log security event: " + e.getMessage());
@@ -121,43 +155,18 @@ public class SecurityAuditService {
     @Transactional
     public SecurityAuditLog logEventAndReturnEntity(SecurityAuditLogDto dto) {
         try {
-            SecurityAuditLog entity = auditLogMapper.toEntity(dto);
-
-            // Set default severity if not provided
-            if (entity.getSeverity() == null) {
-                entity.setSeverity(determineSeverity(entity.getEventType()));
-            }
-
-            // Ensure timestamp is in UTC
-            if (entity.getTimestamp() != null) {
-                entity.setTimestamp(entity.getTimestamp().withOffsetSameInstant(ZoneOffset.UTC));
-            }
-
-            SecurityAuditLog saved = auditLogRepository.save(entity);
-
+            SecurityAuditLog saved = prepareAndSaveAuditLog(dto);
             log.debug("Audit event logged and returned: {} | Principal: {} | Severity: {}",
                 saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
-
-            // Publish event for alerting
             publishAuditEventForAlerting(saved);
-
             return saved;
-
         } catch (Exception e) {
             log.error("Failed to log security event", e);
             return null;
         }
     }
 
-    /**
-     * Find audit log by ID.
-     */
-    @Transactional(readOnly = true)
-    public Result<SecurityAuditLogDto> findById(UUID auditId) {
-        return auditLogRepository.findById(auditId)
-            .map(entity -> Result.success(auditLogMapper.toDto(entity)))
-            .orElse(Result.failure("Security audit log not found with ID: " + auditId));
-    }
+    // Note: findById() is now inherited from BaseServiceImpl
 
     /**
      * Search audit logs with filters and pagination.
@@ -199,6 +208,7 @@ public class SecurityAuditService {
 
     /**
      * Get statistics for security audit logs.
+     * Uses efficient time-filtered database aggregation queries instead of loading events into memory.
      */
     @Transactional(readOnly = true)
     public Result<SecurityAuditStatsDto> getStatistics(OffsetDateTime after, OffsetDateTime before) {
@@ -208,27 +218,25 @@ public class SecurityAuditService {
                 after = OffsetDateTime.now(ZoneOffset.UTC).minusDays(7);
             }
 
-            // Count by event type
-            List<Object[]> eventTypeCounts = auditLogRepository.countByEventType();
+            // Use time-filtered database aggregations (efficient - no memory loading)
+            List<Object[]> eventTypeCounts = auditLogRepository.countByEventTypeAfter(after);
             Map<String, Long> eventTypeMap = eventTypeCounts.stream()
                 .collect(Collectors.toMap(
                     row -> ((AuditEventType) row[0]).name(),
                     row -> (Long) row[1]
                 ));
 
-            // Count by severity
-            List<Object[]> severityCounts = auditLogRepository.countBySeverity();
+            List<Object[]> severityCounts = auditLogRepository.countBySeverityAfter(after);
             Map<String, Long> severityMap = severityCounts.stream()
                 .collect(Collectors.toMap(
                     row -> ((AuditSeverity) row[0]).name(),
                     row -> (Long) row[1]
                 ));
 
-            // Count recent events
-            List<SecurityAuditLog> recentEvents = auditLogRepository.findRecentEvents(after);
-            long totalEvents = recentEvents.size();
+            // Single count query instead of loading all events
+            long totalEvents = auditLogRepository.countEventsAfter(after);
 
-            // Calculate specific counts
+            // Calculate specific counts from maps (no additional DB calls)
             long criticalEvents = severityMap.getOrDefault("CRITICAL", 0L);
             long warningEvents = severityMap.getOrDefault("WARNING", 0L);
             long infoEvents = severityMap.getOrDefault("INFO", 0L);
@@ -238,19 +246,12 @@ public class SecurityAuditService {
             long suspiciousActivities = eventTypeMap.getOrDefault("SUSPICIOUS_ACTIVITY", 0L)
                 + eventTypeMap.getOrDefault("BRUTE_FORCE_DETECTED", 0L);
 
-            // Top principals
-            Map<String, Long> topPrincipals = recentEvents.stream()
-                .filter(e -> e.getPrincipal() != null)
-                .collect(Collectors.groupingBy(
-                    SecurityAuditLog::getPrincipal,
-                    Collectors.counting()
-                ))
-                .entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(10)
+            // Database aggregation for top principals (efficient - LIMIT 10 in query)
+            List<Object[]> topPrincipalsList = auditLogRepository.findTopPrincipalsSince(after);
+            Map<String, Long> topPrincipals = topPrincipalsList.stream()
                 .collect(Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
+                    row -> (String) row[0],
+                    row -> (Long) row[1],
                     (e1, e2) -> e1,
                     LinkedHashMap::new
                 ));

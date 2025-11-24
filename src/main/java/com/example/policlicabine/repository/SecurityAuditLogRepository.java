@@ -111,6 +111,44 @@ public interface SecurityAuditLogRepository extends JpaRepository<SecurityAuditL
     @Query("SELECT a.severity, COUNT(a) FROM SecurityAuditLog a GROUP BY a.severity")
     List<Object[]> countBySeverity();
 
+    // ============= TIME-FILTERED AGGREGATION QUERIES (for efficient statistics) =============
+
+    /**
+     * Count audit logs by event type after a specific timestamp.
+     * Returns list of Object[]{AuditEventType, Long}
+     */
+    @Query("SELECT a.eventType, COUNT(a) FROM SecurityAuditLog a WHERE a.timestamp >= :after GROUP BY a.eventType")
+    List<Object[]> countByEventTypeAfter(@Param("after") OffsetDateTime after);
+
+    /**
+     * Count audit logs by severity after a specific timestamp.
+     * Returns list of Object[]{AuditSeverity, Long}
+     */
+    @Query("SELECT a.severity, COUNT(a) FROM SecurityAuditLog a WHERE a.timestamp >= :after GROUP BY a.severity")
+    List<Object[]> countBySeverityAfter(@Param("after") OffsetDateTime after);
+
+    /**
+     * Count total audit events after a specific timestamp.
+     * Efficient single count query for statistics.
+     */
+    @Query("SELECT COUNT(a) FROM SecurityAuditLog a WHERE a.timestamp >= :after")
+    long countEventsAfter(@Param("after") OffsetDateTime after);
+
+    /**
+     * Find top principals by event count since a specific timestamp.
+     * Returns list of Object[]{principal (String), count (Long)} ordered by count descending.
+     * Limited to top 10 results for performance.
+     */
+    @Query("""
+        SELECT a.principal, COUNT(a) as cnt
+        FROM SecurityAuditLog a
+        WHERE a.timestamp >= :after AND a.principal IS NOT NULL
+        GROUP BY a.principal
+        ORDER BY cnt DESC
+        LIMIT 10
+        """)
+    List<Object[]> findTopPrincipalsSince(@Param("after") OffsetDateTime after);
+
     /**
      * Count failed login attempts for a specific principal within a time window.
      */
