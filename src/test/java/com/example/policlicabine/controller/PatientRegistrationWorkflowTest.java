@@ -32,9 +32,14 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+
+import com.example.policlicabine.entity.enums.PermissionEnum;
+import com.example.policlicabine.entity.enums.UserRole;
 
 import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,6 +102,9 @@ class PatientRegistrationWorkflowTest {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private PermissionRepository permissionRepository;
+
     @PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
 
@@ -107,23 +115,33 @@ class PatientRegistrationWorkflowTest {
     private ConsultationType testConsultation;
 
     @BeforeEach
-    @Transactional
     void setUp() {
-        // Clean database for each test
+        // Clean database for each test (order matters due to FK constraints)
         appointmentSessionRepository.deleteAll();
         patientRepository.deleteAll();
         consultationRepository.deleteAll();
         doctorRepository.deleteAll();
         userRepository.deleteAll();
-        // DON'T delete roles - they're initialized by InitialConfig and shared across all tests
-        // roleRepository.deleteAll();
+        roleRepository.deleteAll();
+        permissionRepository.deleteAll();
 
         // Reset event listener
         eventListener.clear();
 
-        // Use existing role instead of creating new one (to avoid duplicate key violation)
-        Role doctorRole = roleRepository.findByName(com.example.policlicabine.entity.enums.UserRole.DOCTOR)
-                .orElseThrow(() -> new RuntimeException("DOCTOR role not initialized by InitialConfig"));
+        // Create Permission for test
+        Permission allPermission = Permission.builder()
+                .name(PermissionEnum.ALL)
+                .description("Full system access")
+                .build();
+        permissionRepository.save(allPermission);
+
+        // Create DOCTOR role for test
+        Role doctorRole = Role.builder()
+                .name(UserRole.DOCTOR)
+                .description("Medical doctor with patient care privileges")
+                .permissions(new HashSet<>(Set.of(allPermission)))
+                .build();
+        roleRepository.save(doctorRole);
 
         // Create test doctor user and set role directly (avoid bidirectional relationship issues)
         User doctorUser = User.builder()
@@ -132,7 +150,7 @@ class PatientRegistrationWorkflowTest {
                 .enabled(true)
                 .accountNonLocked(true)
                 .build();
-        
+
         // Directly add to user's roles collection (unidirectional) to avoid LazyInitializationException
         doctorUser.getRoles().add(doctorRole);
         userRepository.save(doctorUser);

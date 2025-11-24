@@ -55,10 +55,10 @@ public class InitialConfig {
             System.out.println("ASD");
 
             // Initialize permissions and roles FIRST
-            initializePermissionAndRoles();
+//            initializePermissionAndRoles();
 
             // Create default manager if no managers exist
-            createDefaultManagerIfNeeded();
+//            createDefaultManagerIfNeeded();
         };
     }
 
