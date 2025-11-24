@@ -4,6 +4,7 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.dto.PatientFilterCriteria;
 import com.example.policlicabine.entity.Patient;
+import com.example.policlicabine.entity.User;
 import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
@@ -19,24 +20,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Service for managing Patient entities.
- *
- * Architecture:
- * - Extends BaseServiceImpl for common CRUD operations (findById, validateExists, getEntityById)
- * - Focuses on business-specific logic (registration, updates, consent management)
- * - Uses domain events for decoupled architecture
- * - Result pattern for consistent error handling
- *
- * Inherited Methods (from BaseServiceImpl):
- * - findById(UUID) → Result&lt;PatientDto&gt;
- * - validateExists(UUID) → Result&lt;Void&gt;
- * - getEntityById(UUID) → Patient
- * - findAll() → Result&lt;List&lt;PatientDto&gt;&gt;
- */
 @Service
 @Slf4j
 @Transactional
@@ -288,5 +273,69 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     @Transactional(readOnly = true)
     public Result<Void> validatePatientExists(UUID patientId) {
         return validateExists(patientId);
+    }
+
+    /**
+     * INTERNAL: Creates a patient profile linked to an existing user.
+     * Used by AuthenticationService during patient registration with user account.
+     *
+     * @param user User entity (already saved)
+     * @param firstName Patient first name
+     * @param lastName Patient last name
+     * @param phone Phone number
+     * @param email Email address (optional)
+     * @param address Address (optional)
+     * @return Result containing PatientDto or error message
+     */
+    @Transactional
+    public Result<PatientDto> createPatientWithUser(User user, String firstName, String lastName,
+                                                     String phone, String email, String address) {
+        try {
+            if (user == null) {
+                return Result.failure("User is required");
+            }
+            if (firstName == null || firstName.trim().isEmpty()) {
+                return Result.failure("First name is required");
+            }
+            if (lastName == null || lastName.trim().isEmpty()) {
+                return Result.failure("Last name is required");
+            }
+            if (phone == null || phone.trim().isEmpty()) {
+                return Result.failure("Phone number is required");
+            }
+
+            // Check for duplicate patient profile for this user
+            if (patientRepository.existsByUserUserId(user.getUserId())) {
+                return Result.failure("Patient profile already exists for this user");
+            }
+
+            // Build patient entity
+            Patient patient = Patient.builder()
+                    .user(user)
+                    .firstName(firstName.trim())
+                    .lastName(lastName.trim())
+                    .phone(phone.trim())
+                    .email(email != null ? email.trim() : null)
+                    .address(address != null ? address.trim() : null)
+                    .build();
+
+            Patient savedPatient = patientRepository.save(patient);
+
+            log.info("Patient profile created: {} for user {}", savedPatient.getPatientId(), user.getUserId());
+
+            // Publish event for downstream processes
+            eventPublisher.publishEvent(new NewPatientRegisteredEvent(
+                    savedPatient.getPatientId(),
+                    savedPatient.getFirstName(),
+                    savedPatient.getLastName(),
+                    savedPatient.getEmail()
+            ));
+
+            return Result.success(patientMapper.toDto(savedPatient));
+
+        } catch (Exception e) {
+            log.error("Error creating patient profile for user {}", user.getUserId(), e);
+            return Result.failure("Failed to create patient profile: " + e.getMessage());
+        }
     }
 }

@@ -8,8 +8,10 @@ import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -32,7 +34,9 @@ public class PatientController {
 
     @PostMapping
     @StandardApiResponses
-    @Operation(summary = "Register a new patient")
+    @SecurityRequirement(name = "bearer-jwt")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST')")
+    @Operation(summary = "Register a new patient (admin/receptionist only - for walk-ins or linking)")
     public PatientDto registerPatient(@Valid @RequestBody PatientDto patientDto) {
         log.info("REST: Registering new patient: {} {}",
                 patientDto.getFirstName(), patientDto.getLastName());

@@ -14,7 +14,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -28,12 +27,62 @@ public class AuthController {
 
     @PostMapping("/register")
     @StandardApiResponses
-    @Operation(summary = "Register a new user")
+    @Operation(summary = "Register a new user", description = "DEPRECATED: Use persona-specific endpoints instead (/register-patient, /register-doctor, /register-manager)")
     @ResponseStatus(HttpStatus.CREATED)
+    @Deprecated
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         log.info("Registration request for username: {}", request.getUsername());
 
         Result<AuthResponse> result = authenticationService.register(request);
+
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @PostMapping("/register-patient")
+    @StandardApiResponses
+    @Operation(summary = "Register a new patient with user account")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponseWrapper<PatientDto> registerPatient(@Valid @RequestBody RegisterPatientRequest request) {
+        log.info("Patient registration request for username: {}", request.getUsername());
+
+        Result<AuthResponseWrapper<PatientDto>> result = authenticationService.registerPatient(request);
+
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @PostMapping("/register-doctor")
+    @StandardApiResponses
+    @Operation(summary = "Register a new doctor with user account")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponseWrapper<DoctorDto> registerDoctor(@Valid @RequestBody RegisterDoctorRequest request) {
+        log.info("Doctor registration request for username: {}", request.getUsername());
+
+        Result<AuthResponseWrapper<DoctorDto>> result = authenticationService.registerDoctor(request);
+
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @PostMapping("/register-manager")
+    @StandardApiResponses
+    @SecurityRequirement(name = "bearer-jwt")
+    @Operation(summary = "Register a new manager with user account (admin only)")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponseWrapper<ManagerDto> registerManager(@Valid @RequestBody RegisterManagerRequest request) {
+        log.info("Manager registration request for username: {}", request.getUsername());
+
+        Result<AuthResponseWrapper<ManagerDto>> result = authenticationService.registerManager(request);
 
         if (result.isFailure()) {
             throw new BusinessException(result.getErrorMessage());
@@ -133,8 +182,5 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 
-    /**
-     * Simple response DTOs
-     */
-    private record MessageResponse(String message) {}
+    public record MessageResponse(String message) {}
 }

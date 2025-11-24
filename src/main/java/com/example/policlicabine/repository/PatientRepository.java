@@ -31,4 +31,9 @@ public interface PatientRepository extends FilterableRepository<Patient, UUID> {
     })
     @Query("SELECT p FROM Patient p WHERE p.patientId = :id")
     Optional<Patient> findWithAllFilesById(UUID id);
+
+    @EntityGraph(attributePaths = {"user"})
+    Optional<Patient> findWithUserById(UUID id);
+
+    boolean existsByUserUserId(UUID userId);
 }

@@ -8,8 +8,10 @@ import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -37,7 +39,9 @@ public class DoctorController {
 
     @PostMapping
     @StandardApiResponses
-    @Operation(summary = "Create doctor profile")
+    @SecurityRequirement(name = "bearer-jwt")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(summary = "Create doctor profile (admin/manager only - for linking existing users)")
     public DoctorDto createDoctor(@Valid @RequestBody DoctorDto doctorDto) {
         log.info("REST: Creating new doctor profile for user: {}", doctorDto.getUserId());
 

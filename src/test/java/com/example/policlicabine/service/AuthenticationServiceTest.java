@@ -13,6 +13,7 @@ import com.example.policlicabine.event.*;
 import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.security.JwtService;
+import com.example.policlicabine.util.CredentialGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -79,6 +80,18 @@ class AuthenticationServiceTest extends BaseServiceTest {
     @Mock
     private UserDetailsService userDetailsService;
 
+    @Mock
+    private PatientService patientService;
+
+    @Mock
+    private DoctorService doctorService;
+
+    @Mock
+    private ManagerService managerService;
+
+    @Mock
+    private CredentialGenerator credentialGenerator;
+
     private AuthenticationService authenticationService;
 
     private User testUser;
@@ -96,7 +109,11 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 jwtService,
                 authenticationManager,
                 userDetailsService,
-                eventPublisher
+                eventPublisher,
+                patientService,
+                doctorService,
+                managerService,
+                credentialGenerator
         );
 
         // Setup common test data

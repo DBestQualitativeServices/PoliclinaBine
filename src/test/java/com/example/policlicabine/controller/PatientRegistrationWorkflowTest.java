@@ -115,25 +115,26 @@ class PatientRegistrationWorkflowTest {
         consultationRepository.deleteAll();
         doctorRepository.deleteAll();
         userRepository.deleteAll();
-        roleRepository.deleteAll();
+        // DON'T delete roles - they're initialized by InitialConfig and shared across all tests
+        // roleRepository.deleteAll();
 
         // Reset event listener
         eventListener.clear();
 
-        // Create and save required roles first (before users)
-        Role doctorRole = Role.builder()
-                .name(com.example.policlicabine.entity.enums.UserRole.DOCTOR)
-                .build();
-        roleRepository.save(doctorRole);
+        // Use existing role instead of creating new one (to avoid duplicate key violation)
+        Role doctorRole = roleRepository.findByName(com.example.policlicabine.entity.enums.UserRole.DOCTOR)
+                .orElseThrow(() -> new RuntimeException("DOCTOR role not initialized by InitialConfig"));
 
-        // Create test doctor user directly (without UserTestBuilder to avoid transient Role issues)
+        // Create test doctor user and set role directly (avoid bidirectional relationship issues)
         User doctorUser = User.builder()
                 .username("dr.smith")
                 .password("password123")
                 .enabled(true)
                 .accountNonLocked(true)
                 .build();
-        doctorUser.addRole(doctorRole);
+        
+        // Directly add to user's roles collection (unidirectional) to avoid LazyInitializationException
+        doctorUser.getRoles().add(doctorRole);
         userRepository.save(doctorUser);
 
         testDoctor = DoctorTestBuilder.aDermatologist()

@@ -42,6 +42,9 @@ build/
 *.env
 .env.*
 
+### Local Initialization Config ###
+/src/main/java/com/example/policlicabine/config/InitialConfig.java
+
 ### Azure ###
 .azure/
 

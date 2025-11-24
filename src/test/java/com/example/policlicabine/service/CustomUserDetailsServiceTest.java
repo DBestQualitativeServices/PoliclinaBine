@@ -5,6 +5,7 @@ import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.security.CustomUserDetailsService;
+import com.example.policlicabine.security.UserPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,8 +53,7 @@ class CustomUserDetailsServiceTest {
     // ===== LOAD USER BY USERNAME TESTS =====
 
     @Test
-    void loadUserByUsername_WithExistingUser_ShouldReturnUserDetails() {
-        // Given
+    void loadUserByUsername_WithExistingUser_ShouldReturnUserPrincipal() {
         User testUser = UserTestBuilder.aDoctor()
                 .withUsername("drsmith")
                 .withPassword("$2a$10$hashedPassword")
@@ -60,13 +61,12 @@ class CustomUserDetailsServiceTest {
         testUser.setEnabled(true);
         testUser.setAccountNonLocked(true);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("drsmith")).thenReturn(Optional.of(testUser));
+        when(userRepository.findWithRolesPermissionsAndProfiles("drsmith")).thenReturn(Optional.of(testUser));
 
-        // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("drsmith");
 
-        // Then
         assertThat(userDetails).isNotNull();
+        assertThat(userDetails).isInstanceOf(UserPrincipal.class);
         assertThat(userDetails.getUsername()).isEqualTo("drsmith");
         assertThat(userDetails.getPassword()).isEqualTo("$2a$10$hashedPassword");
         assertThat(userDetails.isEnabled()).isTrue();
@@ -74,26 +74,27 @@ class CustomUserDetailsServiceTest {
         assertThat(userDetails.isAccountNonExpired()).isTrue();
         assertThat(userDetails.isCredentialsNonExpired()).isTrue();
 
-        // Verify authorities
-        assertThat(userDetails.getAuthorities()).hasSize(1);
-        assertThat(userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList()).containsExactly("ROLE_DOCTOR");
+        UserPrincipal principal = (UserPrincipal) userDetails;
+        assertThat(principal.getUserId()).isEqualTo(testUser.getUserId());
 
-        verify(userRepository).findWithRolesAndPermissionsByUsername("drsmith");
+        assertThat(userDetails.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .contains("ROLE_DOCTOR");
+
+        verify(userRepository).findWithRolesPermissionsAndProfiles("drsmith");
     }
 
     @Test
     void loadUserByUsername_WithNonExistentUser_ShouldThrowException() {
         // Given
-        when(userRepository.findWithRolesAndPermissionsByUsername("nonexistent")).thenReturn(Optional.empty());
+        when(userRepository.findWithRolesPermissionsAndProfiles("nonexistent")).thenReturn(Optional.empty());
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("nonexistent"))
                 .isInstanceOf(UsernameNotFoundException.class)
                 .hasMessageContaining("User not found");
 
-        verify(userRepository).findWithRolesAndPermissionsByUsername("nonexistent");
+        verify(userRepository).findWithRolesPermissionsAndProfiles("nonexistent");
     }
 
     // ===== PASSWORD VALIDATION TESTS =====
@@ -106,7 +107,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         userWithoutPassword.setPassword(null);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("olduser")).thenReturn(Optional.of(userWithoutPassword));
+        when(userRepository.findWithRolesPermissionsAndProfiles("olduser")).thenReturn(Optional.of(userWithoutPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("olduser"))
@@ -123,7 +124,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("emptypass")).thenReturn(Optional.of(userWithEmptyPassword));
+        when(userRepository.findWithRolesPermissionsAndProfiles("emptypass")).thenReturn(Optional.of(userWithEmptyPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("emptypass"))
@@ -139,7 +140,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("   ")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("blankpass")).thenReturn(Optional.of(userWithBlankPassword));
+        when(userRepository.findWithRolesPermissionsAndProfiles("blankpass")).thenReturn(Optional.of(userWithBlankPassword));
 
         // When/Then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("blankpass"))
@@ -151,62 +152,51 @@ class CustomUserDetailsServiceTest {
 
     @Test
     void loadUserByUsername_WithDoctorRole_ShouldMapToRoleDoctor() {
-        // Given
         User doctor = UserTestBuilder.aDoctor()
                 .withUsername("doctor")
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("doctor")).thenReturn(Optional.of(doctor));
+        when(userRepository.findWithRolesPermissionsAndProfiles("doctor")).thenReturn(Optional.of(doctor));
 
-        // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("doctor");
 
-        // Then
-        assertThat(userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList()).containsExactly("ROLE_DOCTOR");
+        assertThat(userDetails.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .contains("ROLE_DOCTOR");
     }
 
     @Test
     void loadUserByUsername_WithAdminRole_ShouldMapToRoleAdmin() {
-        // Given
         User admin = UserTestBuilder.anAdmin()
                 .withUsername("admin")
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("admin")).thenReturn(Optional.of(admin));
+        when(userRepository.findWithRolesPermissionsAndProfiles("admin")).thenReturn(Optional.of(admin));
 
-        // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("admin");
 
-        // Then
-        assertThat(userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList()).containsExactly("ROLE_ADMIN");
+        assertThat(userDetails.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .contains("ROLE_ADMIN");
     }
-
-
 
     @Test
     void loadUserByUsername_WithManagerRole_ShouldMapToRoleManager() {
-        // Given
         User manager = UserTestBuilder.aUser()
                 .withUsername("manager")
                 .withPassword("password")
                 .withRoles(Set.of(UserRole.MANAGER))
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("manager")).thenReturn(Optional.of(manager));
+        when(userRepository.findWithRolesPermissionsAndProfiles("manager")).thenReturn(Optional.of(manager));
 
-        // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("manager");
 
-        // Then
-        assertThat(userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList()).containsExactly("ROLE_MANAGER");
+        assertThat(userDetails.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .contains("ROLE_MANAGER");
     }
 
     // ===== ACCOUNT STATUS TESTS =====
@@ -220,7 +210,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         enabledUser.setEnabled(true);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("enabled")).thenReturn(Optional.of(enabledUser));
+        when(userRepository.findWithRolesPermissionsAndProfiles("enabled")).thenReturn(Optional.of(enabledUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("enabled");
@@ -238,7 +228,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         disabledUser.setEnabled(false);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("disabled")).thenReturn(Optional.of(disabledUser));
+        when(userRepository.findWithRolesPermissionsAndProfiles("disabled")).thenReturn(Optional.of(disabledUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("disabled");
@@ -256,7 +246,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         lockedUser.setAccountNonLocked(false);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("locked")).thenReturn(Optional.of(lockedUser));
+        when(userRepository.findWithRolesPermissionsAndProfiles("locked")).thenReturn(Optional.of(lockedUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("locked");
@@ -274,7 +264,7 @@ class CustomUserDetailsServiceTest {
                 .build();
         nonLockedUser.setAccountNonLocked(true);
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("nonlocked")).thenReturn(Optional.of(nonLockedUser));
+        when(userRepository.findWithRolesPermissionsAndProfiles("nonlocked")).thenReturn(Optional.of(nonLockedUser));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("nonlocked");
@@ -291,7 +281,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("user")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesPermissionsAndProfiles("user")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user");
@@ -308,7 +298,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("user")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesPermissionsAndProfiles("user")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user");
@@ -327,8 +317,8 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("TestUser")).thenReturn(Optional.of(user));
-        when(userRepository.findWithRolesAndPermissionsByUsername("testuser")).thenReturn(Optional.empty());
+        when(userRepository.findWithRolesPermissionsAndProfiles("TestUser")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesPermissionsAndProfiles("testuser")).thenReturn(Optional.empty());
 
         // When/Then - Exact match should work
         UserDetails userDetails = userDetailsService.loadUserByUsername("TestUser");
@@ -347,7 +337,7 @@ class CustomUserDetailsServiceTest {
                 .withPassword("password")
                 .build();
 
-        when(userRepository.findWithRolesAndPermissionsByUsername("user with spaces")).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesPermissionsAndProfiles("user with spaces")).thenReturn(Optional.of(user));
 
         // When
         UserDetails userDetails = userDetailsService.loadUserByUsername("user with spaces");

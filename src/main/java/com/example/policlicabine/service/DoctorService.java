@@ -8,6 +8,7 @@ import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.Doctor;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.Specialty;
+import com.example.policlicabine.event.DoctorProfileCreated;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.mapper.DoctorMapper;
@@ -228,5 +229,58 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
     @Transactional(readOnly = true)
     public Result<Void> validateDoctorExists(UUID doctorId) {
         return validateExists(doctorId);
+    }
+
+    /**
+     * INTERNAL: Creates a doctor profile linked to an existing user.
+     * Used by AuthenticationService during doctor registration with user account.
+     *
+     * @param user User entity (already saved)
+     * @param fullName Doctor full name
+     * @param specialties List of specialties
+     * @return Result containing DoctorDto or error message
+     */
+    @Transactional
+    public Result<DoctorDto> createDoctorWithUser(User user, String fullName,
+                                                   List<Specialty> specialties) {
+        try {
+            if (user == null) {
+                return Result.failure("User is required");
+            }
+            if (fullName == null || fullName.trim().isEmpty()) {
+                return Result.failure("Full name is required");
+            }
+            if (specialties == null || specialties.isEmpty()) {
+                return Result.failure("At least one specialty is required");
+            }
+
+            // Check for duplicate doctor profile for this user
+            if (doctorRepository.existsByUserUserId(user.getUserId())) {
+                return Result.failure("Doctor profile already exists for this user");
+            }
+
+            // Build doctor entity
+            Doctor doctor = Doctor.builder()
+                    .user(user)
+                    .fullName(fullName.trim())
+                    .specialties(specialties)
+                    .build();
+
+            Doctor savedDoctor = doctorRepository.save(doctor);
+
+            log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), user.getUserId());
+
+            // Publish event
+            eventPublisher.publishEvent(new DoctorProfileCreated(
+                    savedDoctor.getDoctorId(),
+                    user.getUserId()
+            ));
+
+            return Result.success(doctorMapper.toDto(savedDoctor));
+
+        } catch (Exception e) {
+            log.error("Error creating doctor profile for user {}", user.getUserId(), e);
+            return Result.failure("Failed to create doctor profile: " + e.getMessage());
+        }
     }
 }

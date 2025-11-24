@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.util.ArrayList;
@@ -30,21 +31,22 @@ import java.util.function.Function;
  */
 @Getter
 @ToString
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Schema(description = "Standard API response wrapper for all operations")
 public class Result<T> {
-    
+
     @Schema(description = "Indicates if the operation was successful", example = "true")
-    private final boolean success;
-    
+    private boolean success;
+
     @Schema(description = "The response data (null if operation failed)")
-    private final T value;
-    
+    private T value;
+
     @Schema(description = "Error message if operation failed (null if successful)", example = "User not found")
-    private final String errorMessage;
-    
+    private String errorMessage;
+
     @Schema(description = "List of validation errors if operation failed (null if successful)")
-    private final List<String> errors;
+    private List<String> errors;
 
     public static <T> Result<T> success(T value) {
         return new Result<T>(true, value, null, null);
@@ -82,7 +84,7 @@ public class Result<T> {
     }
 
     public List<String> getErrors() {
-        return new ArrayList<>(errors);
+        return errors != null ? new ArrayList<>(errors) : new ArrayList<>();
     }
 
     // Optional-style methods
