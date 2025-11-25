@@ -1,12 +1,12 @@
 package com.example.policlicabine.entity.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum Specialty {
-    FACE("Face"),
-    NECK("Neck"),
-    MOLES("Moles"),
-    GENERAL_DERMATOLOGY("General Dermatology"),
-    COSMETIC_DERMATOLOGY("Cosmetic Dermatology"),
-    MEDICAL_DERMATOLOGY("Medical Dermatology");
+    GENERAL_DERMATOLOGY("General"),
+    COSMETIC_DERMATOLOGY("Cosmetica"),
+    MEDICAL_DERMATOLOGY("Medical");
 
     private final String displayName;
 
@@ -14,7 +14,4 @@ public enum Specialty {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

@@ -6,11 +6,15 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RegisterDoctorRequest {
 
     // Credentials
@@ -28,7 +32,7 @@ public class RegisterDoctorRequest {
     @NotEmpty(message = "At least one specialty is required")
     private List<String> specialties;
 
-    private String licenseNumber;
+    private String codParafa;
 
     @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone format")
     private String phone;
