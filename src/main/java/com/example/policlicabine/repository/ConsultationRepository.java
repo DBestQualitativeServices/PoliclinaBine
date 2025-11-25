@@ -1,9 +1,9 @@
 package com.example.policlicabine.repository;
 
+import com.example.policlicabine.common.repository.FilterableRepository;
 import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
 import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ConsultationRepository extends JpaRepository<ConsultationType, UUID> {
+public interface ConsultationRepository extends FilterableRepository<ConsultationType, UUID> {
 
     Optional<ConsultationType> findByNameAndIsActiveTrue(String name);
 

@@ -2,12 +2,17 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ConsultationTypeDto;
+import com.example.policlicabine.dto.ConsultationTypeFilterCriteria;
 import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
 import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.repository.ConsultationRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.specification.ConsultationTypeSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,21 +21,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Service for managing ConsultationType entities.
- * Consultations are the services offered by the clinic.
- *
- * Architecture:
- * - Extends BaseServiceImpl for common CRUD operations (findById, validateExists, getEntityById)
- * - Focuses on business-specific logic (pricing, active/inactive state, specialty queries)
- * - BigDecimal for monetary amounts
- *
- * Inherited Methods (from BaseServiceImpl):
- * - findById(UUID) → Result&lt;ConsultationTypeDto&gt;
- * - validateExists(UUID) → Result&lt;Void&gt;
- * - getEntityById(UUID) → ConsultationType
- * - findAll() → Result&lt;List&lt;ConsultationTypeDto&gt;&gt;
- */
 @Service
 @Slf4j
 @Transactional
@@ -38,12 +28,15 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
 
     private final ConsultationRepository consultationRepository;
     private final ConsultationTypeMapper consultationTypeMapper;
+    private final ConsultationTypeSpecificationBuilder specificationBuilder;
 
     public ConsultationService(ConsultationRepository consultationRepository,
-                              ConsultationTypeMapper consultationTypeMapper) {
+                              ConsultationTypeMapper consultationTypeMapper,
+                              ConsultationTypeSpecificationBuilder specificationBuilder) {
         super(consultationRepository, consultationTypeMapper);
         this.consultationRepository = consultationRepository;
         this.consultationTypeMapper = consultationTypeMapper;
+        this.specificationBuilder = specificationBuilder;
     }
 
     @Override
@@ -83,17 +76,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         // Don't update questions (managed separately)
     }
 
-    /**
-     * Creates a new consultation service.
-     *
-     * @param name ConsultationType name
-     * @param specialty Medical specialty
-     * @param price Service price
-     * @param priceCurrency Currency code (e.g., "RON")
-     * @param durationMinutes Expected duration
-     * @param requiresSurgeryRoom Whether surgery room is needed
-     * @return Result containing ConsultationTypeDto or error message
-     */
     public Result<ConsultationTypeDto> createConsultation(String name, Specialty specialty,
                                                      BigDecimal price, String priceCurrency,
                                                      Integer durationMinutes,
@@ -133,11 +115,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    /**
-     * Retrieves all active consultations.
-     *
-     * @return Result containing list of ConsultationTypeDto or error message
-     */
     @Transactional(readOnly = true)
     public Result<List<ConsultationTypeDto>> getAllActiveConsultations() {
         try {
@@ -155,12 +132,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    /**
-     * Retrieves all consultations for a specific specialty.
-     *
-     * @param specialty Medical specialty
-     * @return Result containing list of ConsultationTypeDto or error message
-     */
     @Transactional(readOnly = true)
     public Result<List<ConsultationTypeDto>> getConsultationsBySpecialty(Specialty specialty) {
         try {
@@ -183,25 +154,11 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    /**
-     * Finds a consultation by its unique identifier.
-     * Delegates to inherited findById() method from BaseServiceImpl.
-     *
-     * @param consultationId ConsultationType identifier
-     * @return Result containing ConsultationTypeDto or error message
-     */
     @Transactional(readOnly = true)
     public Result<ConsultationTypeDto> findConsultationById(UUID consultationId) {
         return findById(consultationId);
     }
 
-    /**
-     * Updates consultation pricing.
-     *
-     * @param consultationId ConsultationType identifier
-     * @param newPrice New price
-     * @return Result containing updated ConsultationTypeDto or error message
-     */
     public Result<ConsultationTypeDto> updatePrice(UUID consultationId, BigDecimal newPrice) {
         try {
             if (consultationId == null) {
@@ -234,13 +191,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    /**
-     * Deactivates a consultation (soft delete).
-     * Inactive consultations cannot be used for new appointments.
-     *
-     * @param consultationId ConsultationType identifier
-     * @return Result containing updated ConsultationTypeDto or error message
-     */
     public Result<ConsultationTypeDto> deactivateConsultation(UUID consultationId) {
         try {
             if (consultationId == null) {
@@ -270,12 +220,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    /**
-     * Reactivates a previously deactivated consultation.
-     *
-     * @param consultationId ConsultationType identifier
-     * @return Result containing updated ConsultationTypeDto or error message
-     */
     public Result<ConsultationTypeDto> activateConsultation(UUID consultationId) {
         try {
             if (consultationId == null) {
@@ -301,17 +245,27 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         }
     }
 
-    // ============= INTERNAL METHODS FOR SERVICE-TO-SERVICE COMMUNICATION =============
-    // These methods return entities directly (not Result-wrapped DTOs) for use by other services
+    @Transactional(readOnly = true)
+    public Page<ConsultationTypeDto> search(ConsultationTypeFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching consultation types with criteria: {} and pageable: {}", criteria, pageable);
 
-    /**
-     * INTERNAL: Gets consultation entities by their names.
-     * Used by AppointmentSessionService for validation.
-     * Returns entities directly without Result wrapper for simplicity.
-     *
-     * @param names List of consultation names
-     * @return List of ConsultationType entities (may be empty, never null)
-     */
+        try {
+            Specification<ConsultationType> spec = specificationBuilder.build(criteria);
+            Page<ConsultationType> entityPage = consultationRepository.findAll(spec, pageable);
+            Page<ConsultationTypeDto> dtoPage = entityPage.map(this::toDto);
+
+            log.info("ConsultationType search returned {} results (page {}/{})",
+                    dtoPage.getNumberOfElements(),
+                    dtoPage.getNumber() + 1,
+                    dtoPage.getTotalPages());
+
+            return dtoPage;
+        } catch (Exception e) {
+            log.error("Error searching consultation types with criteria: {}", criteria, e);
+            throw new RuntimeException("Failed to search consultation types: " + e.getMessage(), e);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<ConsultationType> getEntitiesByNames(List<String> names) {
         if (names == null || names.isEmpty()) {
@@ -320,14 +274,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         return consultationRepository.findByNameInAndIsActiveTrue(names);
     }
 
-    /**
-     * INTERNAL: Gets a single consultation entity by name.
-     * Used by AppointmentSessionService for validation.
-     * Returns entity directly, null if not found.
-     *
-     * @param name ConsultationType name
-     * @return ConsultationType entity or null if not found
-     */
     @Transactional(readOnly = true)
     public ConsultationType getEntityByName(String name) {
         if (name == null || name.trim().isEmpty()) {
@@ -337,14 +283,6 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
             .orElse(null);
     }
 
-    /**
-     * INTERNAL: Gets consultation entities by their specialties.
-     * Used by DoctorService to get all active consultations matching doctor's specialties.
-     * Returns entities directly without Result wrapper for simplicity.
-     *
-     * @param specialties List of specialties
-     * @return List of ConsultationType entities (may be empty, never null)
-     */
     @Transactional(readOnly = true)
     public List<ConsultationType> getEntitiesBySpecialties(List<Specialty> specialties) {
         if (specialties == null || specialties.isEmpty()) {

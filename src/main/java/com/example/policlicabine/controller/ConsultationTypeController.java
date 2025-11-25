@@ -3,6 +3,7 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.ConsultationTypeDto;
+import com.example.policlicabine.dto.ConsultationTypeFilterCriteria;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.ConsultationService;
@@ -11,6 +12,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -22,7 +28,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "ConsultationType Management")
-public class ConsultationController {
+public class ConsultationTypeController {
 
     private final ConsultationService consultationService;
 
@@ -69,6 +75,19 @@ public class ConsultationController {
     public List<ConsultationTypeDto> getAllConsultations() {
         log.info("REST: Getting all consultations");
         return consultationService.findAll().getValue();
+    }
+
+    @GetMapping("/search")
+    @StandardApiResponses
+    @Operation(summary = "Search and filter consultation types")
+    public Page<ConsultationTypeDto> searchConsultationTypes(
+            @ModelAttribute ConsultationTypeFilterCriteria criteria,
+            @ParameterObject
+            @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable
+    ) {
+        log.info("REST: Searching consultation types with criteria: {}", criteria);
+        return consultationService.search(criteria, pageable);
     }
 
     @PutMapping("/{consultationId}")
