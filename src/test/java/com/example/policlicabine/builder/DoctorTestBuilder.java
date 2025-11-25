@@ -51,7 +51,7 @@ public class DoctorTestBuilder {
 
     public static DoctorTestBuilder aSurgeon() {
         return new DoctorTestBuilder()
-                .withSpecialties(Specialty.MOLES);
+                .withSpecialties(Specialty.GENERAL_DERMATOLOGY);
     }
 
     public DoctorTestBuilder withDoctorId(UUID doctorId) {

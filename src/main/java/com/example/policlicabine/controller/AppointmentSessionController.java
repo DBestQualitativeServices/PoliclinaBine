@@ -4,6 +4,7 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
+import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.AppointmentSessionService;
@@ -211,6 +212,36 @@ public class AppointmentSessionController {
                 reason,
                 wasNoShow
         );
+
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @GetMapping("/{sessionId}/required-forms")
+    @StandardApiResponses
+    @Operation(summary = "Get all required form templates for this appointment")
+    public List<FormTemplateDto> getRequiredForms(@PathVariable UUID sessionId) {
+        log.info("REST: Getting required forms for session: {}", sessionId);
+
+        Result<List<FormTemplateDto>> result = appointmentSessionService.getRequiredFormsForSession(sessionId);
+
+        if (result.isFailure()) {
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @GetMapping("/{sessionId}/missing-forms")
+    @StandardApiResponses
+    @Operation(summary = "Get form templates patient still needs to fill")
+    public List<FormTemplateDto> getMissingForms(@PathVariable UUID sessionId) {
+        log.info("REST: Getting missing forms for session: {}", sessionId);
+
+        Result<List<FormTemplateDto>> result = appointmentSessionService.getMissingFormsForSession(sessionId);
 
         if (result.isFailure()) {
             throw new BusinessException(result.getErrorMessage());

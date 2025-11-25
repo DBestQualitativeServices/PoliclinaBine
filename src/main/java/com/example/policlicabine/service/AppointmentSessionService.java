@@ -3,6 +3,7 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
+import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import com.example.policlicabine.event.SessionCompleted;
@@ -22,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -50,6 +53,7 @@ public class AppointmentSessionService {
     private final DoctorService doctorService;
     private final ConsultationService consultationService;
     private final DiagnosisService diagnosisService;
+    private final FormSubmissionService formSubmissionService;
 
     // Mapper, specification builder, and event publisher
     private final AppointmentSessionMapper appointmentMapper;
@@ -622,5 +626,75 @@ public class AppointmentSessionService {
         return appointmentRepository
             .findWithBasicRelationshipsByDoctorDoctorIdAndScheduledDateTimeBetweenAndStatusNot(
                 doctorId, fromDate, toDate, excludeStatus);
+    }
+
+    @Transactional(readOnly = true)
+    public Result<List<FormTemplateDto>> getRequiredFormsForSession(UUID sessionId) {
+        if (sessionId == null) {
+            return Result.failure("Session ID is required");
+        }
+
+        AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId).orElse(null);
+        if (session == null) {
+            return Result.failure("Session not found");
+        }
+
+        Set<FormTemplate> allRequiredTemplates = new HashSet<>();
+        for (ConsultationType consultationType : session.getConsultationTypes()) {
+            ConsultationType withTemplates = consultationService.getEntityWithFormTemplates(consultationType.getConsultationId());
+            if (withTemplates != null && withTemplates.getRequiredFormTemplates() != null) {
+                allRequiredTemplates.addAll(withTemplates.getRequiredFormTemplates());
+            }
+        }
+
+        List<FormTemplateDto> templates = allRequiredTemplates.stream()
+                .filter(t -> t.getActive() && !t.getIsDeleted())
+                .map(this::toFormTemplateDto)
+                .collect(Collectors.toList());
+
+        return Result.success(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public Result<List<FormTemplateDto>> getMissingFormsForSession(UUID sessionId) {
+        if (sessionId == null) {
+            return Result.failure("Session ID is required");
+        }
+
+        AppointmentSession session = appointmentRepository.findWithBasicRelationshipsBySessionId(sessionId).orElse(null);
+        if (session == null) {
+            return Result.failure("Session not found");
+        }
+
+        Result<List<FormTemplateDto>> requiredResult = getRequiredFormsForSession(sessionId);
+        if (requiredResult.isFailure()) {
+            return requiredResult;
+        }
+
+        UUID patientId = session.getPatient().getPatientId();
+        List<FormTemplateDto> missingForms = requiredResult.getValue().stream()
+                .filter(template -> {
+                    Result<Boolean> hasValid = formSubmissionService.hasValidForm(patientId, template.getPurpose());
+                    return hasValid.isFailure() || !hasValid.getValue();
+                })
+                .collect(Collectors.toList());
+
+        return Result.success(missingForms);
+    }
+
+    private FormTemplateDto toFormTemplateDto(FormTemplate template) {
+        return FormTemplateDto.builder()
+                .id(template.getId())
+                .code(template.getCode())
+                .name(template.getName())
+                .version(template.getVersion())
+                .active(template.getActive())
+                .structure(template.getStructure())
+                .purpose(template.getPurpose())
+                .validityMonths(template.getValidityMonths())
+                .pdfTemplateUrl(template.getPdfTemplateUrl())
+                .createdAt(template.getCreatedAt())
+                .createdByUserId(template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : null)
+                .build();
     }
 }

@@ -8,11 +8,12 @@ import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
 import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.repository.ConsultationRepository;
+import com.example.policlicabine.repository.FormTemplateRepository;
+import com.example.policlicabine.specification.ConsultationTypeSpecificationBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,6 +46,12 @@ class ConsultationServiceTest extends BaseServiceTest {
     @Mock
     private ConsultationTypeMapper consultationTypeMapper;
 
+    @Mock
+    private ConsultationTypeSpecificationBuilder specificationBuilder;
+
+    @Mock
+    private FormTemplateRepository formTemplateRepository;
+
     @InjectMocks
     private ConsultationService consultationService;
 
@@ -53,7 +60,12 @@ class ConsultationServiceTest extends BaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        consultationService = new ConsultationService(consultationRepository, consultationTypeMapper);
+        consultationService = new ConsultationService(
+                consultationRepository,
+                consultationTypeMapper,
+                specificationBuilder,
+                formTemplateRepository
+        );
 
         testConsultation = ConsultationTestBuilder.generalConsultation()
                 .withIsActive(true)
@@ -189,7 +201,7 @@ class ConsultationServiceTest extends BaseServiceTest {
     @DisplayName("Should return empty list when no consultations match names")
     void getEntitiesByNames_NoMatches_EmptyList() {
         // Given
-        List<String> names = Arrays.asList("Non-existent ConsultationType");
+        List<String> names = List.of("Non-existent ConsultationType");
         when(consultationRepository.findByNameInAndIsActiveTrue(names))
                 .thenReturn(List.of());
 

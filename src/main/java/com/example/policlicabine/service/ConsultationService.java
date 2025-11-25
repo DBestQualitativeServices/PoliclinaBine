@@ -3,7 +3,10 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.ConsultationTypeFilterCriteria;
+import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.entity.ConsultationType;
+import com.example.policlicabine.entity.FormTemplate;
+import com.example.policlicabine.repository.FormTemplateRepository;
 import com.example.policlicabine.entity.enums.Specialty;
 import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.repository.ConsultationRepository;
@@ -17,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,14 +34,17 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
     private final ConsultationRepository consultationRepository;
     private final ConsultationTypeMapper consultationTypeMapper;
     private final ConsultationTypeSpecificationBuilder specificationBuilder;
+    private final FormTemplateRepository formTemplateRepository;
 
     public ConsultationService(ConsultationRepository consultationRepository,
                               ConsultationTypeMapper consultationTypeMapper,
-                              ConsultationTypeSpecificationBuilder specificationBuilder) {
+                              ConsultationTypeSpecificationBuilder specificationBuilder,
+                              FormTemplateRepository formTemplateRepository) {
         super(consultationRepository, consultationTypeMapper);
         this.consultationRepository = consultationRepository;
         this.consultationTypeMapper = consultationTypeMapper;
         this.specificationBuilder = specificationBuilder;
+        this.formTemplateRepository = formTemplateRepository;
     }
 
     @Override
@@ -289,5 +297,196 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
             return List.of();
         }
         return consultationRepository.findBySpecialtyInAndIsActiveTrue(specialties);
+    }
+
+    // ============= FORM TEMPLATE MANAGEMENT METHODS =============
+
+    /**
+     * Sets the required form templates for a consultation type.
+     * These are forms that patients must fill BEFORE the consultation.
+     *
+     * @param consultationId The consultation type ID
+     * @param formTemplateIds List of form template IDs to assign
+     * @return Result containing updated ConsultationTypeDto or error message
+     */
+    public Result<ConsultationTypeDto> setRequiredFormTemplates(UUID consultationId, List<UUID> formTemplateIds) {
+        try {
+            if (consultationId == null) {
+                return Result.failure("ConsultationType ID is required");
+            }
+
+            ConsultationType consultation = consultationRepository.findWithRequiredFormTemplatesByConsultationId(consultationId)
+                .orElse(null);
+            if (consultation == null) {
+                return Result.failure("ConsultationType not found");
+            }
+
+            Set<FormTemplate> formTemplates = new HashSet<>();
+            if (formTemplateIds != null && !formTemplateIds.isEmpty()) {
+                List<FormTemplate> templates = formTemplateRepository.findAllById(formTemplateIds);
+                
+                // Validate all templates exist and are active
+                if (templates.size() != formTemplateIds.size()) {
+                    return Result.failure("One or more form templates not found");
+                }
+                
+                for (FormTemplate template : templates) {
+                    if (!template.getActive() || template.getIsDeleted()) {
+                        return Result.failure("Form template '" + template.getName() + "' is not active or has been deleted");
+                    }
+                }
+                
+                formTemplates.addAll(templates);
+            }
+
+            consultation.setRequiredFormTemplates(formTemplates);
+            ConsultationType saved = consultationRepository.save(consultation);
+
+            log.info("Updated required form templates for consultation {}: {} templates assigned",
+                    consultationId, formTemplates.size());
+
+            return Result.success(consultationTypeMapper.toDto(saved));
+
+        } catch (Exception e) {
+            log.error("Error setting required form templates for consultation {}", consultationId, e);
+            return Result.failure("Failed to set required form templates: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Sets the main consultation form template for a consultation type.
+     * This is the form used DURING the consultation by the doctor.
+     *
+     * @param consultationId The consultation type ID
+     * @param formTemplateId The form template ID to assign (null to clear)
+     * @return Result containing updated ConsultationTypeDto or error message
+     */
+    public Result<ConsultationTypeDto> setConsultationFormTemplate(UUID consultationId, UUID formTemplateId) {
+        try {
+            if (consultationId == null) {
+                return Result.failure("ConsultationType ID is required");
+            }
+
+            ConsultationType consultation = consultationRepository.findWithConsultationFormTemplateByConsultationId(consultationId)
+                .orElse(null);
+            if (consultation == null) {
+                return Result.failure("ConsultationType not found");
+            }
+
+            FormTemplate formTemplate = null;
+            if (formTemplateId != null) {
+                formTemplate = formTemplateRepository.findById(formTemplateId).orElse(null);
+                if (formTemplate == null) {
+                    return Result.failure("FormTemplate not found");
+                }
+                if (!formTemplate.getActive() || formTemplate.getIsDeleted()) {
+                    return Result.failure("Form template '" + formTemplate.getName() + "' is not active or has been deleted");
+                }
+            }
+
+            consultation.setConsultationFormTemplate(formTemplate);
+            ConsultationType saved = consultationRepository.save(consultation);
+
+            log.info("Updated consultation form template for consultation {}: {}",
+                    consultationId, formTemplate != null ? formTemplate.getName() : "cleared");
+
+            return Result.success(consultationTypeMapper.toDto(saved));
+
+        } catch (Exception e) {
+            log.error("Error setting consultation form template for consultation {}", consultationId, e);
+            return Result.failure("Failed to set consultation form template: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets all required form templates for a consultation type.
+     *
+     * @param consultationId The consultation type ID
+     * @return Result containing list of FormTemplateDto or error message
+     */
+    @Transactional(readOnly = true)
+    public Result<List<FormTemplateDto>> getRequiredFormTemplates(UUID consultationId) {
+        try {
+            if (consultationId == null) {
+                return Result.failure("ConsultationType ID is required");
+            }
+
+            ConsultationType consultation = consultationRepository.findWithRequiredFormTemplatesByConsultationId(consultationId)
+                .orElse(null);
+            if (consultation == null) {
+                return Result.failure("ConsultationType not found");
+            }
+
+            List<FormTemplateDto> templates = consultation.getRequiredFormTemplates().stream()
+                .filter(t -> t.getActive() && !t.getIsDeleted())
+                .map(this::toFormTemplateDto)
+                .collect(Collectors.toList());
+
+            return Result.success(templates);
+
+        } catch (Exception e) {
+            log.error("Error getting required form templates for consultation {}", consultationId, e);
+            return Result.failure("Failed to get required form templates: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gets the consultation form template for a consultation type (the form used DURING consultation).
+     *
+     * @param consultationId The consultation type ID
+     * @return Result containing FormTemplateDto or error message (null value if no template assigned)
+     */
+    @Transactional(readOnly = true)
+    public Result<FormTemplateDto> getConsultationFormTemplate(UUID consultationId) {
+        try {
+            if (consultationId == null) {
+                return Result.failure("ConsultationType ID is required");
+            }
+
+            ConsultationType consultation = consultationRepository.findWithConsultationFormTemplateByConsultationId(consultationId)
+                .orElse(null);
+            if (consultation == null) {
+                return Result.failure("ConsultationType not found");
+            }
+
+            FormTemplate template = consultation.getConsultationFormTemplate();
+            if (template == null) {
+                return Result.success(null);
+            }
+
+            return Result.success(toFormTemplateDto(template));
+
+        } catch (Exception e) {
+            log.error("Error getting consultation form template for consultation {}", consultationId, e);
+            return Result.failure("Failed to get consultation form template: " + e.getMessage());
+        }
+    }
+
+    /**
+     * INTERNAL: Gets consultation entity with all form templates loaded.
+     * Used by AppointmentSessionService for aggregating required forms.
+     */
+    @Transactional(readOnly = true)
+    public ConsultationType getEntityWithFormTemplates(UUID consultationId) {
+        if (consultationId == null) {
+            return null;
+        }
+        return consultationRepository.findWithAllFormTemplatesByConsultationId(consultationId).orElse(null);
+    }
+
+    private FormTemplateDto toFormTemplateDto(FormTemplate template) {
+        return FormTemplateDto.builder()
+                .id(template.getId())
+                .code(template.getCode())
+                .name(template.getName())
+                .version(template.getVersion())
+                .active(template.getActive())
+                .structure(template.getStructure())
+                .purpose(template.getPurpose())
+                .validityMonths(template.getValidityMonths())
+                .pdfTemplateUrl(template.getPdfTemplateUrl())
+                .createdAt(template.getCreatedAt())
+                .createdByUserId(template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : null)
+                .build();
     }
 }

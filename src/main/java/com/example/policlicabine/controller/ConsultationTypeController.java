@@ -4,6 +4,7 @@ import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.ConsultationTypeFilterCriteria;
+import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.ConsultationService;
@@ -167,6 +168,78 @@ public class ConsultationTypeController {
         log.info("REST: Activating consultation: {}", consultationId);
 
         Result<ConsultationTypeDto> result = consultationService.activateConsultation(consultationId);
+
+        if (result.isFailure()) {
+            throw new ResourceNotFoundException("ConsultationType", consultationId);
+        }
+
+        return result.getValue();
+    }
+
+    @PatchMapping("/{consultationId}/required-forms")
+    @StandardApiResponses
+    @Operation(summary = "Set required form templates for consultation type")
+    public ConsultationTypeDto setRequiredFormTemplates(
+            @PathVariable UUID consultationId,
+            @RequestBody List<UUID> formTemplateIds
+    ) {
+        log.info("REST: Setting required form templates for consultation: {}", consultationId);
+
+        Result<ConsultationTypeDto> result = consultationService.setRequiredFormTemplates(consultationId, formTemplateIds);
+
+        if (result.isFailure()) {
+            if (result.getErrorMessage().contains("not found")) {
+                throw new ResourceNotFoundException("ConsultationType", consultationId);
+            }
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @PatchMapping("/{consultationId}/consultation-form")
+    @StandardApiResponses
+    @Operation(summary = "Set main consultation form template")
+    public ConsultationTypeDto setConsultationFormTemplate(
+            @PathVariable UUID consultationId,
+            @RequestBody(required = false) UUID formTemplateId
+    ) {
+        log.info("REST: Setting consultation form template for consultation: {}", consultationId);
+
+        Result<ConsultationTypeDto> result = consultationService.setConsultationFormTemplate(consultationId, formTemplateId);
+
+        if (result.isFailure()) {
+            if (result.getErrorMessage().contains("not found")) {
+                throw new ResourceNotFoundException("ConsultationType", consultationId);
+            }
+            throw new BusinessException(result.getErrorMessage());
+        }
+
+        return result.getValue();
+    }
+
+    @GetMapping("/{consultationId}/required-forms")
+    @StandardApiResponses
+    @Operation(summary = "Get required form templates for consultation type")
+    public List<FormTemplateDto> getRequiredFormTemplates(@PathVariable UUID consultationId) {
+        log.info("REST: Getting required form templates for consultation: {}", consultationId);
+
+        Result<List<FormTemplateDto>> result = consultationService.getRequiredFormTemplates(consultationId);
+
+        if (result.isFailure()) {
+            throw new ResourceNotFoundException("ConsultationType", consultationId);
+        }
+
+        return result.getValue();
+    }
+
+    @GetMapping("/{consultationId}/consultation-form")
+    @StandardApiResponses
+    @Operation(summary = "Get main consultation form template")
+    public FormTemplateDto getConsultationFormTemplate(@PathVariable UUID consultationId) {
+        log.info("REST: Getting consultation form template for consultation: {}", consultationId);
+
+        Result<FormTemplateDto> result = consultationService.getConsultationFormTemplate(consultationId);
 
         if (result.isFailure()) {
             throw new ResourceNotFoundException("ConsultationType", consultationId);

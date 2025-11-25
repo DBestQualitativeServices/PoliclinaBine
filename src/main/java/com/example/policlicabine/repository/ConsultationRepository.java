@@ -38,4 +38,27 @@ public interface ConsultationRepository extends FilterableRepository<Consultatio
      */
     @EntityGraph(attributePaths = {"questions"})
     List<ConsultationType> findWithQuestionsByNameInAndIsActiveTrue(List<String> names);
+
+    // ============= Form Template EntityGraph Methods =============
+
+    /**
+     * Finds consultation with required form templates loaded.
+     * Use for getting/setting the requiredFormTemplates relationship.
+     */
+    @EntityGraph(attributePaths = {"requiredFormTemplates"})
+    Optional<ConsultationType> findWithRequiredFormTemplatesByConsultationId(UUID id);
+
+    /**
+     * Finds consultation with consultation form template loaded.
+     * Use for getting/setting the consultationFormTemplate relationship.
+     */
+    @EntityGraph(attributePaths = {"consultationFormTemplate"})
+    Optional<ConsultationType> findWithConsultationFormTemplateByConsultationId(UUID id);
+
+    /**
+     * Finds consultation with all form templates loaded.
+     * Use when both requiredFormTemplates and consultationFormTemplate are needed.
+     */
+    @EntityGraph(attributePaths = {"requiredFormTemplates", "consultationFormTemplate"})
+    Optional<ConsultationType> findWithAllFormTemplatesByConsultationId(UUID id);
 }

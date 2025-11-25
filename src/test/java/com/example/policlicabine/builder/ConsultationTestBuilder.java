@@ -65,7 +65,7 @@ public class ConsultationTestBuilder {
     public static ConsultationTestBuilder surgeryConsultation() {
         return new ConsultationTestBuilder()
                 .withName("Mole Removal ConsultationType")
-                .withSpecialty(Specialty.MOLES)
+                .withSpecialty(Specialty.GENERAL_DERMATOLOGY)
                 .withPrice(new BigDecimal("400.00"))
                 .withDurationMinutes(60)
                 .withRequiresSurgeryRoom(true);
