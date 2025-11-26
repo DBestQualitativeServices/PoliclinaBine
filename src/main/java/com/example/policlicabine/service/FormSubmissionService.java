@@ -204,7 +204,7 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         // Check for form that never expires (expiresAt IS NULL)
         Optional<FormSubmission> neverExpires = formSubmissionRepository
                 .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
-                        patientId, purpose.name(), SubmissionStatus.SIGNED);
+                        patientId, purpose, SubmissionStatus.SIGNED);
 
         if (neverExpires.isPresent()) {
             return Result.success(true);
@@ -213,7 +213,7 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         // Check for form that expires after target date
         Optional<FormSubmission> expiresAfter = formSubmissionRepository
                 .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
-                        patientId, purpose.name(), SubmissionStatus.SIGNED, targetDate);
+                        patientId, purpose, SubmissionStatus.SIGNED, targetDate);
 
         return Result.success(expiresAfter.isPresent());
     }

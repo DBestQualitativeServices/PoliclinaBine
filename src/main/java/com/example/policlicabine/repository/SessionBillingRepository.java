@@ -17,7 +17,7 @@ public interface SessionBillingRepository extends JpaRepository<SessionBilling, 
 
     // EntityGraph methods to prevent N+1 queries
     // Load billing with session and consultations for subtotal calculation and event publishing
-    @EntityGraph(attributePaths = {"session", "session.consultations", "session.patient"})
+    @EntityGraph(attributePaths = {"session", "session.consultationTypes", "session.patient"})
     Optional<SessionBilling> findWithSessionBySessionSessionId(UUID sessionId);
 
     /**

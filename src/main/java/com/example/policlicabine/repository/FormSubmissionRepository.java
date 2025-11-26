@@ -1,6 +1,7 @@
 package com.example.policlicabine.repository;
 
 import com.example.policlicabine.entity.FormSubmission;
+import com.example.policlicabine.entity.enums.FormPurpose;
 import com.example.policlicabine.entity.enums.SubmissionStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -67,11 +68,11 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
 
     // Find patient's signed submission for a purpose that never expires (expiresAt IS NULL)
     Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
-            UUID patientId, String purpose, SubmissionStatus status);
+            UUID patientId, FormPurpose purpose, SubmissionStatus status);
 
     // Find patient's signed submission for a purpose that expires after target date
     Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
-            UUID patientId, String purpose, SubmissionStatus status, LocalDateTime targetDate);
+            UUID patientId, FormPurpose purpose, SubmissionStatus status, LocalDateTime targetDate);
 
     // ===== BATCH QUERIES FOR FORM STATUS CALCULATION =====
 
