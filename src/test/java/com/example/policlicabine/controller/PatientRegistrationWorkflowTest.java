@@ -182,7 +182,8 @@ class PatientRegistrationWorkflowTest {
                 "Doe",
                 "0700123456",
                 "john.doe@test.com",
-                "123 Test Street"
+                "123 Test Street",
+                null, null, null, null, null  // CI fields
         );
 
         // Then - Registration successful
@@ -216,7 +217,8 @@ class PatientRegistrationWorkflowTest {
                 "Smith",
                 "0700999888",
                 "jane.smith@test.com",
-                "456 Another Street"
+                "456 Another Street",
+                null, null, null, null, null  // CI fields
         );
 
         assertThat(patientResult).isSuccess();
@@ -259,7 +261,8 @@ class PatientRegistrationWorkflowTest {
                 "Brown",
                 "0700555666",
                 "charlie.brown@test.com",
-                "333 Third St"
+                "333 Third St",
+                null, null, null, null, null  // CI fields
         );
 
         assertThat(registerResult).isSuccess();
@@ -291,7 +294,8 @@ class PatientRegistrationWorkflowTest {
                 "Miller",
                 "0700777888",
                 "david.old@test.com",
-                "444 Fourth St"
+                "444 Fourth St",
+                null, null, null, null, null  // CI fields
         );
 
         assertThat(registerResult).isSuccess();
@@ -338,7 +342,8 @@ class PatientRegistrationWorkflowTest {
                 "Davis",
                 "0700888999",
                 "emma.davis@test.com",
-                "555 Fifth St"
+                "555 Fifth St",
+                null, null, null, null, null  // CI fields
         );
 
         assertThat(patientResult).isSuccess();

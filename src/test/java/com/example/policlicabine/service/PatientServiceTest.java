@@ -91,7 +91,8 @@ class PatientServiceTest extends BaseServiceTest {
 
         // When
         Result<PatientDto> result = patientService.registerNewPatient(
-                "John", "Doe", "0700123456", "john.doe@test.com", "123 Test St"
+                "John", "Doe", "0700123456", "john.doe@test.com", "123 Test St",
+                null, null, null, null, null  // CI fields
         );
 
         // Then - Use custom Result assertions
@@ -122,7 +123,8 @@ class PatientServiceTest extends BaseServiceTest {
     void registerNewPatient_MissingFirstName_Failure() {
         // When
         Result<PatientDto> result = patientService.registerNewPatient(
-                null, "Doe", "0700123456", "john.doe@test.com", "123 Test St"
+                null, "Doe", "0700123456", "john.doe@test.com", "123 Test St",
+                null, null, null, null, null  // CI fields
         );
 
         // Then

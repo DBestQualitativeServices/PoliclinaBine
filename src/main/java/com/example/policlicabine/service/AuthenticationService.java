@@ -351,17 +351,17 @@ public class AuthenticationService {
             String finalUsername = request.getUsername();
             String finalPassword = request.getPassword();
             boolean needsGeneration = (finalUsername == null || finalUsername.trim().isEmpty())
-                                      || (finalPassword == null || finalPassword.trim().isEmpty());
+                    || (finalPassword == null || finalPassword.trim().isEmpty());
 
             if (needsGeneration) {
                 log.info("Auto-generating credentials for patient: {} {}",
-                         request.getFirstName(), request.getLastName());
+                        request.getFirstName(), request.getLastName());
 
                 // Generate unique username
                 finalUsername = credentialGenerator.generateUsername(
-                    request.getFirstName(),
-                    request.getLastName(),
-                    userRepository::existsByUsername
+                        request.getFirstName(),
+                        request.getLastName(),
+                        userRepository::existsByUsername
                 );
 
                 if (finalUsername == null) {
@@ -372,7 +372,7 @@ public class AuthenticationService {
                 finalPassword = credentialGenerator.generateSecurePasswordLowercase();
 
                 log.info("Generated credentials for patient - username: {}, password: {}",
-                         finalUsername, finalPassword);
+                        finalUsername, finalPassword);
             }
 
             // 2. Idempotency check
@@ -403,7 +403,12 @@ public class AuthenticationService {
                     request.getLastName(),
                     request.getPhone(),
                     request.getEmail(),
-                    request.getAddress()
+                    request.getAddress(),
+                    null,  // domiciliu - can be added later
+                    null,  // ciSerie - can be added later
+                    null,  // ciNumber - can be added later
+                    null,  // ciEliberatDe - can be added later
+                    null   // ciDataEliberare - can be added later
             );
 
             if (patientResult.isFailure()) {

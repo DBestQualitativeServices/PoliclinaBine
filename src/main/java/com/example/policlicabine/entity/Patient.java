@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,21 @@ public class Patient {
 
     @Column(columnDefinition = "TEXT")
     private String address;
+
+    @Column(columnDefinition = "TEXT")
+    private String domiciliu;
+
+    @Column(length = 2)
+    private String ciSerie;
+
+    @Column(length = 7)
+    private String ciNumber;
+
+    @Column(length = 200)
+    private String ciEliberatDe;
+
+    @Column(columnDefinition = "DATE")
+    private LocalDate ciDataEliberare;
 
     @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
     @BatchSize(size = 20)

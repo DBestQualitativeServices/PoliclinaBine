@@ -46,7 +46,12 @@ public class PatientController {
                 patientDto.getLastName(),
                 patientDto.getPhone(),
                 patientDto.getEmail(),
-                patientDto.getAddress()
+                patientDto.getAddress(),
+                patientDto.getDomiciliu(),
+                patientDto.getCiSerie(),
+                patientDto.getCiNumber(),
+                patientDto.getCiEliberatDe(),
+                patientDto.getCiDataEliberare()
         );
 
         if (result.isFailure()) {

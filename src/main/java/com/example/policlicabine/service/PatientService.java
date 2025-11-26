@@ -20,6 +20,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
@@ -71,6 +72,21 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (dto.getAddress() != null) {
             entity.setAddress(dto.getAddress().trim());
         }
+        if (dto.getDomiciliu() != null) {
+            entity.setDomiciliu(dto.getDomiciliu().trim());
+        }
+        if (dto.getCiSerie() != null) {
+            entity.setCiSerie(dto.getCiSerie().trim().toUpperCase());
+        }
+        if (dto.getCiNumber() != null) {
+            entity.setCiNumber(dto.getCiNumber().trim());
+        }
+        if (dto.getCiEliberatDe() != null) {
+            entity.setCiEliberatDe(dto.getCiEliberatDe().trim());
+        }
+        if (dto.getCiDataEliberare() != null) {
+            entity.setCiDataEliberare(dto.getCiDataEliberare());
+        }
     }
 
     /**
@@ -81,10 +97,17 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
      * @param phone Required phone number
      * @param email Optional email address
      * @param address Optional address
+     * @param domiciliu Optional legal residence address
+     * @param ciSerie Optional ID card series
+     * @param ciNumber Optional ID card number
+     * @param ciEliberatDe Optional ID card issuing authority
+     * @param ciDataEliberare Optional ID card issue date
      * @return Result containing PatientDto or error message
      */
     public Result<PatientDto> registerNewPatient(String firstName, String lastName,
-                                                String phone, String email, String address) {
+                                                String phone, String email, String address,
+                                                String domiciliu, String ciSerie, String ciNumber,
+                                                String ciEliberatDe, LocalDate ciDataEliberare) {
         try {
             // Validate required fields
             if (firstName == null || firstName.trim().isEmpty()) {
@@ -104,6 +127,11 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .phone(phone.trim())
                 .email(email != null ? email.trim() : null)
                 .address(address != null ? address.trim() : null)
+                .domiciliu(domiciliu != null ? domiciliu.trim() : null)
+                .ciSerie(ciSerie != null ? ciSerie.trim().toUpperCase() : null)
+                .ciNumber(ciNumber != null ? ciNumber.trim() : null)
+                .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
+                .ciDataEliberare(ciDataEliberare)
                 .build();
 
             Patient savedPatient = patientRepository.save(patient);
@@ -285,11 +313,18 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
      * @param phone Phone number
      * @param email Email address (optional)
      * @param address Address (optional)
+     * @param domiciliu Legal residence address (optional)
+     * @param ciSerie ID card series (optional)
+     * @param ciNumber ID card number (optional)
+     * @param ciEliberatDe ID card issuing authority (optional)
+     * @param ciDataEliberare ID card issue date (optional)
      * @return Result containing PatientDto or error message
      */
     @Transactional
     public Result<PatientDto> createPatientWithUser(User user, String firstName, String lastName,
-                                                     String phone, String email, String address) {
+                                                     String phone, String email, String address,
+                                                     String domiciliu, String ciSerie, String ciNumber,
+                                                     String ciEliberatDe, LocalDate ciDataEliberare) {
         try {
             if (user == null) {
                 return Result.failure("User is required");
@@ -317,6 +352,11 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                     .phone(phone.trim())
                     .email(email != null ? email.trim() : null)
                     .address(address != null ? address.trim() : null)
+                    .domiciliu(domiciliu != null ? domiciliu.trim() : null)
+                    .ciSerie(ciSerie != null ? ciSerie.trim().toUpperCase() : null)
+                    .ciNumber(ciNumber != null ? ciNumber.trim() : null)
+                    .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
+                    .ciDataEliberare(ciDataEliberare)
                     .build();
 
             Patient savedPatient = patientRepository.save(patient);

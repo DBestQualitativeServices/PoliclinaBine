@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -92,6 +93,48 @@ public class PatientDto {
             maxLength = 1000
     )
     private String address;
+
+    @Size(max = 1000)
+    @Schema(
+            description = "Patient's legal residence address (domiciliu) as per identity card",
+            example = "Str. Victoriei nr. 25, Cluj-Napoca, Romania",
+            maxLength = 1000
+    )
+    private String domiciliu;
+
+    @Size(min = 2, max = 2)
+    @Pattern(regexp = "^[A-Z]{2}$", message = "ciSerie must be 2 uppercase letters")
+    @Schema(
+            description = "Identity card series (2 uppercase letters)",
+            example = "CJ",
+            pattern = "^[A-Z]{2}$",
+            minLength = 2,
+            maxLength = 2
+    )
+    private String ciSerie;
+
+    @Pattern(regexp = "^[0-9]{6,7}$", message = "CI number must be 6-7 digits")
+    @Schema(
+            description = "Identity card number (6-7 digits)",
+            example = "123456",
+            pattern = "^[0-9]{6,7}$"
+    )
+    private String ciNumber;
+
+    @Size(max = 200)
+    @Schema(
+            description = "Identity card issuing authority",
+            example = "SPCLEP Cluj-Napoca",
+            maxLength = 200
+    )
+    private String ciEliberatDe;
+
+    @Schema(
+            description = "Identity card issue date",
+            example = "2020-05-15",
+            format = "date"
+    )
+    private LocalDate ciDataEliberare;
 
     @Schema(
             description = "Timestamp when patient was registered in the system",
