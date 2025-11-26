@@ -32,8 +32,4 @@ public class RegisterDoctorRequest {
     @NotEmpty(message = "At least one specialty is required")
     private List<String> specialties;
 
-    private String codParafa;
-
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone format")
-    private String phone;
 }

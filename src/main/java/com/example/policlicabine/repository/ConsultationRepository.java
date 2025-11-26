@@ -61,4 +61,11 @@ public interface ConsultationRepository extends FilterableRepository<Consultatio
      */
     @EntityGraph(attributePaths = {"requiredFormTemplates", "consultationFormTemplate"})
     Optional<ConsultationType> findWithAllFormTemplatesByConsultationId(UUID id);
+
+    /**
+     * Batch query: Finds multiple consultations with required form templates loaded.
+     * Use for efficient batch processing when calculating form counts for multiple appointments.
+     */
+    @EntityGraph(attributePaths = {"requiredFormTemplates"})
+    List<ConsultationType> findWithRequiredFormTemplatesByConsultationIdIn(List<UUID> ids);
 }

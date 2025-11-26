@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -183,6 +184,38 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
                 .orElse(null);
 
         return Result.success(submission != null && submission.isValid());
+    }
+
+    /**
+     * Checks if patient has a valid form for a purpose that will still be valid at a target date.
+     * Used for appointment scheduling to verify forms won't expire before the appointment.
+     *
+     * @param patientId Patient identifier
+     * @param purpose Form purpose to check
+     * @param targetDate Date when form must still be valid (typically appointment date)
+     * @return Result containing true if valid form exists at target date, false otherwise
+     */
+    @Transactional(readOnly = true)
+    public Result<Boolean> hasValidFormAtDate(UUID patientId, FormPurpose purpose, LocalDateTime targetDate) {
+        if (patientId == null || purpose == null || targetDate == null) {
+            return Result.failure("Patient ID, purpose, and target date are required");
+        }
+
+        // Check for form that never expires (expiresAt IS NULL)
+        Optional<FormSubmission> neverExpires = formSubmissionRepository
+                .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
+                        patientId, purpose.name(), SubmissionStatus.SIGNED);
+
+        if (neverExpires.isPresent()) {
+            return Result.success(true);
+        }
+
+        // Check for form that expires after target date
+        Optional<FormSubmission> expiresAfter = formSubmissionRepository
+                .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
+                        patientId, purpose.name(), SubmissionStatus.SIGNED, targetDate);
+
+        return Result.success(expiresAfter.isPresent());
     }
 
     @Transactional(readOnly = true)

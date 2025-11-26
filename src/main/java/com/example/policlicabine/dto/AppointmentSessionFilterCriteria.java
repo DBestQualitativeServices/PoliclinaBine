@@ -16,6 +16,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class AppointmentSessionFilterCriteria {
 
+    private UUID sessionId;
+
     private UUID patientId;
 
     private String patientName;

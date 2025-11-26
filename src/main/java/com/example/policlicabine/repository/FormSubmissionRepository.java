@@ -61,4 +61,25 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
     List<FormSubmission> findByAppointmentSessionSessionIdAndIsDeletedFalse(UUID sessionId);
 
     List<FormSubmission> findByStatusAndIsDeletedFalse(SubmissionStatus status);
+
+    // ===== DATE-AWARE VALIDITY QUERIES =====
+    // Used to check if patient has valid form that will still be valid at a future appointment date
+
+    // Find patient's signed submission for a purpose that never expires (expiresAt IS NULL)
+    Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
+            UUID patientId, String purpose, SubmissionStatus status);
+
+    // Find patient's signed submission for a purpose that expires after target date
+    Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
+            UUID patientId, String purpose, SubmissionStatus status, LocalDateTime targetDate);
+
+    // ===== BATCH QUERIES FOR FORM STATUS CALCULATION =====
+
+    /**
+     * Batch query: Get all submissions for multiple patients with a given status.
+     * Use for efficient batch processing when calculating form counts for multiple appointments.
+     */
+    @EntityGraph(attributePaths = {"template", "patient"})
+    List<FormSubmission> findByPatientPatientIdInAndStatusAndIsDeletedFalse(
+            List<UUID> patientIds, SubmissionStatus status);
 }

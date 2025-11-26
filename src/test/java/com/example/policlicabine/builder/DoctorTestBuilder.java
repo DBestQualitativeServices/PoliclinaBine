@@ -12,14 +12,14 @@ import java.util.UUID;
 /**
  * Test data builder for Doctor entity using the Builder pattern.
  * <p>
- * Provides defaults with common specialties and linked User.
+ * Provides defaults with common dermatology specialties and linked User.
  * </p>
  * <p>Example usage:</p>
  * <pre>
  * User doctorUser = UserTestBuilder.aDoctor().build();
- * Doctor doctor = DoctorTestBuilder.aDoctor()
+ * Doctor doctor = DoctorTestBuilder.aMedicalDermatologist()
  *     .withUser(doctorUser)
- *     .withSpecialties(Specialty.CARDIOLOGY)
+ *     .withFullName("Dr. Jane Smith")
  *     .build();
  * </pre>
  */
@@ -34,24 +34,19 @@ public class DoctorTestBuilder {
         return new DoctorTestBuilder();
     }
 
-    public static DoctorTestBuilder aGeneralPractitioner() {
+    public static DoctorTestBuilder aGeneralDermatologist() {
         return new DoctorTestBuilder()
                 .withSpecialties(Specialty.GENERAL_DERMATOLOGY);
     }
 
-    public static DoctorTestBuilder aCardiologist() {
+    public static DoctorTestBuilder aCosmeticDermatologist() {
         return new DoctorTestBuilder()
                 .withSpecialties(Specialty.COSMETIC_DERMATOLOGY);
     }
 
-    public static DoctorTestBuilder aDermatologist() {
+    public static DoctorTestBuilder aMedicalDermatologist() {
         return new DoctorTestBuilder()
                 .withSpecialties(Specialty.MEDICAL_DERMATOLOGY);
-    }
-
-    public static DoctorTestBuilder aSurgeon() {
-        return new DoctorTestBuilder()
-                .withSpecialties(Specialty.GENERAL_DERMATOLOGY);
     }
 
     public DoctorTestBuilder withDoctorId(UUID doctorId) {

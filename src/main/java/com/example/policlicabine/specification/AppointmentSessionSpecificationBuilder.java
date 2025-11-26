@@ -40,7 +40,8 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
     public Specification<AppointmentSession> build(AppointmentSessionFilterCriteria criteria) {
         log.debug("Building appointment session specification from criteria: {}", criteria);
 
-        return Specification.where(hasPatientId(criteria.getPatientId()))
+        return Specification.where(hasSessionId(criteria.getSessionId()))
+                .and(hasPatientId(criteria.getPatientId()))
                 .and(hasPatientNameLike(criteria.getPatientName()))
                 .and(hasDoctorId(criteria.getDoctorId()))
                 .and(hasDoctorNameLike(criteria.getDoctorName()))
@@ -50,6 +51,21 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
                 .and(completedBefore(criteria.getCompletedBefore()))
                 .and(hasStatus(criteria.getStatus()))
                 .and(hasConsultationTypes(criteria.getConsultationNames()));
+    }
+
+    /**
+     * Filter by exact session ID.
+     *
+     * @param sessionId the session ID to filter by (can be null)
+     * @return specification or null if sessionId is null
+     */
+    private Specification<AppointmentSession> hasSessionId(UUID sessionId) {
+        return (root, query, cb) -> {
+            if (sessionId == null) {
+                return null;
+            }
+            return cb.equal(root.get("sessionId"), sessionId);
+        };
     }
 
     /**

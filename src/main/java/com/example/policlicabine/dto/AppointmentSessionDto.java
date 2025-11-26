@@ -41,4 +41,14 @@ public class AppointmentSessionDto {
     private OffsetDateTime completedAt;
     private OffsetDateTime cancelledAt;
     private BigDecimal subtotalAmount;
+
+    // Form completion status
+    @Schema(description = "Total forms required for all consultation types in this appointment")
+    private Integer requiredFormsCount;
+
+    @Schema(description = "Forms completed AND valid at appointment date (not expired)")
+    private Integer completedFormsCount;
+
+    @Schema(description = "True if all required forms are completed and valid at appointment date")
+    private Boolean allFormsComplete;
 }

@@ -7,8 +7,11 @@ import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import com.example.policlicabine.event.SessionCompleted;
+import com.example.policlicabine.entity.enums.SubmissionStatus;
 import com.example.policlicabine.mapper.AppointmentSessionMapper;
 import com.example.policlicabine.repository.AppointmentSessionRepository;
+import com.example.policlicabine.repository.ConsultationRepository;
+import com.example.policlicabine.repository.FormSubmissionRepository;
 import com.example.policlicabine.specification.AppointmentSessionSpecificationBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -16,15 +19,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -47,6 +54,10 @@ public class AppointmentSessionService {
 
     // Only our repository - single responsibility principle
     private final AppointmentSessionRepository appointmentRepository;
+
+    // Repositories for batch form status queries (injected for batch processing efficiency)
+    private final ConsultationRepository consultationRepository;
+    private final FormSubmissionRepository formSubmissionRepository;
 
     // Services for validation and entity access - service-to-service communication
     private final PatientService patientService;
@@ -477,9 +488,16 @@ public class AppointmentSessionService {
             // Note: The specification will automatically handle joins for patient/doctor name searches
             Page<AppointmentSession> entityPage = appointmentRepository.findAll(spec, pageable);
 
-            // Map entities to DTOs using Spring's Page.map()
-            // This preserves all pagination metadata (totalElements, totalPages, etc.)
-            Page<AppointmentSessionDto> dtoPage = entityPage.map(appointmentMapper::toDto);
+            // Map entities to DTOs
+            List<AppointmentSessionDto> dtos = entityPage.getContent().stream()
+                    .map(appointmentMapper::toDto)
+                    .collect(Collectors.toList());
+
+            // Batch enrich with form status (efficient: only 2 extra queries instead of N*2)
+            enrichWithFormStatusBatch(dtos, entityPage.getContent());
+
+            // Create new page with enriched DTOs
+            Page<AppointmentSessionDto> dtoPage = new PageImpl<>(dtos, pageable, entityPage.getTotalElements());
 
             log.info("Appointment session search returned {} results (page {}/{})",
                     dtoPage.getNumberOfElements(),
@@ -655,6 +673,19 @@ public class AppointmentSessionService {
         return Result.success(templates);
     }
 
+    /**
+     * Gets form templates that are missing or will expire before the appointment date.
+     *
+     * Architecture notes:
+     * - Checks form validity AT APPOINTMENT DATE, not just "now"
+     * - A form is considered missing if:
+     *   1. Patient has no signed submission for that purpose, OR
+     *   2. Patient's submission will expire BEFORE the scheduled appointment date
+     * - This ensures patients complete forms that would otherwise expire before their appointment
+     *
+     * @param sessionId Session identifier
+     * @return Result containing list of missing/expiring FormTemplateDto or error message
+     */
     @Transactional(readOnly = true)
     public Result<List<FormTemplateDto>> getMissingFormsForSession(UUID sessionId) {
         if (sessionId == null) {
@@ -672,10 +703,16 @@ public class AppointmentSessionService {
         }
 
         UUID patientId = session.getPatient().getPatientId();
+
+        // Convert appointment OffsetDateTime to LocalDateTime for comparison with form expiresAt
+        LocalDateTime appointmentDateTime = session.getScheduledDateTime().toLocalDateTime();
+
         List<FormTemplateDto> missingForms = requiredResult.getValue().stream()
                 .filter(template -> {
-                    Result<Boolean> hasValid = formSubmissionService.hasValidForm(patientId, template.getPurpose());
-                    return hasValid.isFailure() || !hasValid.getValue();
+                    // Check if patient has valid form that will still be valid AT APPOINTMENT DATE
+                    Result<Boolean> hasValidAtDate = formSubmissionService.hasValidFormAtDate(
+                            patientId, template.getPurpose(), appointmentDateTime);
+                    return hasValidAtDate.isFailure() || !hasValidAtDate.getValue();
                 })
                 .collect(Collectors.toList());
 
@@ -696,5 +733,129 @@ public class AppointmentSessionService {
                 .createdAt(template.getCreatedAt())
                 .createdByUserId(template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : null)
                 .build();
+    }
+
+    // ============= BATCH FORM STATUS ENRICHMENT =============
+
+    /**
+     * Batch enriches DTOs with form completion status.
+     * Uses only 2 additional queries (batch) instead of 2N queries (per-appointment).
+     *
+     * @param dtos List of DTOs to enrich
+     * @param sessions Corresponding session entities (same order as dtos)
+     */
+    private void enrichWithFormStatusBatch(List<AppointmentSessionDto> dtos, List<AppointmentSession> sessions) {
+        if (dtos.isEmpty()) {
+            return;
+        }
+
+        // 1. Collect all consultation type IDs from all sessions
+        Set<UUID> consultationIds = sessions.stream()
+                .filter(s -> s.getConsultationTypes() != null)
+                .flatMap(s -> s.getConsultationTypes().stream())
+                .map(ConsultationType::getConsultationId)
+                .collect(Collectors.toSet());
+
+        if (consultationIds.isEmpty()) {
+            // No consultations = no required forms
+            dtos.forEach(dto -> {
+                dto.setRequiredFormsCount(0);
+                dto.setCompletedFormsCount(0);
+                dto.setAllFormsComplete(true);
+            });
+            return;
+        }
+
+        // 2. Batch load consultation types with their required templates (1 query)
+        List<ConsultationType> consultationsWithTemplates = consultationRepository
+                .findWithRequiredFormTemplatesByConsultationIdIn(new ArrayList<>(consultationIds));
+
+        Map<UUID, Set<FormTemplate>> templatesByConsultation = consultationsWithTemplates.stream()
+                .collect(Collectors.toMap(
+                        ConsultationType::getConsultationId,
+                        c -> c.getRequiredFormTemplates() != null ? c.getRequiredFormTemplates() : Set.of()
+                ));
+
+        // 3. Collect all patient IDs
+        Set<UUID> patientIds = sessions.stream()
+                .filter(s -> s.getPatient() != null)
+                .map(s -> s.getPatient().getPatientId())
+                .collect(Collectors.toSet());
+
+        // 4. Batch load all signed submissions for these patients (1 query)
+        List<FormSubmission> allSubmissions = patientIds.isEmpty() ? List.of() :
+                formSubmissionRepository.findByPatientPatientIdInAndStatusAndIsDeletedFalse(
+                        new ArrayList<>(patientIds), SubmissionStatus.SIGNED);
+
+        // Group submissions by patient ID and template purpose (keeping latest per purpose)
+        Map<UUID, Map<String, FormSubmission>> submissionsByPatient = groupSubmissionsByPatientAndPurpose(allSubmissions);
+
+        // 5. Calculate counts for each appointment
+        for (int i = 0; i < dtos.size(); i++) {
+            AppointmentSessionDto dto = dtos.get(i);
+            AppointmentSession session = sessions.get(i);
+
+            if (session.getConsultationTypes() == null || session.getConsultationTypes().isEmpty()) {
+                dto.setRequiredFormsCount(0);
+                dto.setCompletedFormsCount(0);
+                dto.setAllFormsComplete(true);
+                continue;
+            }
+
+            // Get required templates for this session's consultations (deduplicated)
+            Set<FormTemplate> requiredTemplates = session.getConsultationTypes().stream()
+                    .flatMap(c -> templatesByConsultation.getOrDefault(c.getConsultationId(), Set.of()).stream())
+                    .filter(t -> t.getActive() && !t.getIsDeleted())
+                    .collect(Collectors.toSet());
+
+            int requiredCount = requiredTemplates.size();
+
+            if (requiredCount == 0) {
+                dto.setRequiredFormsCount(0);
+                dto.setCompletedFormsCount(0);
+                dto.setAllFormsComplete(true);
+                continue;
+            }
+
+            // Check which templates patient has valid at appointment date
+            UUID patientId = session.getPatient().getPatientId();
+            LocalDateTime appointmentDate = session.getScheduledDateTime().toLocalDateTime();
+            Map<String, FormSubmission> patientSubmissions = submissionsByPatient.getOrDefault(patientId, Map.of());
+
+            int completedCount = (int) requiredTemplates.stream()
+                    .filter(template -> {
+                        FormSubmission submission = patientSubmissions.get(template.getPurpose().name());
+                        return submission != null && isValidAtDate(submission, appointmentDate);
+                    })
+                    .count();
+
+            dto.setRequiredFormsCount(requiredCount);
+            dto.setCompletedFormsCount(completedCount);
+            dto.setAllFormsComplete(requiredCount == completedCount);
+        }
+    }
+
+    /**
+     * Checks if a form submission will be valid at a target date.
+     */
+    private boolean isValidAtDate(FormSubmission submission, LocalDateTime targetDate) {
+        return submission.getExpiresAt() == null || submission.getExpiresAt().isAfter(targetDate);
+    }
+
+    /**
+     * Groups submissions by patient ID, then by template purpose.
+     * For each patient+purpose, keeps only the latest submission.
+     */
+    private Map<UUID, Map<String, FormSubmission>> groupSubmissionsByPatientAndPurpose(List<FormSubmission> submissions) {
+        return submissions.stream()
+                .filter(s -> s.getPatient() != null && s.getTemplate() != null && s.getTemplate().getPurpose() != null)
+                .collect(Collectors.groupingBy(
+                        s -> s.getPatient().getPatientId(),
+                        Collectors.toMap(
+                                s -> s.getTemplate().getPurpose().name(),
+                                s -> s,
+                                (s1, s2) -> s1.getSubmittedAt().isAfter(s2.getSubmittedAt()) ? s1 : s2
+                        )
+                ));
     }
 }

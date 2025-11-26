@@ -155,7 +155,7 @@ class PatientRegistrationWorkflowTest {
         doctorUser.getRoles().add(doctorRole);
         userRepository.save(doctorUser);
 
-        testDoctor = DoctorTestBuilder.aDermatologist()
+        testDoctor = DoctorTestBuilder.aMedicalDermatologist()
                 .withUser(doctorUser)
                 .build();
         doctorRepository.save(testDoctor);
