@@ -121,8 +121,8 @@ public class AuthenticationService {
                     )
             );
 
-            // Load user
-            User user = userRepository.findByUsername(request.getUsername())
+            // Load user with roles eagerly to prevent LazyInitializationException
+            User user = userRepository.findWithRolesAndPermissionsByUsername(request.getUsername())
                     .orElse(null);
 
             if (user == null) {
@@ -193,8 +193,8 @@ public class AuthenticationService {
                 return Result.failure("Invalid or expired refresh token");
             }
 
-            // Load user
-            User user = userRepository.findByUsername(username).orElse(null);
+            // Load user with roles eagerly to prevent LazyInitializationException
+            User user = userRepository.findWithRolesAndPermissionsByUsername(username).orElse(null);
             if (user == null) {
                 return Result.failure("User not found");
             }
