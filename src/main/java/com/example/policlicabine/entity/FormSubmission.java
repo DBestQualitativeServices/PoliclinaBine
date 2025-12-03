@@ -1,6 +1,5 @@
 package com.example.policlicabine.entity;
 
-import com.example.policlicabine.entity.enums.SubmissionStatus;
 import com.example.policlicabine.model.FormStructure;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,8 +20,10 @@ import java.util.UUID;
         @Index(name = "idx_submission_patient", columnList = "patient_id"),
         @Index(name = "idx_submission_session", columnList = "appointment_session_id"),
         @Index(name = "idx_submission_template", columnList = "template_id"),
-        @Index(name = "idx_submission_status", columnList = "status"),
-        @Index(name = "idx_submission_expires", columnList = "expires_at")
+        @Index(name = "idx_submission_expires", columnList = "expires_at"),
+        // Composite index for common query pattern (validity check)
+        @Index(name = "idx_submission_patient_validity",
+               columnList = "patient_id, is_deleted, expires_at")
 })
 @Getter
 @Setter
@@ -38,7 +39,6 @@ public class FormSubmission {
     private void generateId() {
         if (this.id == null) this.id = UUID.randomUUID();
         if (this.submittedAt == null) this.submittedAt = LocalDateTime.now();
-        if (this.status == null) this.status = SubmissionStatus.DRAFT;
         if (this.isDeleted == null) this.isDeleted = false;
         if (this.data == null) this.data = new HashMap<>();
     }
@@ -67,11 +67,6 @@ public class FormSubmission {
     @Column(columnDefinition = "jsonb", nullable = false)
     @Builder.Default
     private Map<String, Object> data = new HashMap<>();
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    @Builder.Default
-    private SubmissionStatus status = SubmissionStatus.DRAFT;
 
     @OneToMany(mappedBy = "formSubmission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @BatchSize(size = 20)
@@ -127,22 +122,17 @@ public class FormSubmission {
         this.deletedBy = deletedBy;
     }
 
-    public boolean isSigned() {
-        return status == SubmissionStatus.SIGNED && patientSignedAt != null;
-    }
-
     public boolean isExpired() {
         return expiresAt != null && LocalDateTime.now().isAfter(expiresAt);
     }
 
     public boolean isValid() {
-        return isSigned() && !isExpired() && !isDeleted;
+        return !isExpired() && !isDeleted;
     }
 
     public void signByPatient(User witnessedBy) {
         this.patientSignedAt = LocalDateTime.now();
         this.patientSignedBy = witnessedBy;
-        this.status = SubmissionStatus.SIGNED;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -179,11 +169,7 @@ public class FormSubmission {
     public String toString() {
         return "FormSubmission{" +
                 "id=" + id +
-                ", templateId=" + (template != null ? template.getId() : null) +
-                ", patientId=" + (patient != null ? patient.getPatientId() : null) +
-                ", status=" + status +
-                ", signed=" + isSigned() +
-                ", expired=" + isExpired() +
+                ", valid=" + isValid() +
                 '}';
     }
 }

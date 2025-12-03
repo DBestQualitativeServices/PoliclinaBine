@@ -1,6 +1,5 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.DoctorDto;
 import com.example.policlicabine.dto.DoctorFilterCriteria;
@@ -8,8 +7,10 @@ import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.Doctor;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.Specialty;
-import com.example.policlicabine.event.DoctorProfileCreated;
 import com.example.policlicabine.entity.enums.UserRole;
+import com.example.policlicabine.event.DoctorProfileCreated;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.ConsultationTypeMapper;
 import com.example.policlicabine.mapper.DoctorMapper;
 import com.example.policlicabine.repository.DoctorRepository;
@@ -33,10 +34,8 @@ import java.util.stream.Collectors;
 public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
 
     private final DoctorRepository doctorRepository;
-
     private final UserService userService;
     private final ConsultationService consultationService;
-
     private final DoctorMapper doctorMapper;
     private final ConsultationTypeMapper consultationMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -79,208 +78,148 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         }
     }
 
-    public Result<DoctorDto> createDoctor(UUID userId, String fullName, List<Specialty> specialties) {
-        try {
-            if (userId == null) {
-                return Result.failure("User ID is required");
-            }
-
-            if (fullName == null || fullName.trim().isEmpty()) {
-                return Result.failure("Full name is required");
-            }
-
-            if (specialties == null || specialties.isEmpty()) {
-                return Result.failure("At least one specialty is required");
-            }
-
-            User user = userService.getEntityById(userId);
-            if (user == null) {
-                return Result.failure("User not found");
-            }
-
-            boolean hasDoctorRole = user.getRoles().stream()
-                    .anyMatch(role -> role.getName() == UserRole.DOCTOR);
-
-            if (!hasDoctorRole) {
-                return Result.failure("User must have DOCTOR role");
-            }
-
-            // Check for duplicate doctor profile
-            if (doctorRepository.existsByUserUserId(userId)) {
-                return Result.failure("Doctor profile already exists for this user");
-            }
-
-            Doctor doctor = Doctor.builder()
-                .user(user)
-                .fullName(fullName.trim())
-                .specialties(specialties)
-                .build();
-
-            Doctor savedDoctor = doctorRepository.save(doctor);
-
-            log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), userId);
-
-            return Result.success(doctorMapper.toDto(savedDoctor));
-
-        } catch (Exception e) {
-            log.error("Error creating doctor", e);
-            return Result.failure("Failed to create doctor: " + e.getMessage());
+    public DoctorDto createDoctor(UUID userId, String fullName, List<Specialty> specialties) {
+        if (userId == null) {
+            throw new BusinessException("User ID is required");
         }
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new BusinessException("Full name is required");
+        }
+        if (specialties == null || specialties.isEmpty()) {
+            throw new BusinessException("At least one specialty is required");
+        }
+
+        User user = userService.getEntityById(userId);
+        if (user == null) {
+            throw new ResourceNotFoundException("User", userId);
+        }
+
+        boolean hasDoctorRole = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == UserRole.DOCTOR);
+
+        if (!hasDoctorRole) {
+            throw new BusinessException("User must have DOCTOR role");
+        }
+
+        if (doctorRepository.existsByUserUserId(userId)) {
+            throw new BusinessException("Doctor profile already exists for this user");
+        }
+
+        Doctor doctor = Doctor.builder()
+            .user(user)
+            .fullName(fullName.trim())
+            .specialties(specialties)
+            .build();
+
+        Doctor savedDoctor = doctorRepository.save(doctor);
+
+        log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), userId);
+
+        return doctorMapper.toDto(savedDoctor);
     }
 
     @Transactional(readOnly = true)
-    public Result<List<ConsultationTypeDto>> getConsultationsForDoctor(UUID doctorId) {
-        try {
-            if (doctorId == null) {
-                return Result.failure("Doctor ID is required");
-            }
-
-            Doctor doctor = doctorRepository.findById(doctorId)
-                .orElse(null);
-            if (doctor == null) {
-                return Result.failure("Doctor not found");
-            }
-
-            // Get consultations matching doctor's specialties via ConsultationService
-            List<ConsultationType> consultations = consultationService
-                .getEntitiesBySpecialties(doctor.getSpecialties());
-
-            List<ConsultationTypeDto> consultationDtos = consultations.stream()
-                .map(consultationMapper::toDto)
-                .collect(Collectors.toList());
-
-            return Result.success(consultationDtos);
-
-        } catch (Exception e) {
-            log.error("Error getting consultations for doctor", e);
-            return Result.failure("Failed to get consultations: " + e.getMessage());
+    public List<ConsultationTypeDto> getConsultationsForDoctor(UUID doctorId) {
+        if (doctorId == null) {
+            throw new BusinessException("Doctor ID is required");
         }
+
+        Doctor doctor = doctorRepository.findById(doctorId)
+            .orElseThrow(() -> new ResourceNotFoundException("Doctor", doctorId));
+
+        List<ConsultationType> consultations = consultationService
+            .getEntitiesBySpecialties(doctor.getSpecialties());
+
+        return consultations.stream()
+            .map(consultationMapper::toDto)
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Result<DoctorDto> findDoctorById(UUID doctorId) {
+    public DoctorDto findDoctorById(UUID doctorId) {
         return findById(doctorId);
     }
 
     @Transactional(readOnly = true)
-    public Result<DoctorDto> findDoctorByUserId(UUID userId) {
-        try {
-            if (userId == null) {
-                return Result.failure("User ID is required");
-            }
-
-            Doctor doctor = doctorRepository.findByUserUserId(userId)
-                .orElse(null);
-            if (doctor == null) {
-                return Result.failure("Doctor not found for user");
-            }
-
-            return Result.success(doctorMapper.toDto(doctor));
-
-        } catch (Exception e) {
-            log.error("Error finding doctor by user ID", e);
-            return Result.failure("Failed to find doctor: " + e.getMessage());
+    public DoctorDto findDoctorByUserId(UUID userId) {
+        if (userId == null) {
+            throw new BusinessException("User ID is required");
         }
+
+        Doctor doctor = doctorRepository.findByUserUserId(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId: " + userId));
+
+        return doctorMapper.toDto(doctor);
     }
 
     @Transactional(readOnly = true)
-    public Result<List<DoctorDto>> findDoctorsBySpecialty(Specialty specialty) {
-        try {
-            if (specialty == null) {
-                return Result.failure("Specialty is required");
-            }
-
-            List<Doctor> doctors = doctorRepository.findBySpecialtiesIn(List.of(specialty));
-
-            List<DoctorDto> doctorDtos = doctors.stream()
-                .map(doctorMapper::toDto)
-                .collect(Collectors.toList());
-
-            return Result.success(doctorDtos);
-
-        } catch (Exception e) {
-            log.error("Error finding doctors by specialty", e);
-            return Result.failure("Failed to find doctors: " + e.getMessage());
+    public List<DoctorDto> findDoctorsBySpecialty(Specialty specialty) {
+        if (specialty == null) {
+            throw new BusinessException("Specialty is required");
         }
+
+        List<Doctor> doctors = doctorRepository.findBySpecialtiesIn(List.of(specialty));
+
+        return doctors.stream()
+            .map(doctorMapper::toDto)
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public Page<DoctorDto> search(DoctorFilterCriteria criteria, Pageable pageable) {
         log.debug("Searching doctors with criteria: {} and pageable: {}", criteria, pageable);
 
-        try {
-            Specification<Doctor> spec = specificationBuilder.build(criteria);
-            Page<Doctor> entityPage = doctorRepository.findAll(spec, pageable);
-            Page<DoctorDto> dtoPage = entityPage.map(this::toDto);
+        Specification<Doctor> spec = specificationBuilder.build(criteria);
+        Page<Doctor> entityPage = doctorRepository.findAll(spec, pageable);
+        Page<DoctorDto> dtoPage = entityPage.map(this::toDto);
 
-            log.info("Doctor search returned {} results (page {}/{})",
-                    dtoPage.getNumberOfElements(),
-                    dtoPage.getNumber() + 1,
-                    dtoPage.getTotalPages());
+        log.info("Doctor search returned {} results (page {}/{})",
+                dtoPage.getNumberOfElements(),
+                dtoPage.getNumber() + 1,
+                dtoPage.getTotalPages());
 
-            return dtoPage;
-
-        } catch (Exception e) {
-            log.error("Error searching doctors with criteria: {}", criteria, e);
-            throw new RuntimeException("Failed to search doctors: " + e.getMessage(), e);
-        }
+        return dtoPage;
     }
 
     @Transactional(readOnly = true)
-    public Result<Void> validateDoctorExists(UUID doctorId) {
-        return validateExists(doctorId);
+    public void validateDoctorExists(UUID doctorId) {
+        validateExists(doctorId);
     }
 
     /**
      * INTERNAL: Creates a doctor profile linked to an existing user.
-     * Used by AuthenticationService during doctor registration with user account.
-     *
-     * @param user User entity (already saved)
-     * @param fullName Doctor full name
-     * @param specialties List of specialties
-     * @return Result containing DoctorDto or error message
      */
     @Transactional
-    public Result<DoctorDto> createDoctorWithUser(User user, String fullName,
-                                                   List<Specialty> specialties) {
-        try {
-            if (user == null) {
-                return Result.failure("User is required");
-            }
-            if (fullName == null || fullName.trim().isEmpty()) {
-                return Result.failure("Full name is required");
-            }
-            if (specialties == null || specialties.isEmpty()) {
-                return Result.failure("At least one specialty is required");
-            }
-
-            // Check for duplicate doctor profile for this user
-            if (doctorRepository.existsByUserUserId(user.getUserId())) {
-                return Result.failure("Doctor profile already exists for this user");
-            }
-
-            // Build doctor entity
-            Doctor doctor = Doctor.builder()
-                    .user(user)
-                    .fullName(fullName.trim())
-                    .specialties(specialties)
-                    .build();
-
-            Doctor savedDoctor = doctorRepository.save(doctor);
-
-            log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), user.getUserId());
-
-            // Publish event
-            eventPublisher.publishEvent(new DoctorProfileCreated(
-                    savedDoctor.getDoctorId(),
-                    user.getUserId()
-            ));
-
-            return Result.success(doctorMapper.toDto(savedDoctor));
-
-        } catch (Exception e) {
-            log.error("Error creating doctor profile for user {}", user.getUserId(), e);
-            return Result.failure("Failed to create doctor profile: " + e.getMessage());
+    public DoctorDto createDoctorWithUser(User user, String fullName, List<Specialty> specialties) {
+        if (user == null) {
+            throw new BusinessException("User is required");
         }
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new BusinessException("Full name is required");
+        }
+        if (specialties == null || specialties.isEmpty()) {
+            throw new BusinessException("At least one specialty is required");
+        }
+
+        if (doctorRepository.existsByUserUserId(user.getUserId())) {
+            throw new BusinessException("Doctor profile already exists for this user");
+        }
+
+        Doctor doctor = Doctor.builder()
+                .user(user)
+                .fullName(fullName.trim())
+                .specialties(specialties)
+                .build();
+
+        Doctor savedDoctor = doctorRepository.save(doctor);
+
+        log.info("Doctor profile created: {} for user {}", savedDoctor.getDoctorId(), user.getUserId());
+
+        eventPublisher.publishEvent(new DoctorProfileCreated(
+                savedDoctor.getDoctorId(),
+                user.getUserId()
+        ));
+
+        return doctorMapper.toDto(savedDoctor);
     }
 }

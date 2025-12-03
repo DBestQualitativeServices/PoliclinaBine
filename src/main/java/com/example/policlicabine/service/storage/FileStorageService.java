@@ -1,6 +1,5 @@
 package com.example.policlicabine.service.storage;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.entity.enums.FileCategory;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,9 +30,10 @@ public interface FileStorageService {
      * @param file           the multipart file to store
      * @param category       the file category for organizing storage
      * @param uniqueFilename the unique filename to use for storage
-     * @return Result containing StorageResult with file metadata, or failure message
+     * @return StorageResult with file metadata
+     * @throws com.example.policlicabine.exception.FileStorageException if storage fails
      */
-    Result<StorageResult> storeFile(
+    StorageResult storeFile(
             MultipartFile file,
             FileCategory category,
             String uniqueFilename
@@ -43,17 +43,18 @@ public interface FileStorageService {
      * Load file as Spring Resource for download/streaming.
      *
      * @param storagePath the relative path in storage system
-     * @return Result containing Resource, or failure if file not found
+     * @return Resource
+     * @throws com.example.policlicabine.exception.ResourceNotFoundException if file not found
      */
-    Result<Resource> loadFile(String storagePath);
+    Resource loadFile(String storagePath);
 
     /**
      * Delete physical file from storage.
      *
      * @param storagePath the relative path in storage system
-     * @return Result success or failure
+     * @throws com.example.policlicabine.exception.FileStorageException if deletion fails
      */
-    Result<Void> deleteFile(String storagePath);
+    void deleteFile(String storagePath);
 
     /**
      * Check if file exists in storage.

@@ -1,11 +1,8 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.dto.PatientFilterCriteria;
-import com.example.policlicabine.exception.BusinessException;
-import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -41,7 +38,7 @@ public class PatientController {
         log.info("REST: Registering new patient: {} {}",
                 patientDto.getFirstName(), patientDto.getLastName());
 
-        Result<PatientDto> result = patientService.registerNewPatient(
+        return patientService.registerNewPatient(
                 patientDto.getFirstName(),
                 patientDto.getLastName(),
                 patientDto.getPhone(),
@@ -53,12 +50,6 @@ public class PatientController {
                 patientDto.getCiEliberatDe(),
                 patientDto.getCiDataEliberare()
         );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
     }
 
     @GetMapping("/{patientId}")
@@ -66,14 +57,7 @@ public class PatientController {
     @Operation(summary = "Get patient by ID")
     public PatientDto getPatient(@PathVariable UUID patientId) {
         log.info("REST: Getting patient by ID: {}", patientId);
-
-        Result<PatientDto> result = patientService.findById(patientId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Patient", patientId);
-        }
-
-        return result.getValue();
+        return patientService.findById(patientId);
     }
 
     @GetMapping("/search")
@@ -100,7 +84,7 @@ public class PatientController {
     @Operation(summary = "Get all patients")
     public List<PatientDto> getAllPatients() {
         log.info("REST: Getting all patients");
-        return patientService.findAll().getValue();
+        return patientService.findAll();
     }
 
     @PutMapping("/{patientId}")
@@ -111,17 +95,7 @@ public class PatientController {
             @Valid @RequestBody PatientDto patientDto
     ) {
         log.info("REST: Updating patient: {}", patientId);
-
-        Result<PatientDto> result = patientService.update(patientId, patientDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("Patient", patientId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return patientService.update(patientId, patientDto);
     }
 
     @DeleteMapping("/{patientId}")
@@ -129,11 +103,6 @@ public class PatientController {
     @Operation(summary = "Delete patient")
     public void deletePatient(@PathVariable UUID patientId) {
         log.info("REST: Deleting patient: {}", patientId);
-
-        Result<Void> result = patientService.deleteById(patientId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Patient", patientId);
-        }
+        patientService.deleteById(patientId);
     }
 }

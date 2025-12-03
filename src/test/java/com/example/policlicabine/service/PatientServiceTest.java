@@ -2,10 +2,11 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.base.BaseServiceTest;
 import com.example.policlicabine.builder.PatientTestBuilder;
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.entity.Patient;
 import com.example.policlicabine.event.NewPatientRegisteredEvent;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.PatientMapper;
 import com.example.policlicabine.repository.PatientRepository;
 import com.example.policlicabine.specification.PatientSpecificationBuilder;
@@ -21,8 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -90,20 +91,16 @@ class PatientServiceTest extends BaseServiceTest {
         when(patientMapper.toDto(any(Patient.class))).thenReturn(testPatientDto);
 
         // When
-        Result<PatientDto> result = patientService.registerNewPatient(
+        PatientDto result = patientService.registerNewPatient(
                 "John", "Doe", "0700123456", "john.doe@test.com", "123 Test St",
                 null, null, null, null, null  // CI fields
         );
 
-        // Then - Use custom Result assertions
-        assertThat(result)
-                .isSuccess()
-                .hasValue()
-                .hasValueSatisfying(dto -> {
-                    assertThat(dto.getFirstName()).isEqualTo("John");
-                    assertThat(dto.getLastName()).isEqualTo("Doe");
-                    assertThat(dto.getPhone()).isEqualTo("0700123456");
-                });
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getFirstName()).isEqualTo("John");
+        assertThat(result.getLastName()).isEqualTo("Doe");
+        assertThat(result.getPhone()).isEqualTo("0700123456");
 
         // Verify repository interactions
         verify(patientRepository).save(any(Patient.class));
@@ -121,16 +118,15 @@ class PatientServiceTest extends BaseServiceTest {
     @Test
     @DisplayName("Should fail when first name is missing")
     void registerNewPatient_MissingFirstName_Failure() {
-        // When
-        Result<PatientDto> result = patientService.registerNewPatient(
-                null, "Doe", "0700123456", "john.doe@test.com", "123 Test St",
-                null, null, null, null, null  // CI fields
+        // When & Then
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                patientService.registerNewPatient(
+                        null, "Doe", "0700123456", "john.doe@test.com", "123 Test St",
+                        null, null, null, null, null  // CI fields
+                )
         );
 
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("First name is required");
+        assertThat(ex.getMessage()).contains("First name is required");
 
         // Verify no database interaction occurred
         verifyNoInteractions(patientRepository);
@@ -150,12 +146,10 @@ class PatientServiceTest extends BaseServiceTest {
         when(patientMapper.toDto(testPatient)).thenReturn(testPatientDto);
 
         // When
-        Result<PatientDto> result = patientService.findById(patientId);
+        PatientDto result = patientService.findById(patientId);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue(testPatientDto);
+        assertThat(result).isEqualTo(testPatientDto);
 
         verify(patientRepository).findById(patientId);
         verify(patientMapper).toDto(testPatient);
@@ -168,13 +162,9 @@ class PatientServiceTest extends BaseServiceTest {
         UUID nonExistentId = UUID.randomUUID();
         when(patientRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
-        // When
-        Result<PatientDto> result = patientService.findById(nonExistentId);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Patient not found");
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () ->
+                patientService.findById(nonExistentId));
 
         verify(patientRepository).findById(nonExistentId);
         verifyNoInteractions(patientMapper);
@@ -191,11 +181,8 @@ class PatientServiceTest extends BaseServiceTest {
         UUID patientId = testPatient.getPatientId();
         when(patientRepository.existsById(patientId)).thenReturn(true);
 
-        // When
-        Result<Void> result = patientService.validateExists(patientId);
-
-        // Then
-        assertThat(result).isSuccess();
+        // When & Then - Should not throw
+        patientService.validateExists(patientId);
         verify(patientRepository).existsById(patientId);
     }
 
@@ -206,13 +193,9 @@ class PatientServiceTest extends BaseServiceTest {
         UUID nonExistentId = UUID.randomUUID();
         when(patientRepository.existsById(nonExistentId)).thenReturn(false);
 
-        // When
-        Result<Void> result = patientService.validateExists(nonExistentId);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Patient not found");
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () ->
+                patientService.validateExists(nonExistentId));
 
         verify(patientRepository).existsById(nonExistentId);
     }
@@ -240,10 +223,10 @@ class PatientServiceTest extends BaseServiceTest {
         when(patientMapper.toDto(any(Patient.class))).thenReturn(updateDto);
 
         // When
-        Result<PatientDto> result = patientService.update(patientId, updateDto);
+        PatientDto result = patientService.update(patientId, updateDto);
 
         // Then
-        assertThat(result).isSuccess().hasValue();
+        assertThat(result).isNotNull();
 
         // Verify entity was updated
         verify(patientRepository).findById(patientId);
@@ -263,13 +246,9 @@ class PatientServiceTest extends BaseServiceTest {
 
         when(patientRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
-        // When
-        Result<PatientDto> result = patientService.update(nonExistentId, updateDto);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Patient not found");
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () ->
+                patientService.update(nonExistentId, updateDto));
 
         verify(patientRepository).findById(nonExistentId);
         verify(patientRepository, never()).save(any());
@@ -287,11 +266,8 @@ class PatientServiceTest extends BaseServiceTest {
         when(patientRepository.existsById(patientId)).thenReturn(true);
         doNothing().when(patientRepository).deleteById(patientId);
 
-        // When
-        Result<Void> result = patientService.deleteById(patientId);
-
-        // Then
-        assertThat(result).isSuccess();
+        // When & Then - Should not throw
+        patientService.deleteById(patientId);
         verify(patientRepository).existsById(patientId);
         verify(patientRepository).deleteById(patientId);
     }
@@ -303,13 +279,9 @@ class PatientServiceTest extends BaseServiceTest {
         UUID nonExistentId = UUID.randomUUID();
         when(patientRepository.existsById(nonExistentId)).thenReturn(false);
 
-        // When
-        Result<Void> result = patientService.deleteById(nonExistentId);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Patient not found");
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () ->
+                patientService.deleteById(nonExistentId));
 
         verify(patientRepository).existsById(nonExistentId);
         verify(patientRepository, never()).deleteById(any());

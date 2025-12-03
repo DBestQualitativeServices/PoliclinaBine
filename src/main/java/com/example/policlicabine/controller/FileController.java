@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.FileDto;
 import com.example.policlicabine.entity.enums.FileCategory;
@@ -44,29 +43,21 @@ public class FileController {
     @StandardApiResponses
     @Operation(summary = "Upload a file")
     public FileDto uploadFile(
-            @RequestParam("file") @NotNull MultipartFile file,
+            @RequestPart("file") @NotNull MultipartFile file,
             @RequestParam("category") @NotNull FileCategory category,
-            @RequestParam(required = false)
+            @RequestParam(value = "validFrom", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate validFrom,
-            @RequestParam(required = false)
+            @RequestParam(value = "validUntil", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate validUntil,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         String username = userDetails.getUsername();
-        log.info("File upload request: {} ({} bytes) by user: {}",
-                file.getOriginalFilename(), file.getSize(), username);
+        log.info("File upload request - Category: {}, File: {} ({} bytes), ValidFrom: {}, ValidUntil: {}, User: {}",
+                category, file.getOriginalFilename(), file.getSize(), validFrom, validUntil, username);
 
-        Result<FileDto> result = fileService.uploadFile(
-                file, category, username, validFrom, validUntil
-        );
-
-        if (result.isFailure()) {
-            log.warn("File upload failed: {}", result.getErrorMessage());
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        log.info("File uploaded successfully: {}", result.getValue().getId());
-        return result.getValue();
+        FileDto result = fileService.uploadFile(file, category, username, validFrom, validUntil);
+        log.info("File uploaded successfully: {}", result.getId());
+        return result;
     }
 
     @PostMapping("/{previousFileId}/new-version")
@@ -74,22 +65,12 @@ public class FileController {
     @Operation(summary = "Upload new version of existing file")
     public FileDto uploadNewVersion(
             @PathVariable UUID previousFileId,
-            @RequestParam("file") @NotNull MultipartFile file,
+            @RequestPart("file") @NotNull MultipartFile file,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         String username = userDetails.getUsername();
-        log.info("New version upload request for file: {} by user: {}",
-                previousFileId, username);
-
-        Result<FileDto> result = fileService.uploadNewVersion(
-                previousFileId, file, username
-        );
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("File", previousFileId);
-        }
-
-        return result.getValue();
+        log.info("New version upload request for file: {} by user: {}", previousFileId, username);
+        return fileService.uploadNewVersion(previousFileId, file, username);
     }
 
     @GetMapping("/{fileId}/download")
@@ -98,20 +79,8 @@ public class FileController {
     public ResponseEntity<Resource> downloadFile(@PathVariable UUID fileId) {
         log.debug("File download request: {}", fileId);
 
-        Result<FileDto> metadataResult = fileService.findById(fileId);
-        if (metadataResult.isFailure()) {
-            throw new ResourceNotFoundException("File", fileId);
-        }
-
-        FileDto fileDto = metadataResult.getValue();
-
-        Result<Resource> result = fileService.downloadFile(fileId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("File", fileId);
-        }
-
-        Resource resource = result.getValue();
+        FileDto fileDto = fileService.findById(fileId);
+        Resource resource = fileService.downloadFile(fileId);
 
         ContentDisposition contentDisposition = ContentDisposition
                 .attachment()
@@ -133,39 +102,21 @@ public class FileController {
     @StandardApiResponses
     @Operation(summary = "Get file metadata")
     public FileDto getFileMetadata(@PathVariable UUID fileId) {
-        Result<FileDto> result = fileService.findById(fileId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("File", fileId);
-        }
-
-        return result.getValue();
+        return fileService.findById(fileId);
     }
 
     @GetMapping
     @StandardApiResponses
     @Operation(summary = "List files by category")
     public List<FileDto> listFilesByCategory(@RequestParam FileCategory category) {
-        Result<List<FileDto>> result = fileService.findByCategory(category);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return fileService.findByCategory(category);
     }
 
     @GetMapping("/{fileId}/versions")
     @StandardApiResponses
     @Operation(summary = "Get file version history")
     public List<FileDto> getFileVersionHistory(@PathVariable UUID fileId) {
-        Result<List<FileDto>> result = fileService.getFileVersionHistory(fileId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("File", fileId);
-        }
-
-        return result.getValue();
+        return fileService.getFileVersionHistory(fileId);
     }
 
     @DeleteMapping("/{fileId}")
@@ -177,13 +128,7 @@ public class FileController {
     ) {
         String username = userDetails.getUsername();
         log.info("File deletion request: {} by user: {}", fileId, username);
-
-        Result<Void> result = fileService.softDeleteFile(fileId, username);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
+        fileService.softDeleteFile(fileId, username);
         return ResponseEntity.noContent().build();
     }
 
@@ -191,12 +136,6 @@ public class FileController {
     @StandardApiResponses
     @Operation(summary = "List expired files")
     public List<FileDto> listExpiredFiles() {
-        Result<List<FileDto>> result = fileService.findExpiredFiles();
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return fileService.findExpiredFiles();
     }
 }

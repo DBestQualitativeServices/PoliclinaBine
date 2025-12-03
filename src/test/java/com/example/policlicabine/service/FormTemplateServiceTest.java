@@ -1,7 +1,8 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormTemplateDto;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.entity.FormTemplate;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.FormPurpose;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -82,7 +84,7 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
+        FormTemplateDto result = formTemplateService.createTemplate(
             "GDPR_CONSENT_V1",
             "GDPR Consent Form",
             testStructure,
@@ -92,28 +94,25 @@ class FormTemplateServiceTest {
         );
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
-        assertThat(result.getValue().getCode()).isEqualTo("GDPR_CONSENT_V1");
+        assertThat(result).isNotNull();
+        assertThat(result.getCode()).isEqualTo("GDPR_CONSENT_V1");
         verify(formTemplateRepository).save(any(FormTemplate.class));
         verify(formTemplateMapper).toDto(testTemplate);
     }
 
     @Test
     void shouldFailWhenCodeIsNull() {
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
-            null,
-            "GDPR Consent Form",
-            testStructure,
-            FormPurpose.GDPR_CONSENT,
-            12,
-            testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("code is required");
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class,
+            () -> formTemplateService.createTemplate(
+                null,
+                "GDPR Consent Form",
+                testStructure,
+                FormPurpose.GDPR_CONSENT,
+                12,
+                testUserId
+            ));
+        assertThat(exception.getMessage()).contains("code is required");
         verify(formTemplateRepository, never()).save(any());
     }
 
@@ -123,37 +122,33 @@ class FormTemplateServiceTest {
         when(formTemplateRepository.findByCode("GDPR_CONSENT_V1"))
             .thenReturn(Optional.of(testTemplate));
 
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
-            "GDPR_CONSENT_V1",
-            "GDPR Consent Form",
-            testStructure,
-            FormPurpose.GDPR_CONSENT,
-            12,
-            testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("already exists");
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class,
+            () -> formTemplateService.createTemplate(
+                "GDPR_CONSENT_V1",
+                "GDPR Consent Form",
+                testStructure,
+                FormPurpose.GDPR_CONSENT,
+                12,
+                testUserId
+            ));
+        assertThat(exception.getMessage()).contains("already exists");
         verify(formTemplateRepository, never()).save(any());
     }
 
     @Test
     void shouldFailWhenStructureIsNull() {
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
-            "GDPR_CONSENT_V1",
-            "GDPR Consent Form",
-            null,
-            FormPurpose.GDPR_CONSENT,
-            12,
-            testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("structure is required");
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class,
+            () -> formTemplateService.createTemplate(
+                "GDPR_CONSENT_V1",
+                "GDPR Consent Form",
+                null,
+                FormPurpose.GDPR_CONSENT,
+                12,
+                testUserId
+            ));
+        assertThat(exception.getMessage()).contains("structure is required");
         verify(formTemplateRepository, never()).save(any());
     }
 
@@ -168,10 +163,10 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.publishTemplate(testTemplateId);
+        FormTemplateDto result = formTemplateService.publishTemplate(testTemplateId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         assertThat(testTemplate.getActive()).isTrue();
         verify(formTemplateRepository).save(testTemplate);
     }
@@ -181,12 +176,10 @@ class FormTemplateServiceTest {
         // Arrange
         when(formTemplateRepository.findById(testTemplateId)).thenReturn(Optional.empty());
 
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.publishTemplate(testTemplateId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not found");
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+            () -> formTemplateService.publishTemplate(testTemplateId));
+        assertThat(exception.getMessage()).contains("not found");
         verify(formTemplateRepository, never()).save(any());
     }
 
@@ -200,13 +193,12 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result =
+        FormTemplateDto result =
             formTemplateService.getLatestTemplateByPurpose(FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
-        assertThat(result.getValue().getPurpose()).isEqualTo(FormPurpose.GDPR_CONSENT);
+        assertThat(result).isNotNull();
+        assertThat(result.getPurpose()).isEqualTo(FormPurpose.GDPR_CONSENT);
         verify(formTemplateRepository).findLatestByPurpose(FormPurpose.GDPR_CONSENT.name());
     }
 
@@ -216,12 +208,9 @@ class FormTemplateServiceTest {
         when(formTemplateRepository.findLatestByPurpose(FormPurpose.SURGERY_CONSENT.name()))
             .thenReturn(Optional.empty());
 
-        // Act
-        Result<FormTemplateDto> result =
-            formTemplateService.getLatestTemplateByPurpose(FormPurpose.SURGERY_CONSENT);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+            () -> formTemplateService.getLatestTemplateByPurpose(FormPurpose.SURGERY_CONSENT));
     }
 
     @Test
@@ -235,12 +224,12 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result =
+        FormTemplateDto result =
             formTemplateService.getLatestTemplateByPurpose(FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue().getActive()).isTrue();
+        assertThat(result).isNotNull();
+        assertThat(result.getActive()).isTrue();
     }
 
     // ==================== CRUD TESTS ====================
@@ -252,12 +241,11 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.findById(testTemplateId);
+        FormTemplateDto result = formTemplateService.findById(testTemplateId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
-        assertThat(result.getValue().getId()).isEqualTo(testTemplateId);
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(testTemplateId);
         verify(formTemplateRepository).findById(testTemplateId);
     }
 
@@ -272,11 +260,10 @@ class FormTemplateServiceTest {
             .thenReturn(buildFormTemplateDto());
 
         // Act
-        Result<List<FormTemplateDto>> result = formTemplateService.findAll();
+        List<FormTemplateDto> result = formTemplateService.findAll();
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(2);
+        assertThat(result).hasSize(2);
         verify(formTemplateRepository).findAll();
     }
 
@@ -290,11 +277,11 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(updatedDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.update(testTemplateId, updatedDto);
+        FormTemplateDto result = formTemplateService.update(testTemplateId, updatedDto);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue().getName()).isEqualTo("Updated GDPR Form");
+        assertThat(result).isNotNull();
+        assertThat(result.getName()).isEqualTo("Updated GDPR Form");
         verify(formTemplateRepository).save(testTemplate);
     }
 
@@ -313,16 +300,14 @@ class FormTemplateServiceTest {
 
     @Test
     void shouldNotFindDeletedTemplates() {
-        // Arrange - service checks isDeleted flag and returns failure if deleted
+        // Arrange - service checks isDeleted flag and throws if deleted
         testTemplate.setIsDeleted(true);
         when(formTemplateRepository.findById(testTemplateId)).thenReturn(Optional.of(testTemplate));
 
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.findById(testTemplateId);
-
-        // Assert - service filters deleted templates
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not found");
+        // Act & Assert - service filters deleted templates
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+            () -> formTemplateService.findById(testTemplateId));
+        assertThat(exception.getMessage()).contains("not found");
     }
 
     @Test
@@ -330,12 +315,10 @@ class FormTemplateServiceTest {
         // Arrange
         when(formTemplateRepository.findById(testTemplateId)).thenReturn(Optional.empty());
 
-        // Act
-        Result<FormTemplateDto> result = formTemplateService.findById(testTemplateId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not found");
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+            () -> formTemplateService.findById(testTemplateId));
+        assertThat(exception.getMessage()).contains("not found");
     }
 
     // ==================== GET BY PURPOSE TESTS ====================
@@ -349,13 +332,12 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<List<FormTemplateDto>> result =
+        List<FormTemplateDto> result =
             formTemplateService.getTemplatesByPurpose(FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
-        assertThat(result.getValue().get(0).getPurpose()).isEqualTo(FormPurpose.GDPR_CONSENT);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPurpose()).isEqualTo(FormPurpose.GDPR_CONSENT);
     }
 
     @Test
@@ -365,12 +347,11 @@ class FormTemplateServiceTest {
             .thenReturn(List.of());
 
         // Act
-        Result<List<FormTemplateDto>> result =
+        List<FormTemplateDto> result =
             formTemplateService.getTemplatesByPurpose(FormPurpose.SURGERY_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isEmpty();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -385,12 +366,11 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<List<FormTemplateDto>> result =
+        List<FormTemplateDto> result =
             formTemplateService.getTemplatesByPurpose(FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).allMatch(dto -> dto.getActive());
+        assertThat(result).allMatch(dto -> dto.getActive());
     }
 
     // ==================== EDGE CASES ====================
@@ -403,7 +383,7 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
+        FormTemplateDto result = formTemplateService.createTemplate(
             "GDPR_CONSENT_V1",
             "GDPR Consent Form",
             testStructure,
@@ -413,8 +393,7 @@ class FormTemplateServiceTest {
         );
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
+        assertThat(result).isNotNull();
     }
 
     @Test
@@ -426,7 +405,7 @@ class FormTemplateServiceTest {
         when(formTemplateMapper.toDto(testTemplate)).thenReturn(testTemplateDto);
 
         // Act
-        Result<FormTemplateDto> result = formTemplateService.createTemplate(
+        FormTemplateDto result = formTemplateService.createTemplate(
             "  GDPR_CONSENT_V1  ",
             "GDPR Consent Form",
             testStructure,
@@ -436,7 +415,7 @@ class FormTemplateServiceTest {
         );
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(formTemplateRepository).save(argThat(template ->
             template.getCode().equals("GDPR_CONSENT_V1")
         ));
@@ -498,16 +477,12 @@ class FormTemplateServiceTest {
         section.setFields(List.of(emailField, consentField));
 
         FormStructure structure = new FormStructure();
-        structure.setFormId("gdpr-consent-v1");
-        structure.setVersion("1.0");
         structure.setSections(List.of(section));
         return structure;
     }
 
     private FormStructure buildLargeFormStructure() {
         FormStructure structure = new FormStructure();
-        structure.setFormId("large-form");
-        structure.setVersion("1.0");
 
         // Create 10 sections with 10 fields each
         List<FormSection> sections = new java.util.ArrayList<>();

@@ -1,11 +1,12 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.dto.FormTemplateFilterCriteria;
 import com.example.policlicabine.entity.FormTemplate;
 import com.example.policlicabine.entity.User;
-import com.example.policlicabine.entity.enums.FormPurpose;
+import com.example.policlicabine.event.FormTemplateCreated;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FormTemplateMapper;
 import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.repository.FormTemplateRepository;
@@ -14,6 +15,7 @@ import com.example.policlicabine.specification.FormTemplateSpecificationBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -32,17 +34,19 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
     private final FormTemplateRepository formTemplateRepository;
     private final FormTemplateMapper formTemplateMapper;
     private final FormTemplateSpecificationBuilder specificationBuilder;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public FormTemplateService(FormTemplateRepository repository, FormTemplateMapper mapper,
-                               FormTemplateSpecificationBuilder specificationBuilder) {
+                               FormTemplateSpecificationBuilder specificationBuilder,
+                               ApplicationEventPublisher eventPublisher) {
         super(repository, mapper);
         this.formTemplateRepository = repository;
         this.formTemplateMapper = mapper;
-
         this.specificationBuilder = specificationBuilder;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -57,173 +61,181 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
 
     @Override
     protected void updateEntityFromDto(FormTemplate entity, FormTemplateDto dto) {
-        boolean hasChanges = false;
-
         if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
             entity.setName(dto.getName().trim());
-            hasChanges = true;
         }
         if (dto.getStructure() != null) {
             entity.setStructure(dto.getStructure());
-            hasChanges = true;
         }
         if (dto.getValidityMonths() != null) {
             entity.setValidityMonths(dto.getValidityMonths());
-            hasChanges = true;
-        }
-
-        if (hasChanges) {
-            entity.setVersion(entity.getVersion() + 1);
         }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Result<FormTemplateDto> findById(UUID id) {
-        FormTemplate template = formTemplateRepository.findById(id).orElse(null);
-        if (template == null || template.getIsDeleted()) {
-            return Result.failure("FormTemplate not found");
+    public FormTemplateDto findById(UUID id) {
+        if (id == null) {
+            throw new BusinessException("FormTemplate ID is required");
         }
-        return Result.success(formTemplateMapper.toDto(template));
+        
+        FormTemplate template = formTemplateRepository.findWithCreatedById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("FormTemplate", id));
+        
+        if (template.getIsDeleted()) {
+            throw new ResourceNotFoundException("FormTemplate", id);
+        }
+        
+        return formTemplateMapper.toDto(template);
     }
 
     @Transactional
-    public Result<FormTemplateDto> createTemplate(String code, String name, FormStructure structure,
-                                                   FormPurpose purpose, Integer validityMonths, UUID createdByUserId) {
-        if (code == null || code.trim().isEmpty()) {
-            return Result.failure("Template code is required");
-        }
+    public FormTemplateDto createTemplate(String name, FormStructure structure,
+                                          Integer validityMonths, UUID createdByUserId) {
         if (name == null || name.trim().isEmpty()) {
-            return Result.failure("Template name is required");
+            throw new BusinessException("Template name is required");
         }
         if (structure == null) {
-            return Result.failure("Template structure is required");
-        }
-        if (purpose == null) {
-            return Result.failure("Template purpose is required");
+            throw new BusinessException("Template structure is required");
         }
 
-        if (formTemplateRepository.findByCode(code).isPresent()) {
-            return Result.failure("Template with code " + code + " already exists");
+        if (formTemplateRepository.findByNameAndIsDeletedFalse(name.trim()).isPresent()) {
+            throw new BusinessException("Template with name '" + name + "' already exists");
         }
 
         User createdBy = createdByUserId != null ?
                 entityManager.getReference(User.class, createdByUserId) : null;
 
         FormTemplate template = FormTemplate.builder()
-                .code(code.trim())
                 .name(name.trim())
                 .structure(structure)
-                .purpose(purpose)
                 .validityMonths(validityMonths)
                 .active(false)
                 .createdBy(createdBy)
                 .build();
 
         FormTemplate saved = formTemplateRepository.save(template);
-        log.info("Created form template: {} ({})", saved.getName(), saved.getCode());
+        log.info("Created form template: {}", saved.getName());
 
-        return Result.success(formTemplateMapper.toDto(saved));
+        eventPublisher.publishEvent(new FormTemplateCreated(
+                saved.getId(),
+                saved.getName(),
+                createdByUserId
+        ));
+
+        return formTemplateMapper.toDto(saved);
     }
 
     @Transactional
-    public Result<FormTemplateDto> publishTemplate(UUID templateId) {
-        FormTemplate template = formTemplateRepository.findById(templateId).orElse(null);
-        if (template == null) {
-            return Result.failure("FormTemplate not found with id: " + templateId);
+    public FormTemplateDto publishTemplate(UUID templateId) {
+        if (templateId == null) {
+            throw new BusinessException("Template ID is required");
         }
 
+        FormTemplate template = formTemplateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("FormTemplate", templateId));
+
         if (template.getIsDeleted()) {
-            return Result.failure("Cannot publish deleted template");
+            throw new BusinessException("Cannot publish deleted template");
         }
 
         template.setActive(true);
         FormTemplate saved = formTemplateRepository.save(template);
-        log.info("Published form template: {} ({})", saved.getName(), saved.getCode());
 
-        return Result.success(formTemplateMapper.toDto(saved));
+        log.info("Published form template: {}", saved.getName());
+
+        return formTemplateMapper.toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public Result<FormTemplateDto> getLatestTemplateByPurpose(FormPurpose purpose) {
-        if (purpose == null) {
-            return Result.failure("Purpose is required");
-        }
-
-        FormTemplate template = formTemplateRepository.findLatestByPurpose(purpose.name()).orElse(null);
-        if (template == null) {
-            return Result.failure("No active template found for purpose: " + purpose);
-        }
-
-        return Result.success(formTemplateMapper.toDto(template));
-    }
-
-    @Transactional(readOnly = true)
-    public Result<List<FormTemplateDto>> getActiveTemplates() {
+    public List<FormTemplateDto> getActiveTemplates() {
         List<FormTemplate> templates = formTemplateRepository.findByActiveTrueAndIsDeletedFalse();
-        return Result.success(templates.stream()
+        return templates.stream()
                 .map(formTemplateMapper::toDto)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Result<List<FormTemplateDto>> getTemplatesByPurpose(FormPurpose purpose) {
-        if (purpose == null) {
-            return Result.failure("Purpose is required");
+    public FormTemplateDto getByName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessException("Template name is required");
         }
 
-        List<FormTemplate> templates = formTemplateRepository.findByPurposeAndActiveTrueAndIsDeletedFalse(purpose);
-        return Result.success(templates.stream()
-                .map(formTemplateMapper::toDto)
-                .collect(Collectors.toList()));
+        FormTemplate template = formTemplateRepository.findByNameAndIsDeletedFalse(name)
+            .orElseThrow(() -> new ResourceNotFoundException("FormTemplate", "name: " + name));
+
+        return formTemplateMapper.toDto(template);
     }
 
-    /**
-     * Searches form templates with dynamic filtering, pagination, and sorting.
-     *
-     * This method uses JPA Specifications for building dynamic queries based on
-     * the provided filter criteria. All filters are optional and combined with AND logic.
-     *
-     * Supported filters:
-     * - code, name - partial match, case-insensitive
-     * - purpose - exact match (enum)
-     * - active, isDeleted - boolean filters
-     * - createdAfter, createdBefore - date range filtering
-     * - createdByUserId - filter by creator user
-     *
-     * @param criteria filter criteria (all fields optional)
-     * @param pageable pagination and sorting parameters
-     * @return Page of FormTemplateDto with pagination metadata
-     */
+    @Transactional(readOnly = true)
+    public FormTemplate getEntityByName(String name) {
+        return formTemplateRepository.findByNameAndIsDeletedFalse(name).orElse(null);
+    }
+
     @Transactional(readOnly = true)
     public Page<FormTemplateDto> search(FormTemplateFilterCriteria criteria, Pageable pageable) {
         log.debug("Searching form templates with criteria: {} and pageable: {}", criteria, pageable);
 
-        try {
-            // Build dynamic specification from filter criteria
-            Specification<FormTemplate> spec = specificationBuilder.build(criteria);
+        Specification<FormTemplate> spec = specificationBuilder.build(criteria);
+        Page<FormTemplate> entityPage = formTemplateRepository.findAll(spec, pageable);
+        Page<FormTemplateDto> dtoPage = entityPage.map(formTemplateMapper::toDto);
 
-            // Execute query with pagination
-            Page<FormTemplate> entityPage = formTemplateRepository.findAll(spec, pageable);
+        log.info("FormTemplate search returned {} results (page {}/{})",
+                dtoPage.getNumberOfElements(),
+                dtoPage.getNumber() + 1,
+                dtoPage.getTotalPages());
 
-            // Map entities to DTOs using Spring's Page.map()
-            Page<FormTemplateDto> dtoPage = entityPage.map(formTemplateMapper::toDto);
-
-            log.info("FormTemplate search returned {} results (page {}/{})",
-                    dtoPage.getNumberOfElements(),
-                    dtoPage.getNumber() + 1,
-                    dtoPage.getTotalPages());
-
-            return dtoPage;
-
-        } catch (Exception e) {
-            log.error("Error searching form templates with criteria: {}", criteria, e);
-            return Page.empty();
-        }
+        return dtoPage;
     }
 
+    /**
+     * Find template by name, including soft-deleted templates.
+     * Used for hard-delete scenarios where we need to find any existing template.
+     *
+     * @param name the template name
+     * @return Optional containing the template if found
+     */
     @Transactional(readOnly = true)
-    public FormTemplate getEntityByCode(String code) {
-        return formTemplateRepository.findByCode(code).orElse(null);
+    public java.util.Optional<FormTemplate> findByNameIncludingDeleted(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return formTemplateRepository.findByName(name.trim());
+    }
+
+    /**
+     * Hard delete a template with full cascade cleanup.
+     * 1. Unlinks from all consultations (both requiredFormTemplates and consultationFormTemplate)
+     * 2. Deletes all form submissions referencing this template
+     * 3. Physically removes the template from the database
+     *
+     * @param templateId the template ID to hard delete
+     * @param consultationService service for unlinking from consultations
+     * @param formSubmissionService service for deleting submissions
+     */
+    @Transactional
+    public void hardDeleteWithCascade(UUID templateId,
+                                       ConsultationService consultationService,
+                                       FormSubmissionService formSubmissionService) {
+        if (templateId == null) {
+            throw new BusinessException("Template ID is required");
+        }
+
+        FormTemplate template = formTemplateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("FormTemplate", templateId));
+
+        log.info("Hard deleting template '{}' (ID: {}) with cascade", template.getName(), templateId);
+
+        // 1. Unlink from all consultations
+        consultationService.unlinkFormTemplateFromAll(templateId);
+
+        // 2. Delete all submissions referencing this template
+        formSubmissionService.deleteAllByTemplateId(templateId);
+
+        // 3. Hard delete the template
+        formTemplateRepository.delete(template);
+        formTemplateRepository.flush();
+
+        log.info("Template '{}' (ID: {}) hard deleted successfully", template.getName(), templateId);
     }
 }

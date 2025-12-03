@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.exception.BusinessException;
@@ -30,19 +29,8 @@ public class MedicalFileAccessController {
             @PathVariable UUID doctorId,
             @PathVariable UUID patientId
     ) {
-        log.info("REST: Checking doctor {} access to patient {} medical records",
-                doctorId, patientId);
-
-        Result<Boolean> result = medicalFileAccessService.canDoctorAccessMedicalData(
-                doctorId,
-                patientId
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        log.info("REST: Checking doctor {} access to patient {} medical records", doctorId, patientId);
+        return medicalFileAccessService.canDoctorAccessMedicalData(doctorId, patientId);
     }
 
     @GetMapping("/access/doctor/{doctorId}/patients")
@@ -50,14 +38,7 @@ public class MedicalFileAccessController {
     @Operation(summary = "Get patients accessible to doctor")
     public List<PatientDto> getAccessiblePatients(@PathVariable UUID doctorId) {
         log.info("REST: Getting all patients accessible to doctor: {}", doctorId);
-
-        Result<List<PatientDto>> result = medicalFileAccessService.getPatientsAccessibleToDoctor(doctorId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return medicalFileAccessService.getPatientsAccessibleToDoctor(doctorId);
     }
 
     @GetMapping("/appointments/upcoming/doctor/{doctorId}/patient/{patientId}")
@@ -67,18 +48,7 @@ public class MedicalFileAccessController {
             @PathVariable UUID doctorId,
             @PathVariable UUID patientId
     ) {
-        log.info("REST: Checking upcoming appointments for doctor {} and patient {}",
-                doctorId, patientId);
-
-        Result<Boolean> result = medicalFileAccessService.hasUpcomingAppointments(
-                doctorId,
-                patientId
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        log.info("REST: Checking upcoming appointments for doctor {} and patient {}", doctorId, patientId);
+        return medicalFileAccessService.hasUpcomingAppointments(doctorId, patientId);
     }
 }

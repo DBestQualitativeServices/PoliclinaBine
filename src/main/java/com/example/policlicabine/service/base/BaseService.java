@@ -1,6 +1,5 @@
 package com.example.policlicabine.service.base;
 
-import com.example.policlicabine.common.Result;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -10,7 +9,7 @@ import java.util.List;
  *
  * All services managing entities follow these patterns:
  * - Each service manages exactly ONE entity type
- * - Public API methods return Result&lt;DTO&gt; for consistent error handling
+ * - Public API methods return DTOs directly, throwing exceptions on errors
  * - Internal methods return entities directly for service-to-service communication
  * - Transaction boundaries: readOnly for queries, default for writes
  *
@@ -36,7 +35,7 @@ import java.util.List;
  *     }
  *
  *     // Business-specific methods
- *     public Result<PatientDto> registerNewPatient(...) {
+ *     public PatientDto registerNewPatient(...) {
  *         // Custom logic
  *     }
  * }
@@ -45,56 +44,56 @@ import java.util.List;
  */
 public interface BaseService<E, D, ID> {
 
-    // ============= PUBLIC API METHODS (Return Result<DTO>) =============
+    // ============= PUBLIC API METHODS (Return DTO, throw exceptions) =============
 
     /**
      * Finds an entity by its unique identifier.
-     * PUBLIC API method returning Result&lt;DTO&gt; for external use (controllers).
+     * PUBLIC API method returning DTO for external use (controllers).
      *
      * @param id Entity identifier
-     * @return Result containing DTO or error message
+     * @return DTO representation of the entity
+     * @throws com.example.policlicabine.exception.ResourceNotFoundException if entity not found
+     * @throws com.example.policlicabine.exception.BusinessException if ID is null
      */
     @Transactional(readOnly = true)
-    Result<D> findById(ID id);
+    D findById(ID id);
 
     /**
      * Retrieves all entities.
-     * PUBLIC API method returning Result&lt;List&lt;DTO&gt;&gt; for external use.
+     * PUBLIC API method returning List of DTOs for external use.
      *
      * Note: Use with caution for large datasets. Consider pagination for production.
      *
-     * @return Result containing list of DTOs or error message
+     * @return List of DTOs (never null, may be empty)
      */
     @Transactional(readOnly = true)
-    Result<List<D>> findAll();
+    List<D> findAll();
 
     // ============= INTERNAL METHODS FOR SERVICE-TO-SERVICE COMMUNICATION =============
 
     /**
      * INTERNAL: Validates that an entity exists.
-     * Used by other services for validation with clear error messaging.
-     * Returns Result for error message propagation.
+     * Used by other services for validation.
+     * Throws exception if entity does not exist.
      *
      * Example:
      * <pre>
      * {@code
      * // In AppointmentSessionService
-     * Result<Void> check = patientService.validateExists(patientId);
-     * if (check.isFailure()) {
-     *     return Result.failure(check.getErrorMessage());
-     * }
+     * patientService.validateExists(patientId); // throws if not found
      * }
      * </pre>
      *
      * @param id Entity identifier
-     * @return Result success if entity exists, failure with message otherwise
+     * @throws com.example.policlicabine.exception.ResourceNotFoundException if entity not found
+     * @throws com.example.policlicabine.exception.BusinessException if ID is null
      */
     @Transactional(readOnly = true)
-    Result<Void> validateExists(ID id);
+    void validateExists(ID id);
 
     /**
      * INTERNAL: Gets an entity by ID.
-     * Used by other services for entity access without Result wrapper.
+     * Used by other services for entity access.
      * Returns entity directly, null if not found.
      *
      * Example:
@@ -103,7 +102,7 @@ public interface BaseService<E, D, ID> {
      * // In InvoiceService
      * User user = userService.getEntityById(userId);
      * if (user == null) {
-     *     return Result.failure("User not found");
+     *     throw new ResourceNotFoundException("User", userId);
      * }
      * }
      * </pre>
@@ -148,7 +147,7 @@ public interface BaseService<E, D, ID> {
 
     /**
      * Updates an entity with data from a DTO.
-     * PUBLIC API method returning Result&lt;DTO&gt; for external use (controllers).
+     * PUBLIC API method returning DTO for external use (controllers).
      *
      * Implementation uses template method pattern:
      * - Loads entity by ID
@@ -159,14 +158,16 @@ public interface BaseService<E, D, ID> {
      *
      * @param id Entity identifier
      * @param dto DTO containing updated data
-     * @return Result containing updated DTO or error message
+     * @return Updated DTO
+     * @throws com.example.policlicabine.exception.ResourceNotFoundException if entity not found
+     * @throws com.example.policlicabine.exception.BusinessException if validation fails
      */
     @Transactional
-    Result<D> update(ID id, D dto);
+    D update(ID id, D dto);
 
     /**
      * Deletes an entity by its unique identifier.
-     * PUBLIC API method returning Result&lt;Void&gt; for external use (controllers).
+     * PUBLIC API method for external use (controllers).
      *
      * Default implementation performs hard delete using repository.deleteById().
      * Services can override this method for:
@@ -176,8 +177,9 @@ public interface BaseService<E, D, ID> {
      * - Additional validation
      *
      * @param id Entity identifier
-     * @return Result success if deleted, failure with message otherwise
+     * @throws com.example.policlicabine.exception.ResourceNotFoundException if entity not found
+     * @throws com.example.policlicabine.exception.BusinessException if ID is null
      */
     @Transactional
-    Result<Void> deleteById(ID id);
+    void deleteById(ID id);
 }

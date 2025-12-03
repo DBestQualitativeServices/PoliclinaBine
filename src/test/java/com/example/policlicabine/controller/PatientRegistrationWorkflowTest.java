@@ -4,7 +4,6 @@ import com.example.policlicabine.builder.ConsultationTestBuilder;
 import com.example.policlicabine.builder.DoctorTestBuilder;
 import com.example.policlicabine.builder.PatientTestBuilder;
 import com.example.policlicabine.builder.UserTestBuilder;
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.entity.*;
@@ -41,7 +40,6 @@ import java.util.UUID;
 import com.example.policlicabine.entity.enums.PermissionEnum;
 import com.example.policlicabine.entity.enums.UserRole;
 
-import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -177,7 +175,7 @@ class PatientRegistrationWorkflowTest {
     @DisplayName("Complete patient registration publishes PatientRegistered event")
     void completePatientRegistration_Success_PublishesPatientRegisteredEvent() {
         // When - Register new patient
-        Result<PatientDto> result = patientService.registerNewPatient(
+        PatientDto patientDto = patientService.registerNewPatient(
                 "John",
                 "Doe",
                 "0700123456",
@@ -187,8 +185,7 @@ class PatientRegistrationWorkflowTest {
         );
 
         // Then - Registration successful
-        assertThat(result).isSuccess().hasValue();
-        PatientDto patientDto = result.getValue();
+        assertThat(patientDto).isNotNull();
         assertThat(patientDto.getPatientId()).isNotNull();
         assertThat(patientDto.getFirstName()).isEqualTo("John");
         assertThat(patientDto.getLastName()).isEqualTo("Doe");
@@ -212,7 +209,7 @@ class PatientRegistrationWorkflowTest {
     @DisplayName("Patient registration enables appointment scheduling")
     void patientRegistration_Success_EnablesAppointmentScheduling() {
         // Given - Register patient
-        Result<PatientDto> patientResult = patientService.registerNewPatient(
+        PatientDto patientResult = patientService.registerNewPatient(
                 "Jane",
                 "Smith",
                 "0700999888",
@@ -221,12 +218,12 @@ class PatientRegistrationWorkflowTest {
                 null, null, null, null, null  // CI fields
         );
 
-        assertThat(patientResult).isSuccess();
-        UUID patientId = patientResult.getValue().getPatientId();
+        assertThat(patientResult).isNotNull();
+        UUID patientId = patientResult.getPatientId();
 
         // When - Schedule appointment for registered patient
         OffsetDateTime scheduledTime = OffsetDateTime.now().plus(1, ChronoUnit.DAYS);
-        Result<AppointmentSessionDto> appointmentResult = appointmentSessionService.scheduleAppointment(
+        AppointmentSessionDto appointmentDto = appointmentSessionService.scheduleAppointment(
                 patientId,
                 testDoctor.getDoctorId(),
                 List.of(testConsultation.getName()),
@@ -235,8 +232,7 @@ class PatientRegistrationWorkflowTest {
         );
 
         // Then - Appointment successfully scheduled
-        assertThat(appointmentResult).isSuccess();
-        AppointmentSessionDto appointmentDto = appointmentResult.getValue();
+        assertThat(appointmentDto).isNotNull();
         assertThat(appointmentDto.getSessionId()).isNotNull();
         assertThat(appointmentDto.getPatient().getPatientId()).isEqualTo(patientId);
         assertThat(appointmentDto.getDoctor().getDoctorId()).isEqualTo(testDoctor.getDoctorId());
@@ -256,7 +252,7 @@ class PatientRegistrationWorkflowTest {
     @DisplayName("Register patient then retrieve by ID finds patient")
     void registerPatient_ThenRetrieveById_FindsPatient() {
         // Given - Register patient
-        Result<PatientDto> registerResult = patientService.registerNewPatient(
+        PatientDto registerResult = patientService.registerNewPatient(
                 "Charlie",
                 "Brown",
                 "0700555666",
@@ -265,15 +261,14 @@ class PatientRegistrationWorkflowTest {
                 null, null, null, null, null  // CI fields
         );
 
-        assertThat(registerResult).isSuccess();
-        UUID patientId = registerResult.getValue().getPatientId();
+        assertThat(registerResult).isNotNull();
+        UUID patientId = registerResult.getPatientId();
 
         // When - Retrieve patient by ID
-        Result<PatientDto> retrieveResult = patientService.findById(patientId);
+        PatientDto found = patientService.findById(patientId);
 
         // Then - Find the registered patient
-        assertThat(retrieveResult).isSuccess();
-        PatientDto found = retrieveResult.getValue();
+        assertThat(found).isNotNull();
         assertThat(found.getPatientId()).isEqualTo(patientId);
         assertThat(found.getFirstName()).isEqualTo("Charlie");
         assertThat(found.getLastName()).isEqualTo("Brown");
@@ -289,7 +284,7 @@ class PatientRegistrationWorkflowTest {
     @DisplayName("Update patient email then search by new email finds patient")
     void updatePatientEmail_ThenSearchByNewEmail_FindsPatient() {
         // Given - Register patient
-        Result<PatientDto> registerResult = patientService.registerNewPatient(
+        PatientDto registerResult = patientService.registerNewPatient(
                 "David",
                 "Miller",
                 "0700777888",
@@ -298,8 +293,8 @@ class PatientRegistrationWorkflowTest {
                 null, null, null, null, null  // CI fields
         );
 
-        assertThat(registerResult).isSuccess();
-        UUID patientId = registerResult.getValue().getPatientId();
+        assertThat(registerResult).isNotNull();
+        UUID patientId = registerResult.getPatientId();
 
         // When - Update patient email
         PatientDto updateDto = PatientDto.builder()
@@ -311,11 +306,11 @@ class PatientRegistrationWorkflowTest {
                 .address("444 Fourth St")
                 .build();
 
-        Result<PatientDto> updateResult = patientService.update(patientId, updateDto);
+        PatientDto updateResult = patientService.update(patientId, updateDto);
 
         // Then - Update successful
-        assertThat(updateResult).isSuccess();
-        assertThat(updateResult.getValue().getEmail()).isEqualTo("david.new@test.com");
+        assertThat(updateResult).isNotNull();
+        assertThat(updateResult.getEmail()).isEqualTo("david.new@test.com");
 
         // Verify search by new email finds patient
         Optional<Patient> foundPatient = patientRepository.findByEmail("david.new@test.com");
@@ -337,7 +332,7 @@ class PatientRegistrationWorkflowTest {
     @Transactional
     void patientWithAppointments_MaintainsReferentialIntegrity() {
         // Given - Register patient
-        Result<PatientDto> patientResult = patientService.registerNewPatient(
+        PatientDto patientResult = patientService.registerNewPatient(
                 "Emma",
                 "Davis",
                 "0700888999",
@@ -346,12 +341,12 @@ class PatientRegistrationWorkflowTest {
                 null, null, null, null, null  // CI fields
         );
 
-        assertThat(patientResult).isSuccess();
-        UUID patientId = patientResult.getValue().getPatientId();
+        assertThat(patientResult).isNotNull();
+        UUID patientId = patientResult.getPatientId();
 
         // Create appointment for patient
         OffsetDateTime scheduledTime = OffsetDateTime.now().plus(1, ChronoUnit.DAYS);
-        Result<AppointmentSessionDto> appointmentResult = appointmentSessionService.scheduleAppointment(
+        AppointmentSessionDto appointmentResult = appointmentSessionService.scheduleAppointment(
                 patientId,
                 testDoctor.getDoctorId(),
                 List.of(testConsultation.getName()),
@@ -359,7 +354,7 @@ class PatientRegistrationWorkflowTest {
                 false
         );
 
-        assertThat(appointmentResult).isSuccess();
+        assertThat(appointmentResult).isNotNull();
 
         // Verify appointment exists and references patient correctly
         List<AppointmentSession> allAppointments = appointmentSessionRepository.findAll();

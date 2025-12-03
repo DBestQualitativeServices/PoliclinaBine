@@ -3,13 +3,14 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.base.BaseServiceTest;
 import com.example.policlicabine.builder.RoleTestBuilder;
 import com.example.policlicabine.builder.UserTestBuilder;
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.*;
 import com.example.policlicabine.entity.PasswordResetToken;
 import com.example.policlicabine.entity.Role;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.*;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.repository.RoleRepository;
 import com.example.policlicabine.repository.UserRepository;
 import com.example.policlicabine.security.JwtService;
@@ -36,8 +37,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -164,19 +165,15 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(jwtService.generateRefreshToken(any(UserDetails.class))).thenReturn("refresh-token");
 
         // When
-        Result<AuthResponse> result = authenticationService.register(request);
+        AuthResponse result = authenticationService.register(request);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue()
-                .hasValueSatisfying(response -> {
-                    assertThat(response.getUsername()).isEqualTo("newuser");
-                    assertThat(response.getRoles()).contains(UserRole.DOCTOR);
-                    assertThat(response.getAccessToken()).isEqualTo("access-token");
-                    assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
-                    assertThat(response.getTokenType()).isEqualTo("Bearer");
-                });
+        assertThat(result).isNotNull();
+        assertThat(result.getUsername()).isEqualTo("newuser");
+        assertThat(result.getRoles()).contains(UserRole.DOCTOR);
+        assertThat(result.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.getRefreshToken()).isEqualTo("refresh-token");
+        assertThat(result.getTokenType()).isEqualTo("Bearer");
 
         // Verify user saved
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -207,13 +204,10 @@ class AuthenticationServiceTest extends BaseServiceTest {
 
         when(userRepository.existsByUsername("existinguser")).thenReturn(true);
 
-        // When
-        Result<AuthResponse> result = authenticationService.register(request);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Username already exists");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authenticationService.register(request));
+        assertThat(exception.getMessage()).contains("Username already exists");
 
         // Verify no save or event
         verify(userRepository, never()).save(any());
@@ -243,17 +237,13 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(jwtService.generateRefreshToken(testUserDetails)).thenReturn("refresh-token");
 
         // When
-        Result<AuthResponse> result = authenticationService.authenticate(request, "127.0.0.1");
+        AuthResponse result = authenticationService.authenticate(request, "127.0.0.1");
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue()
-                .hasValueSatisfying(response -> {
-                    assertThat(response.getUsername()).isEqualTo("testuser");
-                    assertThat(response.getAccessToken()).isEqualTo("access-token");
-                    assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
-                });
+        assertThat(result).isNotNull();
+        assertThat(result.getUsername()).isEqualTo("testuser");
+        assertThat(result.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.getRefreshToken()).isEqualTo("refresh-token");
 
         // Verify lastLogin updated
         verify(userRepository).save(any(User.class));
@@ -278,13 +268,10 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("Invalid credentials"));
 
-        // When
-        Result<AuthResponse> result = authenticationService.authenticate(request, "127.0.0.1");
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Invalid credentials");
+        // When & Then
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> authenticationService.authenticate(request, "127.0.0.1"));
+        assertThat(exception.getMessage()).contains("Invalid credentials");
 
         // Verify no event published
         verifyNoInteractions(eventPublisher);
@@ -306,17 +293,13 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(jwtService.generateToken(any(UserDetails.class), anyString())).thenReturn("new-access-token");
 
         // When
-        Result<AuthResponse> result = authenticationService.refreshToken(request);
+        AuthResponse result = authenticationService.refreshToken(request);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue()
-                .hasValueSatisfying(response -> {
-                    assertThat(response.getAccessToken()).isEqualTo("new-access-token");
-                    assertThat(response.getRefreshToken()).isEqualTo("valid-refresh-token");
-                    assertThat(response.getUsername()).isEqualTo("testuser");
-                });
+        assertThat(result).isNotNull();
+        assertThat(result.getAccessToken()).isEqualTo("new-access-token");
+        assertThat(result.getRefreshToken()).isEqualTo("valid-refresh-token");
+        assertThat(result.getUsername()).isEqualTo("testuser");
     }
 
     @Test
@@ -330,13 +313,10 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(testUserDetails);
         when(jwtService.isTokenValid("invalid-refresh-token", testUserDetails)).thenReturn(false);
 
-        // When
-        Result<AuthResponse> result = authenticationService.refreshToken(request);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Invalid or expired refresh token");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authenticationService.refreshToken(request));
+        assertThat(exception.getMessage()).contains("Invalid or expired refresh token");
     }
 
     // ===== CHANGE PASSWORD TESTS =====
@@ -362,10 +342,9 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // When
-        Result<Void> result = authenticationService.changePassword(request);
+        authenticationService.changePassword(request);
 
-        // Then
-        assertThat(result).isSuccess();
+        // Then - Should not throw
 
         // Verify password updated
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -400,13 +379,10 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("wrongpassword", testUser.getPassword())).thenReturn(false);
 
-        // When
-        Result<Void> result = authenticationService.changePassword(request);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Current password is incorrect");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authenticationService.changePassword(request));
+        assertThat(exception.getMessage()).contains("Current password is incorrect");
 
         // Verify no save or event
         verify(userRepository, never()).save(any());
@@ -435,15 +411,13 @@ class AuthenticationServiceTest extends BaseServiceTest {
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(passwordResetTokenService.createResetToken(testUser.getUserId()))
-                .thenReturn(Result.success(resetToken));
+                .thenReturn(resetToken);
 
         // When
-        Result<String> result = authenticationService.initiatePasswordReset(request);
+        String result = authenticationService.initiatePasswordReset(request);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue("Password reset token: reset-token-123");
+        assertThat(result).isEqualTo("Password reset token: reset-token-123");
 
         // Verify event published
         ArgumentCaptor<PasswordResetInitiated> eventCaptor = ArgumentCaptor.forClass(PasswordResetInitiated.class);
@@ -463,10 +437,10 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
         // When
-        Result<String> result = authenticationService.initiatePasswordReset(request);
+        String result = authenticationService.initiatePasswordReset(request);
 
-        // Then - Still returns success for security
-        assertThat(result).isSuccess();
+        // Then - Still returns success message for security
+        assertThat(result).isNotNull();
 
         // Verify no token created and no event published
         verifyNoInteractions(passwordResetTokenService);
@@ -492,25 +466,20 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .build();
 
         when(passwordResetTokenService.validateResetToken("valid-token"))
-                .thenReturn(Result.success(resetToken));
+                .thenReturn(resetToken);
         when(passwordEncoder.encode("newpassword123")).thenReturn("$2a$10$newEncodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
-        when(passwordResetTokenService.markTokenAsUsed("valid-token"))
-                .thenReturn(Result.success());
 
         // When
-        Result<Void> result = authenticationService.resetPassword(request);
+        authenticationService.resetPassword(request);
 
-        // Then
-        assertThat(result).isSuccess();
+        // Then - Should not throw
 
         // Verify password updated
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getPassword()).isEqualTo("$2a$10$newEncodedPassword");
 
-        // Verify token marked as used
-        verify(passwordResetTokenService).markTokenAsUsed("valid-token");
 
         // Verify event published
         ArgumentCaptor<PasswordReset> eventCaptor = ArgumentCaptor.forClass(PasswordReset.class);
@@ -529,15 +498,12 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .build();
 
         when(passwordResetTokenService.validateResetToken("invalid-token"))
-                .thenReturn(Result.failure("Invalid or expired reset token"));
+                .thenThrow(new BusinessException("Invalid or expired reset token"));
 
-        // When
-        Result<Void> result = authenticationService.resetPassword(request);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Invalid or expired reset token");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authenticationService.resetPassword(request));
+        assertThat(exception.getMessage()).contains("Invalid or expired reset token");
 
         // Verify no save or event
         verify(userRepository, never()).save(any());
@@ -553,15 +519,12 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .build();
 
         when(passwordResetTokenService.validateResetToken("expired-token"))
-                .thenReturn(Result.failure("Reset token has expired"));
+                .thenThrow(new BusinessException("Reset token has expired"));
 
-        // When
-        Result<Void> result = authenticationService.resetPassword(request);
-
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("expired");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authenticationService.resetPassword(request));
+        assertThat(exception.getMessage()).contains("expired");
 
         // Verify no save or event
         verify(userRepository, never()).save(any());

@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.*;
 import com.example.policlicabine.exception.BusinessException;
@@ -32,14 +31,7 @@ public class AuthController {
     @Deprecated
     public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         log.info("Registration request for username: {}", request.getUsername());
-
-        Result<AuthResponse> result = authenticationService.register(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.register(request);
     }
 
     @PostMapping("/register-patient")
@@ -48,14 +40,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponseWrapper<PatientDto> registerPatient(@Valid @RequestBody RegisterPatientRequest request) {
         log.info("Patient registration request for username: {}", request.getUsername());
-
-        Result<AuthResponseWrapper<PatientDto>> result = authenticationService.registerPatient(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.registerPatient(request);
     }
 
     @PostMapping("/register-doctor")
@@ -64,14 +49,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponseWrapper<DoctorDto> registerDoctor(@Valid @RequestBody RegisterDoctorRequest request) {
         log.info("Doctor registration request for username: {}", request.getUsername());
-
-        Result<AuthResponseWrapper<DoctorDto>> result = authenticationService.registerDoctor(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.registerDoctor(request);
     }
 
     @PostMapping("/register-manager")
@@ -81,14 +59,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponseWrapper<ManagerDto> registerManager(@Valid @RequestBody RegisterManagerRequest request) {
         log.info("Manager registration request for username: {}", request.getUsername());
-
-        Result<AuthResponseWrapper<ManagerDto>> result = authenticationService.registerManager(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.registerManager(request);
     }
 
     @PostMapping("/login")
@@ -99,15 +70,8 @@ public class AuthController {
             HttpServletRequest httpRequest
     ) {
         log.info("Login request for username: {}", request.getUsername());
-
         String ipAddress = getClientIp(httpRequest);
-        Result<AuthResponse> result = authenticationService.authenticate(request, ipAddress);
-
-        if (result.isFailure()) {
-            throw new UnauthorizedException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.authenticate(request, ipAddress);
     }
 
     @PostMapping("/refresh-token")
@@ -115,14 +79,7 @@ public class AuthController {
     @Operation(summary = "Refresh access token")
     public AuthResponse refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         log.info("Token refresh request");
-
-        Result<AuthResponse> result = authenticationService.refreshToken(request);
-
-        if (result.isFailure()) {
-            throw new UnauthorizedException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return authenticationService.refreshToken(request);
     }
 
     @PostMapping("/change-password")
@@ -131,13 +88,7 @@ public class AuthController {
     @Operation(summary = "Change password")
     public MessageResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         log.info("Password change request");
-
-        Result<Void> result = authenticationService.changePassword(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
+        authenticationService.changePassword(request);
         return new MessageResponse("Password changed successfully");
     }
 
@@ -146,14 +97,8 @@ public class AuthController {
     @Operation(summary = "Initiate password reset")
     public MessageResponse forgotPassword(@Valid @RequestBody InitiatePasswordResetRequest request) {
         log.info("Password reset request for username: {}", request.getUsername());
-
-        Result<String> result = authenticationService.initiatePasswordReset(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return new MessageResponse(result.getValue());
+        String message = authenticationService.initiatePasswordReset(request);
+        return new MessageResponse(message);
     }
 
     @PostMapping("/reset-password")
@@ -161,13 +106,7 @@ public class AuthController {
     @Operation(summary = "Reset password")
     public MessageResponse resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         log.info("Password reset completion request");
-
-        Result<Void> result = authenticationService.resetPassword(request);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
+        authenticationService.resetPassword(request);
         return new MessageResponse("Password reset successfully");
     }
 

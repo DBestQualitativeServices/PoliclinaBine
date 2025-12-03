@@ -1,8 +1,8 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.entity.PasswordResetToken;
 import com.example.policlicabine.entity.User;
+import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.repository.PasswordResetTokenRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,8 +17,8 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.example.policlicabine.util.ResultAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -81,21 +81,17 @@ class PasswordResetTokenServiceTest {
                 });
 
         // When
-        Result<PasswordResetToken> result = passwordResetTokenService.createResetToken(testUserId);
+        PasswordResetToken result = passwordResetTokenService.createResetToken(testUserId);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue()
-                .hasValueSatisfying(token -> {
-                    assertThat(token.getToken()).isNotNull();
-                    assertThat(token.getToken()).hasSize(36); // UUID format
-                    assertThat(token.getUser()).isEqualTo(mockUserReference);
-                    assertThat(token.isUsed()).isFalse();
-                    assertThat(token.getExpiryDate()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
-                    assertThat(token.getExpiryDate())
-                            .isBefore(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).plusMinutes(1));
-                });
+        assertThat(result).isNotNull();
+        assertThat(result.getToken()).isNotNull();
+        assertThat(result.getToken()).hasSize(36); // UUID format
+        assertThat(result.getUser()).isEqualTo(mockUserReference);
+        assertThat(result.isUsed()).isFalse();
+        assertThat(result.getExpiryDate()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
+        assertThat(result.getExpiryDate())
+                .isBefore(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).plusMinutes(1));
 
         // Verify old tokens deleted first
         verify(resetTokenRepository).deleteByUserId(testUserId);
@@ -119,12 +115,11 @@ class PasswordResetTokenServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
-        Result<PasswordResetToken> result = passwordResetTokenService.createResetToken(testUserId);
+        PasswordResetToken token = passwordResetTokenService.createResetToken(testUserId);
 
         // Then
-        assertThat(result).isSuccess();
+        assertThat(token).isNotNull();
 
-        PasswordResetToken token = result.getValue();
         OffsetDateTime expectedExpiry = beforeCreation.plusHours(1);
 
         // Allow 5 second tolerance for test execution time
@@ -151,12 +146,10 @@ class PasswordResetTokenServiceTest {
                 .thenReturn(Optional.of(resetToken));
 
         // When
-        Result<PasswordResetToken> result = passwordResetTokenService.validateResetToken(validToken);
+        PasswordResetToken result = passwordResetTokenService.validateResetToken(validToken);
 
         // Then
-        assertThat(result)
-                .isSuccess()
-                .hasValue(resetToken);
+        assertThat(result).isEqualTo(resetToken);
 
         verify(resetTokenRepository).findByToken(validToken);
     }
@@ -169,13 +162,11 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.findByToken(nonExistentToken))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<PasswordResetToken> result = passwordResetTokenService.validateResetToken(nonExistentToken);
+        // When & Then
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                passwordResetTokenService.validateResetToken(nonExistentToken));
 
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Invalid or expired reset token");
+        assertThat(ex.getMessage()).contains("Invalid or expired reset token");
     }
 
     @Test
@@ -193,13 +184,11 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.findByToken(usedToken))
                 .thenReturn(Optional.of(resetToken));
 
-        // When
-        Result<PasswordResetToken> result = passwordResetTokenService.validateResetToken(usedToken);
+        // When & Then
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                passwordResetTokenService.validateResetToken(usedToken));
 
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("already been used");
+        assertThat(ex.getMessage()).contains("already been used");
     }
 
     @Test
@@ -217,13 +206,11 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.findByToken(expiredToken))
                 .thenReturn(Optional.of(resetToken));
 
-        // When
-        Result<PasswordResetToken> result = passwordResetTokenService.validateResetToken(expiredToken);
+        // When & Then
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                passwordResetTokenService.validateResetToken(expiredToken));
 
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("expired");
+        assertThat(ex.getMessage()).contains("expired");
     }
 
     @Test
@@ -241,13 +228,11 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.findByToken(tokenExpiringNow))
                 .thenReturn(Optional.of(resetToken));
 
-        // When
-        Result<PasswordResetToken> result = passwordResetTokenService.validateResetToken(tokenExpiringNow);
+        // When & Then - Should be considered expired (not valid anymore)
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                passwordResetTokenService.validateResetToken(tokenExpiringNow));
 
-        // Then - Should be considered expired (not valid anymore)
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("expired");
+        assertThat(ex.getMessage()).contains("expired");
     }
 
     // ===== MARK TOKEN AS USED TESTS =====
@@ -269,11 +254,8 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.save(any(PasswordResetToken.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // When
-        Result<Void> result = passwordResetTokenService.markTokenAsUsed(tokenString);
-
-        // Then
-        assertThat(result).isSuccess();
+        // When & Then
+        passwordResetTokenService.markTokenAsUsed(tokenString);
 
         // Verify token marked as used
         ArgumentCaptor<PasswordResetToken> tokenCaptor = ArgumentCaptor.forClass(PasswordResetToken.class);
@@ -289,13 +271,11 @@ class PasswordResetTokenServiceTest {
         when(resetTokenRepository.findByToken(nonExistentToken))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<Void> result = passwordResetTokenService.markTokenAsUsed(nonExistentToken);
+        // When & Then
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                passwordResetTokenService.markTokenAsUsed(nonExistentToken));
 
-        // Then
-        assertThat(result)
-                .isFailure()
-                .hasErrorMessageContaining("Reset token not found");
+        assertThat(ex.getMessage()).contains("Reset token not found");
 
         // Verify no save attempted
         verify(resetTokenRepository, never()).save(any());

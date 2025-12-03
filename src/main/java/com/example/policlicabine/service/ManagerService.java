@@ -1,11 +1,12 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.ManagerDto;
 import com.example.policlicabine.entity.Manager;
 import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.ManagerProfileCreated;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.ManagerMapper;
 import com.example.policlicabine.repository.ManagerRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
@@ -61,83 +62,79 @@ public class ManagerService extends BaseServiceImpl<Manager, ManagerDto, UUID> {
         }
     }
 
-    public Result<ManagerDto> createManager(UUID userId, String fullName, String department, OffsetDateTime hireDate) {
-        try {
-            if (userId == null) {
-                return Result.failure("User ID is required");
-            }
-
-            if (fullName == null || fullName.trim().isEmpty()) {
-                return Result.failure("Full name is required");
-            }
-
-            User user = userService.getEntityById(userId);
-            if (user == null) {
-                return Result.failure("User not found");
-            }
-
-            boolean hasManagerRole = user.getRoles().stream()
-                    .anyMatch(role -> role.getName() == UserRole.MANAGER);
-
-            if (!hasManagerRole) {
-                return Result.failure("User must have MANAGER role");
-            }
-
-            if (managerRepository.existsByUserUserId(userId)) {
-                return Result.failure("Manager profile already exists for this user");
-            }
-
-            Manager manager = Manager.builder()
-                    .user(user)
-                    .fullName(fullName.trim())
-                    .department(department != null ? department.trim() : null)
-                    .hireDate(hireDate)
-                    .build();
-
-            Manager savedManager = managerRepository.save(manager);
-
-            // Publish event for role-profile synchronization
-            eventPublisher.publishEvent(new ManagerProfileCreated(savedManager.getManagerId(), userId));
-
-            log.info("Manager profile created: {} for user {}", savedManager.getManagerId(), userId);
-
-            return Result.success(managerMapper.toDto(savedManager));
-
-        } catch (Exception e) {
-            log.error("Error creating manager", e);
-            return Result.failure("Failed to create manager: " + e.getMessage());
+    public ManagerDto createManager(UUID userId, String fullName, String department, OffsetDateTime hireDate) {
+        if (userId == null) {
+            throw new BusinessException("User ID is required");
         }
+
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new BusinessException("Full name is required");
+        }
+
+        User user = userService.getEntityById(userId);
+        if (user == null) {
+            throw new ResourceNotFoundException("User", userId);
+        }
+
+        boolean hasManagerRole = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == UserRole.MANAGER);
+
+        if (!hasManagerRole) {
+            throw new BusinessException("User must have MANAGER role");
+        }
+
+        if (managerRepository.existsByUserUserId(userId)) {
+            throw new BusinessException("Manager profile already exists for this user");
+        }
+
+        Manager manager = Manager.builder()
+                .user(user)
+                .fullName(fullName.trim())
+                .department(department != null ? department.trim() : null)
+                .hireDate(hireDate)
+                .build();
+
+        Manager savedManager = managerRepository.save(manager);
+
+        // Publish event for role-profile synchronization
+        eventPublisher.publishEvent(new ManagerProfileCreated(savedManager.getManagerId(), userId));
+
+        log.info("Manager profile created: {} for user {}", savedManager.getManagerId(), userId);
+
+        return managerMapper.toDto(savedManager);
     }
 
     @Transactional(readOnly = true)
-    public Result<ManagerDto> findManagerById(UUID managerId) {
+    public ManagerDto findManagerById(UUID managerId) {
         return findById(managerId);
     }
 
     @Transactional(readOnly = true)
-    public Result<ManagerDto> findManagerByUserId(UUID userId) {
-        try {
-            if (userId == null) {
-                return Result.failure("User ID is required");
-            }
-
-            Manager manager = managerRepository.findByUserUserId(userId)
-                    .orElse(null);
-            if (manager == null) {
-                return Result.failure("Manager not found for user");
-            }
-
-            return Result.success(managerMapper.toDto(manager));
-
-        } catch (Exception e) {
-            log.error("Error finding manager by user ID", e);
-            return Result.failure("Failed to find manager: " + e.getMessage());
+    public ManagerDto findManagerByUserId(UUID userId) {
+        if (userId == null) {
+            throw new BusinessException("User ID is required");
         }
+
+        Manager manager = managerRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Manager for user", userId));
+
+        return managerMapper.toDto(manager);
     }
 
     @Transactional(readOnly = true)
-    public Result<Void> validateManagerExists(UUID managerId) {
-        return validateExists(managerId);
+    public void validateManagerExists(UUID managerId) {
+        validateExists(managerId);
+    }
+
+    /**
+     * Returns the total count of managers in the system.
+     * Used for initialization checks.
+     *
+     * @return total count of managers
+     */
+    @Transactional(readOnly = true)
+    public long count() {
+        return managerRepository.count();
     }
 
     /**
@@ -146,44 +143,38 @@ public class ManagerService extends BaseServiceImpl<Manager, ManagerDto, UUID> {
      *
      * @param user User entity (already saved)
      * @param fullName Manager full name
-     * @return Result containing ManagerDto or error message
+     * @return ManagerDto
      */
     @Transactional
-    public Result<ManagerDto> createManagerWithUser(User user, String fullName) {
-        try {
-            if (user == null) {
-                return Result.failure("User is required");
-            }
-            if (fullName == null || fullName.trim().isEmpty()) {
-                return Result.failure("Full name is required");
-            }
-
-            // Check for duplicate manager profile for this user
-            if (managerRepository.existsByUserUserId(user.getUserId())) {
-                return Result.failure("Manager profile already exists for this user");
-            }
-
-            // Build manager entity
-            Manager manager = Manager.builder()
-                    .user(user)
-                    .fullName(fullName.trim())
-                    .build();
-
-            Manager savedManager = managerRepository.save(manager);
-
-            log.info("Manager profile created: {} for user {}", savedManager.getManagerId(), user.getUserId());
-
-            // Publish event
-            eventPublisher.publishEvent(new ManagerProfileCreated(
-                    savedManager.getManagerId(),
-                    user.getUserId()
-            ));
-
-            return Result.success(managerMapper.toDto(savedManager));
-
-        } catch (Exception e) {
-            log.error("Error creating manager profile for user {}", user.getUserId(), e);
-            return Result.failure("Failed to create manager profile: " + e.getMessage());
+    public ManagerDto createManagerWithUser(User user, String fullName) {
+        if (user == null) {
+            throw new BusinessException("User is required");
         }
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new BusinessException("Full name is required");
+        }
+
+        // Check for duplicate manager profile for this user
+        if (managerRepository.existsByUserUserId(user.getUserId())) {
+            throw new BusinessException("Manager profile already exists for this user");
+        }
+
+        // Build manager entity
+        Manager manager = Manager.builder()
+                .user(user)
+                .fullName(fullName.trim())
+                .build();
+
+        Manager savedManager = managerRepository.save(manager);
+
+        log.info("Manager profile created: {} for user {}", savedManager.getManagerId(), user.getUserId());
+
+        // Publish event
+        eventPublisher.publishEvent(new ManagerProfileCreated(
+                savedManager.getManagerId(),
+                user.getUserId()
+        ));
+
+        return managerMapper.toDto(savedManager);
     }
 }

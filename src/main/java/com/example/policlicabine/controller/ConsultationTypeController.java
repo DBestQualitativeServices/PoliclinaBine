@@ -1,12 +1,9 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.ConsultationTypeDto;
 import com.example.policlicabine.dto.ConsultationTypeFilterCriteria;
 import com.example.policlicabine.dto.FormTemplateDto;
-import com.example.policlicabine.exception.BusinessException;
-import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.ConsultationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,7 +36,7 @@ public class ConsultationTypeController {
     public ConsultationTypeDto createConsultation(@Valid @RequestBody ConsultationTypeDto consultationDto) {
         log.info("REST: Creating new consultation type: {}", consultationDto.getName());
 
-        Result<ConsultationTypeDto> result = consultationService.createConsultation(
+        return consultationService.createConsultation(
                 consultationDto.getName(),
                 consultationDto.getSpecialty(),
                 consultationDto.getPrice(),
@@ -47,12 +44,6 @@ public class ConsultationTypeController {
                 consultationDto.getDurationMinutes(),
                 consultationDto.getRequiresSurgeryRoom()
         );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
     }
 
     @GetMapping("/{consultationId}")
@@ -60,14 +51,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Get consultation by ID")
     public ConsultationTypeDto getConsultation(@PathVariable UUID consultationId) {
         log.info("REST: Getting consultation by ID: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.findById(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
-
-        return result.getValue();
+        return consultationService.findById(consultationId);
     }
 
     @GetMapping
@@ -75,7 +59,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Get all consultations")
     public List<ConsultationTypeDto> getAllConsultations() {
         log.info("REST: Getting all consultations");
-        return consultationService.findAll().getValue();
+        return consultationService.findAll();
     }
 
     @GetMapping("/search")
@@ -99,17 +83,7 @@ public class ConsultationTypeController {
             @Valid @RequestBody ConsultationTypeDto consultationDto
     ) {
         log.info("REST: Updating consultation: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.update(consultationId, consultationDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("ConsultationType", consultationId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return consultationService.update(consultationId, consultationDto);
     }
 
     @DeleteMapping("/{consultationId}")
@@ -117,12 +91,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Delete consultation")
     public void deleteConsultation(@PathVariable UUID consultationId) {
         log.info("REST: Deleting consultation: {}", consultationId);
-
-        Result<Void> result = consultationService.deleteById(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
+        consultationService.deleteById(consultationId);
     }
 
     @PatchMapping("/{consultationId}/price")
@@ -133,17 +102,7 @@ public class ConsultationTypeController {
             @RequestParam BigDecimal price
     ) {
         log.info("REST: Updating consultation price: {} to {}", consultationId, price);
-
-        Result<ConsultationTypeDto> result = consultationService.updatePrice(consultationId, price);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("ConsultationType", consultationId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return consultationService.updatePrice(consultationId, price);
     }
 
     @PatchMapping("/{consultationId}/deactivate")
@@ -151,14 +110,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Deactivate consultation")
     public ConsultationTypeDto deactivateConsultation(@PathVariable UUID consultationId) {
         log.info("REST: Deactivating consultation: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.deactivateConsultation(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
-
-        return result.getValue();
+        return consultationService.deactivateConsultation(consultationId);
     }
 
     @PatchMapping("/{consultationId}/activate")
@@ -166,14 +118,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Activate consultation")
     public ConsultationTypeDto activateConsultation(@PathVariable UUID consultationId) {
         log.info("REST: Activating consultation: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.activateConsultation(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
-
-        return result.getValue();
+        return consultationService.activateConsultation(consultationId);
     }
 
     @PatchMapping("/{consultationId}/required-forms")
@@ -184,17 +129,7 @@ public class ConsultationTypeController {
             @RequestBody List<UUID> formTemplateIds
     ) {
         log.info("REST: Setting required form templates for consultation: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.setRequiredFormTemplates(consultationId, formTemplateIds);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("ConsultationType", consultationId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return consultationService.setRequiredFormTemplates(consultationId, formTemplateIds);
     }
 
     @PatchMapping("/{consultationId}/consultation-form")
@@ -205,17 +140,7 @@ public class ConsultationTypeController {
             @RequestBody(required = false) UUID formTemplateId
     ) {
         log.info("REST: Setting consultation form template for consultation: {}", consultationId);
-
-        Result<ConsultationTypeDto> result = consultationService.setConsultationFormTemplate(consultationId, formTemplateId);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("ConsultationType", consultationId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return consultationService.setConsultationFormTemplate(consultationId, formTemplateId);
     }
 
     @GetMapping("/{consultationId}/required-forms")
@@ -223,14 +148,7 @@ public class ConsultationTypeController {
     @Operation(summary = "Get required form templates for consultation type")
     public List<FormTemplateDto> getRequiredFormTemplates(@PathVariable UUID consultationId) {
         log.info("REST: Getting required form templates for consultation: {}", consultationId);
-
-        Result<List<FormTemplateDto>> result = consultationService.getRequiredFormTemplates(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
-
-        return result.getValue();
+        return consultationService.getRequiredFormTemplates(consultationId);
     }
 
     @GetMapping("/{consultationId}/consultation-form")
@@ -238,13 +156,6 @@ public class ConsultationTypeController {
     @Operation(summary = "Get main consultation form template")
     public FormTemplateDto getConsultationFormTemplate(@PathVariable UUID consultationId) {
         log.info("REST: Getting consultation form template for consultation: {}", consultationId);
-
-        Result<FormTemplateDto> result = consultationService.getConsultationFormTemplate(consultationId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("ConsultationType", consultationId);
-        }
-
-        return result.getValue();
+        return consultationService.getConsultationFormTemplate(consultationId);
     }
 }

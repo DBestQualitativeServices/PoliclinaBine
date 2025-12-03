@@ -52,16 +52,6 @@ public class Doctor {
         }
     }
 
-    public void addAvailability(WeeklyAvailability availability) {
-        weeklyAvailability.add(availability);
-        availability.setDoctor(this);
-    }
-
-    public void removeAvailability(WeeklyAvailability availability) {
-        weeklyAvailability.remove(availability);
-        availability.setDoctor(null);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

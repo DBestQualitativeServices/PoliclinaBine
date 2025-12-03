@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.dto.UserFilterCriteria;
@@ -42,17 +41,7 @@ public class UserController {
     @Operation(summary = "Create new user", description = "Create a new system user with specified roles")
     public UserDto createUser(@Valid @RequestBody UserDto userDto) {
         log.info("REST: Creating new user: {}", userDto.getUsername());
-
-        Result<UserDto> result = userService.createUser(
-                userDto.getUsername(),
-                userDto.getRoles()
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return userService.createUser(userDto.getUsername(), userDto.getRoles());
     }
 
     @GetMapping("/{userId}")
@@ -60,14 +49,7 @@ public class UserController {
     @Operation(summary = "Get user by ID")
     public UserDto getUser(@PathVariable UUID userId) {
         log.info("REST: Getting user by ID: {}", userId);
-
-        Result<UserDto> result = userService.findById(userId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("User", userId);
-        }
-
-        return result.getValue();
+        return userService.findById(userId);
     }
 
     @GetMapping("/search")
@@ -86,7 +68,7 @@ public class UserController {
     @Operation(summary = "Get all users")
     public List<UserDto> getAllUsers() {
         log.info("REST: Getting all users");
-        return userService.findAll().getValue();
+        return userService.findAll();
     }
 
     @PutMapping("/{userId}")
@@ -97,17 +79,7 @@ public class UserController {
             @Valid @RequestBody UserDto userDto
     ) {
         log.info("REST: Updating user: {}", userId);
-
-        Result<UserDto> result = userService.update(userId, userDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("User", userId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return userService.update(userId, userDto);
     }
 
     @DeleteMapping("/{userId}")
@@ -116,12 +88,7 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable UUID userId) {
         log.info("REST: Deleting user: {}", userId);
-
-        Result<Void> result = userService.deleteById(userId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("User", userId);
-        }
+        userService.deleteById(userId);
     }
 
     @GetMapping("/me")
@@ -144,17 +111,11 @@ public class UserController {
             UUID userId = UUID.fromString(userIdStr);
             log.info("REST: Getting current user profile for userId: {}", userId);
 
-            Result<UserProfileDto> result = userService.getCurrentUserProfile(userId);
-
-            if (result.isFailure()) {
-                throw new ResourceNotFoundException("User", userId);
-            }
-
-            return result.getValue();
+            return userService.getCurrentUserProfile(userId);
         } catch (IllegalArgumentException e) {
             log.warn("Invalid userId format in JWT token: {}", e.getMessage());
             throw new UnauthorizedException("Invalid token: userId format is invalid");
-        } catch (UnauthorizedException | ResourceNotFoundException e) {
+        } catch (UnauthorizedException e) {
             throw e;
         } catch (Exception e) {
             log.error("Error getting current user profile: {}", e.getMessage(), e);

@@ -22,7 +22,6 @@ public interface FormSubmissionMapper {
     @Mapping(target = "submittedByUserId", source = "submittedBy.userId")
     @Mapping(target = "patientSignedByUserId", source = "patientSignedBy.userId")
     @Mapping(target = "doctorSignedByUserId", source = "doctorSignedBy.userId")
-    @Mapping(target = "isSigned", expression = "java(entity.isSigned())")
     @Mapping(target = "isExpired", expression = "java(entity.isExpired())")
     @Mapping(target = "isValid", expression = "java(entity.isValid())")
     FormSubmissionDto toDto(FormSubmission entity);

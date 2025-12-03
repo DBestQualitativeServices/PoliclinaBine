@@ -1,6 +1,5 @@
 package com.example.policlicabine.entity;
 
-import com.example.policlicabine.entity.enums.FormPurpose;
 import com.example.policlicabine.model.FormStructure;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,8 +12,9 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "form_templates", indexes = {
-        @Index(name = "idx_template_code", columnList = "code"),
-        @Index(name = "idx_template_purpose_active", columnList = "purpose, active")
+        @Index(name = "idx_template_active_deleted", columnList = "active, is_deleted")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_template_name", columnNames = {"name"})
 })
 @Getter
 @Setter
@@ -34,15 +34,8 @@ public class FormTemplate {
         if (this.isDeleted == null) this.isDeleted = false;
     }
 
-    @Column(unique = true, nullable = false, length = 100)
-    private String code;
-
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Integer version = 1;
 
     @Column(nullable = false)
     @Builder.Default
@@ -51,10 +44,6 @@ public class FormTemplate {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private FormStructure structure;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    private FormPurpose purpose;
 
     private Integer validityMonths;
 
@@ -96,8 +85,7 @@ public class FormTemplate {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof FormTemplate)) return false;
-        FormTemplate that = (FormTemplate) o;
+        if (!(o instanceof FormTemplate that)) return false;
         return id != null && Objects.equals(id, that.id);
     }
 
@@ -108,14 +96,6 @@ public class FormTemplate {
 
     @Override
     public String toString() {
-        return "FormTemplate{" +
-                "id=" + id +
-                ", code='" + code + '\'' +
-                ", name='" + name + '\'' +
-                ", version=" + version +
-                ", purpose=" + purpose +
-                ", active=" + active +
-                ", pdfTemplateUrl='" + pdfTemplateUrl + '\'' +
-                '}';
+        return "FormTemplate{id=" + id + ", name='" + name + "', active=" + active + '}';
     }
 }

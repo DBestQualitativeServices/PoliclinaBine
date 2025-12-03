@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.entity.Payment;
 import com.example.policlicabine.exception.BusinessException;
@@ -37,14 +36,7 @@ public class PaymentController {
     ) {
         log.info("REST: Processing payment for {} invoices, amount: {}, method: {}",
                 invoiceIds.size(), amount, paymentMethod);
-
-        Result<Payment> result = paymentService.processPayment(invoiceIds, amount, paymentMethod, generatedByUserId, notes);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return paymentService.processPayment(invoiceIds, amount, paymentMethod, generatedByUserId, notes);
     }
 
     @GetMapping("/{paymentId}")
@@ -52,14 +44,7 @@ public class PaymentController {
     @Operation(summary = "Get payment by ID")
     public Payment getPayment(@PathVariable UUID paymentId) {
         log.info("REST: Getting payment by ID: {}", paymentId);
-
-        Result<Payment> result = paymentService.getPaymentById(paymentId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Payment", paymentId);
-        }
-
-        return result.getValue();
+        return paymentService.getPaymentById(paymentId);
     }
 
     @GetMapping
@@ -67,6 +52,6 @@ public class PaymentController {
     @Operation(summary = "Get all payments")
     public List<Payment> getAllPayments() {
         log.info("REST: Getting all payments");
-        return paymentService.getAllPayments().getValue();
+        return paymentService.getAllPayments();
     }
 }

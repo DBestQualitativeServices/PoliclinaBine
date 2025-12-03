@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.entity.SessionBilling;
 import com.example.policlicabine.exception.BusinessException;
@@ -29,14 +28,7 @@ public class BillingController {
     @Operation(summary = "Create session billing")
     public SessionBilling createBilling(@PathVariable UUID sessionId) {
         log.info("REST: Creating billing for session: {}", sessionId);
-
-        Result<SessionBilling> result = billingService.createSessionBilling(sessionId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return billingService.createSessionBilling(sessionId);
     }
 
     @PostMapping("/session/{sessionId}/discount")
@@ -49,14 +41,7 @@ public class BillingController {
             @RequestParam(required = false) String reason
     ) {
         log.info("REST: Applying discount to session {} by user {}", sessionId, userId);
-
-        Result<SessionBilling> result = billingService.applyDiscount(sessionId, userId, discountAmount, reason);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return billingService.applyDiscount(sessionId, userId, discountAmount, reason);
     }
 
     @GetMapping("/session/{sessionId}")
@@ -64,14 +49,7 @@ public class BillingController {
     @Operation(summary = "Get billing for session")
     public SessionBilling getBilling(@PathVariable UUID sessionId) {
         log.info("REST: Getting billing for session: {}", sessionId);
-
-        Result<SessionBilling> result = billingService.getBillingForSession(sessionId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Billing for session", sessionId);
-        }
-
-        return result.getValue();
+        return billingService.getBillingForSession(sessionId);
     }
 
     @GetMapping("/session/{sessionId}/final-amount")
@@ -79,13 +57,6 @@ public class BillingController {
     @Operation(summary = "Calculate final amount for session")
     public BigDecimal calculateFinalAmount(@PathVariable UUID sessionId) {
         log.info("REST: Calculating final amount for session: {}", sessionId);
-
-        Result<BigDecimal> result = billingService.calculateFinalAmount(sessionId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Billing for session", sessionId);
-        }
-
-        return result.getValue();
+        return billingService.calculateFinalAmount(sessionId);
     }
 }

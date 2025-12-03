@@ -6,8 +6,10 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.AzureBlobStorageProperties;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.FileStorageException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.entity.enums.FileCategory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,13 +37,13 @@ public class AzureBlobStorageService implements FileStorageService {
     private final AzureBlobStorageProperties properties;
 
     @Override
-    public Result<StorageResult> storeFile(
+    public StorageResult storeFile(
             MultipartFile file,
             FileCategory category,
             String uniqueFilename
     ) {
         if (file == null || file.isEmpty()) {
-            return Result.failure("File is empty or null");
+            throw new BusinessException("File is empty or null");
         }
 
         try {
@@ -57,29 +59,26 @@ public class AzureBlobStorageService implements FileStorageService {
 
                 log.info("File uploaded successfully to Azure Blob Storage: {}", blobPath);
 
-                StorageResult result = StorageResult.builder()
+                return StorageResult.builder()
                         .storagePath(blobPath)
                         .storedFilename(uniqueFilename)
                         .fileSize(file.getSize())
                         .checksum(checksum)
                         .build();
-
-                return Result.success(result);
-
             }
         } catch (BlobStorageException e) {
             log.error("Azure Blob Storage error during upload: {}", e.getMessage(), e);
-            return Result.failure("Failed to upload file to Azure: " + e.getMessage());
+            throw new FileStorageException("Failed to upload file to Azure: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Unexpected error during file upload: {}", e.getMessage(), e);
-            return Result.failure("Failed to upload file: " + e.getMessage());
+            throw new FileStorageException("Failed to upload file: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public Result<Resource> loadFile(String storagePath) {
+    public Resource loadFile(String storagePath) {
         if (storagePath == null || storagePath.trim().isEmpty()) {
-            return Result.failure("Storage path is required");
+            throw new BusinessException("Storage path is required");
         }
 
         try {
@@ -87,31 +86,33 @@ public class AzureBlobStorageService implements FileStorageService {
             BlobClient blobClient = containerClient.getBlobClient(storagePath);
 
             if (!blobClient.exists()) {
-                return Result.failure("File not found: " + storagePath);
+                throw new ResourceNotFoundException("File not found: " + storagePath);
             }
 
             String sasUrl = generateSasUrl(blobClient);
             Resource resource = new UrlResource(sasUrl);
 
             log.info("Generated SAS URL for file: {}", storagePath);
-            return Result.success(resource);
+            return resource;
 
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (MalformedURLException e) {
             log.error("Invalid SAS URL generated: {}", e.getMessage(), e);
-            return Result.failure("Failed to generate download URL: " + e.getMessage());
+            throw new FileStorageException("Failed to generate download URL: " + e.getMessage(), e);
         } catch (BlobStorageException e) {
             log.error("Azure Blob Storage error during file load: {}", e.getMessage(), e);
-            return Result.failure("Failed to load file from Azure: " + e.getMessage());
+            throw new FileStorageException("Failed to load file from Azure: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Unexpected error during file load: {}", e.getMessage(), e);
-            return Result.failure("Failed to load file: " + e.getMessage());
+            throw new FileStorageException("Failed to load file: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public Result<Void> deleteFile(String storagePath) {
+    public void deleteFile(String storagePath) {
         if (storagePath == null || storagePath.trim().isEmpty()) {
-            return Result.failure("Storage path is required");
+            throw new BusinessException("Storage path is required");
         }
 
         try {
@@ -122,18 +123,19 @@ public class AzureBlobStorageService implements FileStorageService {
 
             if (deleted) {
                 log.info("File deleted successfully from Azure: {}", storagePath);
-                return Result.success(null);
             } else {
                 log.warn("File not found for deletion: {}", storagePath);
-                return Result.failure("File not found: " + storagePath);
+                throw new ResourceNotFoundException("File not found: " + storagePath);
             }
 
+        } catch (ResourceNotFoundException e) {
+            throw e;
         } catch (BlobStorageException e) {
             log.error("Azure Blob Storage error during deletion: {}", e.getMessage(), e);
-            return Result.failure("Failed to delete file from Azure: " + e.getMessage());
+            throw new FileStorageException("Failed to delete file from Azure: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Unexpected error during file deletion: {}", e.getMessage(), e);
-            return Result.failure("Failed to delete file: " + e.getMessage());
+            throw new FileStorageException("Failed to delete file: " + e.getMessage(), e);
         }
     }
 

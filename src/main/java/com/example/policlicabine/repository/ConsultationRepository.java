@@ -4,6 +4,7 @@ import com.example.policlicabine.common.repository.FilterableRepository;
 import com.example.policlicabine.entity.ConsultationType;
 import com.example.policlicabine.entity.enums.Specialty;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -68,4 +69,12 @@ public interface ConsultationRepository extends FilterableRepository<Consultatio
      */
     @EntityGraph(attributePaths = {"requiredFormTemplates"})
     List<ConsultationType> findWithRequiredFormTemplatesByConsultationIdIn(List<UUID> ids);
+
+    /**
+     * Finds all consultations with required form templates loaded.
+     * Use for bulk operations that need to modify the requiredFormTemplates relationship.
+     */
+    @EntityGraph(attributePaths = {"requiredFormTemplates"})
+    @Query("SELECT c FROM ConsultationType c")
+    List<ConsultationType> findAllWithRequiredFormTemplates();
 }

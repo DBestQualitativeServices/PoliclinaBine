@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.InvoiceDto;
 import com.example.policlicabine.exception.BusinessException;
@@ -38,20 +37,7 @@ public class InvoiceController {
             @RequestParam List<UUID> sessionBillingIds
     ) {
         log.info("REST: Creating invoice: {} (proforma: {})", invoiceNumber, isProforma);
-
-        Result<InvoiceDto> result = invoiceService.createInvoice(
-                invoiceNumber,
-                invoiceDate,
-                generatedByUserId,
-                isProforma,
-                sessionBillingIds
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return invoiceService.createInvoice(invoiceNumber, invoiceDate, generatedByUserId, isProforma, sessionBillingIds);
     }
 
     @GetMapping("/{invoiceId}")
@@ -59,14 +45,7 @@ public class InvoiceController {
     @Operation(summary = "Get invoice by ID")
     public InvoiceDto getInvoice(@PathVariable UUID invoiceId) {
         log.info("REST: Getting invoice by ID: {}", invoiceId);
-
-        Result<InvoiceDto> result = invoiceService.findById(invoiceId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Invoice", invoiceId);
-        }
-
-        return result.getValue();
+        return invoiceService.findById(invoiceId);
     }
 
     @GetMapping("/number/{invoiceNumber}")
@@ -74,14 +53,7 @@ public class InvoiceController {
     @Operation(summary = "Get invoice by number")
     public InvoiceDto getInvoiceByNumber(@PathVariable String invoiceNumber) {
         log.info("REST: Getting invoice by number: {}", invoiceNumber);
-
-        Result<InvoiceDto> result = invoiceService.findInvoiceByNumber(invoiceNumber);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Invoice with number: " + invoiceNumber);
-        }
-
-        return result.getValue();
+        return invoiceService.findInvoiceByNumber(invoiceNumber);
     }
 
     @GetMapping
@@ -89,7 +61,7 @@ public class InvoiceController {
     @Operation(summary = "Get all invoices")
     public List<InvoiceDto> getAllInvoices() {
         log.info("REST: Getting all invoices");
-        return invoiceService.findAll().getValue();
+        return invoiceService.findAll();
     }
 
     @PutMapping("/{invoiceId}")
@@ -100,17 +72,7 @@ public class InvoiceController {
             @Valid @RequestBody InvoiceDto invoiceDto
     ) {
         log.info("REST: Updating invoice: {}", invoiceId);
-
-        Result<InvoiceDto> result = invoiceService.update(invoiceId, invoiceDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("Invoice", invoiceId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return invoiceService.update(invoiceId, invoiceDto);
     }
 
     @DeleteMapping("/{invoiceId}")
@@ -118,12 +80,7 @@ public class InvoiceController {
     @Operation(summary = "Delete invoice")
     public void deleteInvoice(@PathVariable UUID invoiceId) {
         log.info("REST: Deleting invoice: {}", invoiceId);
-
-        Result<Void> result = invoiceService.deleteById(invoiceId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Invoice", invoiceId);
-        }
+        invoiceService.deleteById(invoiceId);
     }
 
     @PostMapping("/{invoiceId}/convert-to-final")
@@ -133,18 +90,7 @@ public class InvoiceController {
             @PathVariable UUID invoiceId,
             @RequestParam String newInvoiceNumber
     ) {
-        log.info("REST: Converting proforma invoice {} to final with number {}",
-                invoiceId, newInvoiceNumber);
-
-        Result<InvoiceDto> result = invoiceService.convertProformaToFinal(
-                invoiceId,
-                newInvoiceNumber
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        log.info("REST: Converting proforma invoice {} to final with number {}", invoiceId, newInvoiceNumber);
+        return invoiceService.convertProformaToFinal(invoiceId, newInvoiceNumber);
     }
 }

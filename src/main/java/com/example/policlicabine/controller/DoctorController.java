@@ -1,11 +1,8 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.DoctorDto;
 import com.example.policlicabine.dto.DoctorFilterCriteria;
-import com.example.policlicabine.exception.BusinessException;
-import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.DoctorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -19,7 +16,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,17 +41,11 @@ public class DoctorController {
     public DoctorDto createDoctor(@Valid @RequestBody DoctorDto doctorDto) {
         log.info("REST: Creating new doctor profile for user: {}", doctorDto.getUserId());
 
-        Result<DoctorDto> result = doctorService.createDoctor(
+        return doctorService.createDoctor(
                 doctorDto.getUserId(),
                 doctorDto.getFullName(),
                 doctorDto.getSpecialties()
         );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
     }
 
     @GetMapping("/{doctorId}")
@@ -63,14 +53,7 @@ public class DoctorController {
     @Operation(summary = "Get doctor by ID")
     public DoctorDto getDoctor(@PathVariable UUID doctorId) {
         log.info("REST: Getting doctor by ID: {}", doctorId);
-
-        Result<DoctorDto> result = doctorService.findById(doctorId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Doctor", doctorId);
-        }
-
-        return result.getValue();
+        return doctorService.findById(doctorId);
     }
 
     @GetMapping
@@ -78,7 +61,7 @@ public class DoctorController {
     @Operation(summary = "Get all doctors")
     public List<DoctorDto> getAllDoctors() {
         log.info("REST: Getting all doctors");
-        return doctorService.findAll().getValue();
+        return doctorService.findAll();
     }
 
     @GetMapping("/search")
@@ -100,17 +83,7 @@ public class DoctorController {
             @Valid @RequestBody DoctorDto doctorDto
     ) {
         log.info("REST: Updating doctor: {}", doctorId);
-
-        Result<DoctorDto> result = doctorService.update(doctorId, doctorDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("Doctor", doctorId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return doctorService.update(doctorId, doctorDto);
     }
 
     @DeleteMapping("/{doctorId}")
@@ -119,11 +92,6 @@ public class DoctorController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteDoctor(@PathVariable UUID doctorId) {
         log.info("REST: Deleting doctor: {}", doctorId);
-
-        Result<Void> result = doctorService.deleteById(doctorId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Doctor", doctorId);
-        }
+        doctorService.deleteById(doctorId);
     }
 }

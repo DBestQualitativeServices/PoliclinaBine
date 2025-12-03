@@ -592,8 +592,6 @@ class FormValidationServiceTest {
         section.setFields(List.of(emailField));
 
         FormStructure structure = new FormStructure();
-        structure.setFormId("test-form");
-        structure.setVersion("1.0");
         structure.setSections(List.of(section));
         return structure;
     }

@@ -68,6 +68,11 @@ public class Patient {
     @Builder.Default
     private List<AppointmentSession> appointments = new ArrayList<>();
 
+    @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
+    @BatchSize(size = 20)
+    @Builder.Default
+    private List<FormSubmission> formSubmissions = new ArrayList<>();
+
     @CreationTimestamp
     @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime registrationDate;

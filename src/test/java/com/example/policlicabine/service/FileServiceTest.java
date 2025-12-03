@@ -1,11 +1,12 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FileDto;
 import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.entity.File;
 import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.entity.User;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FileMapper;
 import com.example.policlicabine.repository.FileRepository;
 import com.example.policlicabine.config.properties.FileStorageProperties;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
@@ -144,15 +146,15 @@ class FileServiceTest {
         LocalDate validFrom = LocalDate.now();
         LocalDate validUntil = LocalDate.now().plusMonths(6);
 
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileStorageService.storeFile(any(), eq(FileCategory.CONSENT_FILE), anyString()))
-                .thenReturn(Result.success(testStorageResult));
+                .thenReturn(testStorageResult);
         when(fileRepository.save(any(File.class))).thenReturn(testFile);
         when(fileMapper.toDto(testFile)).thenReturn(testFileDto);
 
         // When
-        Result<FileDto> result = fileService.uploadFile(
+        FileDto result = fileService.uploadFile(
                 mockMultipartFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
@@ -161,9 +163,8 @@ class FileServiceTest {
         );
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
-        assertThat(result.getValue().getOriginalFilename()).isEqualTo("test-document.pdf");
+        assertThat(result).isNotNull();
+        assertThat(result.getOriginalFilename()).isEqualTo("test-document.pdf");
 
         verify(fileRepository).save(any(File.class));
     }
@@ -172,15 +173,15 @@ class FileServiceTest {
     @DisplayName("Should upload file successfully without validity dates")
     void uploadFile_WithoutDates_Success() {
         // Given
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileStorageService.storeFile(any(), eq(FileCategory.MEDICAL_REPORT), anyString()))
-                .thenReturn(Result.success(testStorageResult));
+                .thenReturn(testStorageResult);
         when(fileRepository.save(any(File.class))).thenReturn(testFile);
         when(fileMapper.toDto(testFile)).thenReturn(testFileDto);
 
         // When
-        Result<FileDto> result = fileService.uploadFile(
+        FileDto result = fileService.uploadFile(
                 mockMultipartFile,
                 FileCategory.MEDICAL_REPORT,
                 "doctor1",
@@ -189,7 +190,7 @@ class FileServiceTest {
         );
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(fileRepository).save(any(File.class));
     }
 
@@ -204,18 +205,15 @@ class FileServiceTest {
                 new byte[0]
         );
 
-        // When
-        Result<FileDto> result = fileService.uploadFile(
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> fileService.uploadFile(
                 emptyFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
                 null,
                 null
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("empty");
+        ));
+        assertThat(exception.getMessage()).contains("empty");
 
         verify(fileRepository, never()).save(any());
     }
@@ -232,18 +230,15 @@ class FileServiceTest {
                 largeContent
         );
 
-        // When
-        Result<FileDto> result = fileService.uploadFile(
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> fileService.uploadFile(
                 largeFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
                 null,
                 null
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("exceeds maximum limit");
+        ));
+        assertThat(exception.getMessage()).contains("exceeds maximum limit");
 
         verify(fileRepository, never()).save(any());
     }
@@ -259,18 +254,15 @@ class FileServiceTest {
                 "content".getBytes()
         );
 
-        // When
-        Result<FileDto> result = fileService.uploadFile(
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> fileService.uploadFile(
                 invalidFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
                 null,
                 null
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File type not allowed");
+        ));
+        assertThat(exception.getMessage()).contains("File type not allowed");
 
         verify(fileRepository, never()).save(any());
     }
@@ -282,18 +274,15 @@ class FileServiceTest {
         LocalDate validFrom = LocalDate.now();
         LocalDate validUntil = LocalDate.now().minusDays(1);
 
-        // When
-        Result<FileDto> result = fileService.uploadFile(
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> fileService.uploadFile(
                 mockMultipartFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
                 validFrom,
                 validUntil
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("Valid until date must be after valid from date");
+        ));
+        assertThat(exception.getMessage()).contains("Valid until date must be after valid from date");
 
         verify(fileRepository, never()).save(any());
     }
@@ -302,23 +291,20 @@ class FileServiceTest {
     @DisplayName("Should fail when storage service returns error")
     void uploadFile_StorageFailure_Failure() {
         // Given
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileStorageService.storeFile(any(), any(), anyString()))
-                .thenReturn(Result.failure("Disk full"));
+                .thenThrow(new BusinessException("Disk full"));
 
-        // When
-        Result<FileDto> result = fileService.uploadFile(
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () -> fileService.uploadFile(
                 mockMultipartFile,
                 FileCategory.CONSENT_FILE,
                 "doctor1",
                 null,
                 null
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).isEqualTo("Disk full");
+        ));
+        assertThat(exception.getMessage()).isEqualTo("Disk full");
 
         verify(fileRepository, never()).save(any());
     }
@@ -353,10 +339,10 @@ class FileServiceTest {
 
         when(fileRepository.findByIdAndIsDeletedFalse(previousFileId))
                 .thenReturn(Optional.of(previousFile));
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileStorageService.storeFile(any(), any(), anyString()))
-                .thenReturn(Result.success(testStorageResult));
+                .thenReturn(testStorageResult);
         when(fileRepository.save(any(File.class)))
                 .thenReturn(testFile)
                 .thenReturn(newVersionFile);
@@ -367,14 +353,14 @@ class FileServiceTest {
         when(fileMapper.toDto(any())).thenReturn(testFileDto);
 
         // When
-        Result<FileDto> result = fileService.uploadNewVersion(
+        FileDto result = fileService.uploadNewVersion(
                 previousFileId,
                 mockMultipartFile,
                 "doctor1"
         );
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
 
         verify(fileRepository).saveAll(anyList());
     }
@@ -387,16 +373,13 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(previousFileId))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<FileDto> result = fileService.uploadNewVersion(
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> fileService.uploadNewVersion(
                 previousFileId,
                 mockMultipartFile,
                 "doctor1"
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("Previous file version not found");
+        ));
+        assertThat(exception.getMessage()).contains("Previous file version not found");
 
         verify(fileRepository, never()).save(any());
     }
@@ -409,15 +392,12 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(previousFileId))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<FileDto> result = fileService.uploadNewVersion(
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> fileService.uploadNewVersion(
                 previousFileId,
                 mockMultipartFile,
                 "doctor1"
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
+        ));
     }
 
     @Test
@@ -434,20 +414,17 @@ class FileServiceTest {
 
         when(fileRepository.findByIdAndIsDeletedFalse(previousFileId))
                 .thenReturn(Optional.of(previousFile));
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileStorageService.storeFile(any(), any(), anyString()))
-                .thenReturn(Result.failure("Storage error"));
+                .thenThrow(new BusinessException("Storage error"));
 
-        // When
-        Result<FileDto> result = fileService.uploadNewVersion(
+        // When & Then
+        assertThrows(BusinessException.class, () -> fileService.uploadNewVersion(
                 previousFileId,
                 mockMultipartFile,
                 "doctor1"
-        );
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
+        ));
     }
 
     // ========================================
@@ -464,11 +441,11 @@ class FileServiceTest {
         when(fileMapper.toDto(testFile)).thenReturn(testFileDto);
 
         // When
-        Result<FileDto> result = fileService.findById(fileId);
+        FileDto result = fileService.findById(fileId);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue().getId()).isEqualTo(fileId);
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(fileId);
     }
 
     @Test
@@ -479,12 +456,11 @@ class FileServiceTest {
         when(fileRepository.findWithUploadedByById(fileId))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<FileDto> result = fileService.findById(fileId);
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File not found");
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                fileService.findById(fileId)
+        );
+        assertThat(exception.getMessage()).contains("File not found");
     }
 
     // ========================================
@@ -507,11 +483,10 @@ class FileServiceTest {
         when(fileMapper.toDto(any())).thenReturn(testFileDto);
 
         // When
-        Result<List<FileDto>> result = fileService.findByCategory(FileCategory.CONSENT_FILE);
+        List<FileDto> result = fileService.findByCategory(FileCategory.CONSENT_FILE);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(2);
+        assertThat(result).hasSize(2);
     }
 
     @Test
@@ -522,11 +497,10 @@ class FileServiceTest {
                 .thenReturn(List.of());
 
         // When
-        Result<List<FileDto>> result = fileService.findByCategory(FileCategory.MEDICAL_REPORT);
+        List<FileDto> result = fileService.findByCategory(FileCategory.MEDICAL_REPORT);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isEmpty();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -537,10 +511,10 @@ class FileServiceTest {
                 .thenReturn(List.of(testFile)); // Only non-deleted
 
         // When
-        Result<List<FileDto>> result = fileService.findByCategory(FileCategory.CONSENT_FILE);
+        List<FileDto> result = fileService.findByCategory(FileCategory.CONSENT_FILE);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(fileRepository).findWithUploadedByByFileCategoryAndIsDeletedFalse(FileCategory.CONSENT_FILE);
     }
 
@@ -572,11 +546,10 @@ class FileServiceTest {
         when(fileMapper.toDto(any())).thenReturn(testFileDto);
 
         // When
-        Result<List<FileDto>> result = fileService.getFileVersionHistory(version3Id);
+        List<FileDto> result = fileService.getFileVersionHistory(version3Id);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(3);
+        assertThat(result).hasSize(3);
     }
 
     @Test
@@ -589,11 +562,10 @@ class FileServiceTest {
         when(fileMapper.toDto(testFile)).thenReturn(testFileDto);
 
         // When
-        Result<List<FileDto>> result = fileService.getFileVersionHistory(fileId);
+        List<FileDto> result = fileService.getFileVersionHistory(fileId);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -603,12 +575,11 @@ class FileServiceTest {
         UUID fileId = UUID.randomUUID();
         when(fileRepository.findById(fileId)).thenReturn(Optional.empty());
 
-        // When
-        Result<List<FileDto>> result = fileService.getFileVersionHistory(fileId);
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File not found");
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                fileService.getFileVersionHistory(fileId)
+        );
+        assertThat(exception.getMessage()).contains("File not found");
     }
 
     // ========================================
@@ -625,14 +596,13 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(fileId))
                 .thenReturn(Optional.of(testFile));
         when(fileStorageService.loadFile(testFile.getStoragePath()))
-                .thenReturn(Result.success(mockResource));
+                .thenReturn(mockResource);
 
         // When
-        Result<Resource> result = fileService.downloadFile(fileId);
+        Resource result = fileService.downloadFile(fileId);
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isEqualTo(mockResource);
+        assertThat(result).isEqualTo(mockResource);
     }
 
     @Test
@@ -643,12 +613,11 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(fileId))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<Resource> result = fileService.downloadFile(fileId);
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File not found or deleted");
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                fileService.downloadFile(fileId)
+        );
+        assertThat(exception.getMessage()).contains("File not found or deleted");
     }
 
     @Test
@@ -661,12 +630,11 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(fileId))
                 .thenReturn(Optional.of(testFile));
 
-        // When
-        Result<Resource> result = fileService.downloadFile(fileId);
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File has expired");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+                fileService.downloadFile(fileId)
+        );
+        assertThat(exception.getMessage()).contains("File has expired");
     }
 
     @Test
@@ -677,11 +645,10 @@ class FileServiceTest {
         when(fileRepository.findByIdAndIsDeletedFalse(fileId))
                 .thenReturn(Optional.empty());
 
-        // When
-        Result<Resource> result = fileService.downloadFile(fileId);
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () ->
+                fileService.downloadFile(fileId)
+        );
     }
 
     // ========================================
@@ -694,16 +661,14 @@ class FileServiceTest {
         // Given
         UUID fileId = testFile.getId();
         when(fileRepository.findById(fileId)).thenReturn(Optional.of(testFile));
-        when(userService.findUserByUsername("doctor1")).thenReturn(Result.success(testUserDto));
+        when(userService.findUserByUsername("doctor1")).thenReturn(testUserDto);
         when(userService.getEntityById(testUser.getUserId())).thenReturn(testUser);
         when(fileRepository.save(testFile)).thenReturn(testFile);
 
         // When
-        Result<Void> result = fileService.softDeleteFile(fileId, "doctor1");
+        fileService.softDeleteFile(fileId, "doctor1");
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-
         verify(fileRepository).save(testFile);
     }
 
@@ -716,12 +681,11 @@ class FileServiceTest {
 
         when(fileRepository.findById(fileId)).thenReturn(Optional.of(testFile));
 
-        // When
-        Result<Void> result = fileService.softDeleteFile(fileId, "doctor1");
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File already deleted");
+        // When & Then
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+                fileService.softDeleteFile(fileId, "doctor1")
+        );
+        assertThat(exception.getMessage()).contains("File already deleted");
 
         verify(fileRepository, never()).save(any());
     }
@@ -733,12 +697,11 @@ class FileServiceTest {
         UUID fileId = UUID.randomUUID();
         when(fileRepository.findById(fileId)).thenReturn(Optional.empty());
 
-        // When
-        Result<Void> result = fileService.softDeleteFile(fileId, "doctor1");
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("File not found");
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                fileService.softDeleteFile(fileId, "doctor1")
+        );
+        assertThat(exception.getMessage()).contains("File not found");
     }
 
     @Test
@@ -747,14 +710,13 @@ class FileServiceTest {
         // Given
         UUID fileId = testFile.getId();
         when(fileRepository.findById(fileId)).thenReturn(Optional.of(testFile));
-        when(userService.findUserByUsername("unknown")).thenReturn(Result.failure("User not found"));
+        when(userService.findUserByUsername("unknown")).thenThrow(new ResourceNotFoundException("User not found"));
 
-        // When
-        Result<Void> result = fileService.softDeleteFile(fileId, "unknown");
-
-        // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("Authenticated user not found");
+        // When & Then
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                fileService.softDeleteFile(fileId, "unknown")
+        );
+        assertThat(exception.getMessage()).contains("User not found");
 
         verify(fileRepository, never()).save(any());
     }
@@ -779,11 +741,10 @@ class FileServiceTest {
         when(fileMapper.toDto(expiredFile)).thenReturn(testFileDto);
 
         // When
-        Result<List<FileDto>> result = fileService.findExpiredFiles();
+        List<FileDto> result = fileService.findExpiredFiles();
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -794,10 +755,9 @@ class FileServiceTest {
                 .thenReturn(List.of());
 
         // When
-        Result<List<FileDto>> result = fileService.findExpiredFiles();
+        List<FileDto> result = fileService.findExpiredFiles();
 
         // Then
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isEmpty();
+        assertThat(result).isEmpty();
     }
 }

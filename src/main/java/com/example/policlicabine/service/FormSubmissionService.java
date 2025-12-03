@@ -1,24 +1,21 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormSubmissionDto;
 import com.example.policlicabine.entity.*;
-import com.example.policlicabine.entity.enums.FormPurpose;
-import com.example.policlicabine.entity.enums.SubmissionStatus;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FormSubmissionMapper;
 import com.example.policlicabine.repository.FormSubmissionRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -32,21 +29,19 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
     private final FormTemplateService formTemplateService;
     private final FormValidationService formValidationService;
     private final PatientService patientService;
-    private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public FormSubmissionService(FormSubmissionRepository repository, FormSubmissionMapper mapper,
                                   FormTemplateService formTemplateService, FormValidationService formValidationService,
-                                  PatientService patientService, ApplicationEventPublisher eventPublisher) {
+                                  PatientService patientService) {
         super(repository, mapper);
         this.formSubmissionRepository = repository;
         this.formSubmissionMapper = mapper;
         this.formTemplateService = formTemplateService;
         this.formValidationService = formValidationService;
         this.patientService = patientService;
-        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -64,51 +59,49 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         if (dto.getData() != null) {
             entity.setData(dto.getData());
         }
-        if (dto.getStatus() != null) {
-            entity.setStatus(dto.getStatus());
-        }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Result<FormSubmissionDto> findById(UUID id) {
+    public FormSubmissionDto findById(UUID id) {
+        if (id == null) {
+            throw new BusinessException("FormSubmission ID is required");
+        }
         FormSubmission submission = formSubmissionRepository.findWithDetailsById(id).orElse(null);
         if (submission == null || submission.getIsDeleted()) {
-            return Result.failure("FormSubmission not found");
+            throw new ResourceNotFoundException("FormSubmission", id);
         }
-        return Result.success(formSubmissionMapper.toDto(submission));
+        return formSubmissionMapper.toDto(submission);
     }
 
     @Transactional
-    public Result<FormSubmissionDto> submitForm(UUID templateId, UUID patientId, Map<String, Object> data,
-                                                 UUID appointmentSessionId, UUID consultationTypeId, UUID submittedByUserId) {
+    public FormSubmissionDto submitForm(UUID templateId, UUID patientId, Map<String, Object> data,
+                                                 UUID appointmentSessionId, UUID consultationTypeId, UUID submittedByUserId,
+                                                 List<UUID> fileIds) {
         if (templateId == null) {
-            return Result.failure("Template ID is required");
+            throw new BusinessException("Template ID is required");
         }
         if (patientId == null) {
-            return Result.failure("Patient ID is required");
+            throw new BusinessException("Patient ID is required");
         }
         if (data == null || data.isEmpty()) {
-            return Result.failure("Form data is required");
+            throw new BusinessException("Form data is required");
         }
 
         FormTemplate template = formTemplateService.getEntityById(templateId);
         if (template == null) {
-            return Result.failure("Form template not found");
+            throw new ResourceNotFoundException("FormTemplate", templateId);
         }
 
         if (!template.getActive()) {
-            return Result.failure("Form template is not active");
+            throw new BusinessException("Form template is not active");
         }
 
-        Result<Void> patientCheck = patientService.validateExists(patientId);
-        if (patientCheck.isFailure()) {
-            return Result.failure(patientCheck.getErrorMessage());
-        }
+        patientService.validateExists(patientId);
 
         List<String> validationErrors = formValidationService.validate(template.getStructure(), data);
         if (!validationErrors.isEmpty()) {
-            return Result.failure("Validation failed: " + String.join(", ", validationErrors));
+            throw new BusinessException("Validation failed: " + String.join(", ", validationErrors));
         }
 
         Patient patientRef = entityManager.getReference(Patient.class, patientId);
@@ -131,37 +124,48 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
                 .consultationType(consultationTypeRef)
                 .templateSnapshot(template.getStructure())
                 .data(data)
-                .status(SubmissionStatus.PENDING_SIGNATURE)
                 .submittedBy(submittedByRef)
                 .expiresAt(expiresAt)
                 .build();
 
+        // Attach files if provided
+        if (fileIds != null && !fileIds.isEmpty()) {
+            for (UUID fileId : fileIds) {
+                try {
+                    File file = entityManager.getReference(File.class, fileId);
+                    submission.attachFile(file);
+                } catch (Exception e) {
+                    log.warn("File {} not found, skipping", fileId);
+                }
+            }
+        }
+
         FormSubmission saved = formSubmissionRepository.save(submission);
         log.info("Form submitted: {} for patient {}", template.getName(), patientId);
 
-        return Result.success(formSubmissionMapper.toDto(saved));
+        return formSubmissionMapper.toDto(saved);
     }
 
     @Transactional
-    public Result<FormSubmissionDto> signForm(UUID submissionId, UUID witnessedByUserId) {
+    public FormSubmissionDto signForm(UUID submissionId, UUID witnessedByUserId) {
         if (submissionId == null) {
-            return Result.failure("Submission ID is required");
+            throw new BusinessException("Submission ID is required");
         }
         if (witnessedByUserId == null) {
-            return Result.failure("Witness user ID is required");
+            throw new BusinessException("Witness user ID is required");
         }
 
-        FormSubmission submission = formSubmissionRepository.findById(submissionId).orElse(null);
+        FormSubmission submission = formSubmissionRepository.findWithDetailsById(submissionId).orElse(null);
         if (submission == null) {
-            return Result.failure("Form submission not found");
+            throw new ResourceNotFoundException("FormSubmission", submissionId);
         }
 
-        if (submission.getStatus() == SubmissionStatus.SIGNED) {
-            return Result.failure("Form is already signed");
+        if (submission.getPatientSignedAt() != null) {
+            throw new BusinessException("Form is already signed");
         }
 
         if (submission.isExpired()) {
-            return Result.failure("Form has expired");
+            throw new BusinessException("Form has expired");
         }
 
         User witnessedBy = entityManager.getReference(User.class, witnessedByUserId);
@@ -170,87 +174,57 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         FormSubmission saved = formSubmissionRepository.save(submission);
         log.info("Form signed: {} by witness {}", submissionId, witnessedByUserId);
 
-        return Result.success(formSubmissionMapper.toDto(saved));
-    }
-
-    @Transactional(readOnly = true)
-    public Result<Boolean> hasValidForm(UUID patientId, FormPurpose purpose) {
-        if (patientId == null || purpose == null) {
-            return Result.failure("Patient ID and purpose are required");
-        }
-
-        FormSubmission submission = formSubmissionRepository
-                .findValidFormByPatientAndPurpose(patientId, purpose.name(), LocalDateTime.now())
-                .orElse(null);
-
-        return Result.success(submission != null && submission.isValid());
+        return formSubmissionMapper.toDto(saved);
     }
 
     /**
-     * Checks if patient has a valid form for a purpose that will still be valid at a target date.
-     * Used for appointment scheduling to verify forms won't expire before the appointment.
-     *
-     * @param patientId Patient identifier
-     * @param purpose Form purpose to check
-     * @param targetDate Date when form must still be valid (typically appointment date)
-     * @return Result containing true if valid form exists at target date, false otherwise
+     * Checks if patient has a valid submission for a specific template at a given date.
      */
     @Transactional(readOnly = true)
-    public Result<Boolean> hasValidFormAtDate(UUID patientId, FormPurpose purpose, LocalDateTime targetDate) {
-        if (patientId == null || purpose == null || targetDate == null) {
-            return Result.failure("Patient ID, purpose, and target date are required");
+    public boolean hasValidSubmission(UUID patientId, UUID templateId, LocalDateTime targetDate) {
+        if (patientId == null || templateId == null) {
+            throw new BusinessException("Patient ID and template ID are required");
+        }
+        if (targetDate == null) {
+            targetDate = LocalDateTime.now();
         }
 
-        // Check for form that never expires (expiresAt IS NULL)
-        Optional<FormSubmission> neverExpires = formSubmissionRepository
-                .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
-                        patientId, purpose, SubmissionStatus.SIGNED);
-
-        if (neverExpires.isPresent()) {
-            return Result.success(true);
-        }
-
-        // Check for form that expires after target date
-        Optional<FormSubmission> expiresAfter = formSubmissionRepository
-                .findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
-                        patientId, purpose, SubmissionStatus.SIGNED, targetDate);
-
-        return Result.success(expiresAfter.isPresent());
+        return formSubmissionRepository.existsValidSubmission(patientId, templateId, targetDate);
     }
 
     @Transactional(readOnly = true)
-    public Result<List<FormSubmissionDto>> getFormsByPatient(UUID patientId) {
+    public List<FormSubmissionDto> getFormsByPatient(UUID patientId) {
         if (patientId == null) {
-            return Result.failure("Patient ID is required");
+            throw new BusinessException("Patient ID is required");
         }
 
         List<FormSubmission> submissions = formSubmissionRepository.findByPatientPatientIdAndIsDeletedFalse(patientId);
-        return Result.success(submissions.stream()
+        return submissions.stream()
                 .map(formSubmissionMapper::toDto)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Result<List<FormSubmissionDto>> getFormsBySession(UUID sessionId) {
+    public List<FormSubmissionDto> getFormsBySession(UUID sessionId) {
         if (sessionId == null) {
-            return Result.failure("Session ID is required");
+            throw new BusinessException("Session ID is required");
         }
 
         List<FormSubmission> submissions = formSubmissionRepository.findByAppointmentSessionSessionIdAndIsDeletedFalse(sessionId);
-        return Result.success(submissions.stream()
+        return submissions.stream()
                 .map(formSubmissionMapper::toDto)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public Result<FormSubmissionDto> attachFile(UUID submissionId, UUID fileId) {
+    public FormSubmissionDto attachFile(UUID submissionId, UUID fileId) {
         if (submissionId == null || fileId == null) {
-            return Result.failure("Submission ID and file ID are required");
+            throw new BusinessException("Submission ID and file ID are required");
         }
 
         FormSubmission submission = formSubmissionRepository.findById(submissionId).orElse(null);
         if (submission == null) {
-            return Result.failure("Form submission not found");
+            throw new ResourceNotFoundException("FormSubmission", submissionId);
         }
 
         try {
@@ -261,20 +235,37 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
             FormSubmission saved = formSubmissionRepository.save(submission);
             log.info("File {} attached to submission {}", fileId, submissionId);
 
-            return Result.success(formSubmissionMapper.toDto(saved));
+            return formSubmissionMapper.toDto(saved);
         } catch (Exception e) {
-            return Result.failure("File not found or invalid");
+            throw new BusinessException("File not found or invalid");
         }
     }
 
     @Transactional(readOnly = true)
-    public Result<List<FormSubmissionDto>> getExpiringSoon(int daysAhead) {
+    public List<FormSubmissionDto> getExpiringSoon(int daysAhead) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime futureDate = now.plusDays(daysAhead);
 
         List<FormSubmission> submissions = formSubmissionRepository.findExpiringSoon(now, futureDate);
-        return Result.success(submissions.stream()
+        return submissions.stream()
                 .map(formSubmissionMapper::toDto)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Delete all form submissions that reference a specific template.
+     * Used during template hard-delete cascade.
+     *
+     * @param templateId the template ID whose submissions should be deleted
+     */
+    @Transactional
+    public void deleteAllByTemplateId(UUID templateId) {
+        if (templateId == null) {
+            throw new BusinessException("Template ID is required");
+        }
+        log.info("Deleting all form submissions for template: {}", templateId);
+        formSubmissionRepository.deleteByTemplateId(templateId);
+        formSubmissionRepository.flush();
+        log.info("Form submissions deleted for template: {}", templateId);
     }
 }

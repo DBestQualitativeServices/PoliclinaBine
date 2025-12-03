@@ -1,9 +1,9 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
+import com.example.policlicabine.dto.FormReadinessDto;
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
@@ -45,20 +45,7 @@ public class AppointmentSessionController {
     ) {
         log.info("REST: Scheduling appointment for patient {} with doctor {} at {}",
                 patientId, doctorId, scheduledDateTime);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.scheduleAppointment(
-                patientId,
-                doctorId,
-                consultationNames,
-                scheduledDateTime,
-                isEmergency
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.scheduleAppointment(patientId, doctorId, consultationNames, scheduledDateTime, isEmergency);
     }
 
     @GetMapping("/{sessionId}")
@@ -66,14 +53,7 @@ public class AppointmentSessionController {
     @Operation(summary = "Get appointment by ID")
     public AppointmentSessionDto getAppointment(@PathVariable UUID sessionId) {
         log.info("REST: Getting appointment by ID: {}", sessionId);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.findById(sessionId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Appointment", sessionId);
-        }
-
-        return result.getValue();
+        return appointmentSessionService.findById(sessionId);
     }
 
     @GetMapping("/patient/{patientId}")
@@ -81,14 +61,7 @@ public class AppointmentSessionController {
     @Operation(summary = "Get patient appointment history")
     public List<AppointmentSessionDto> getPatientHistory(@PathVariable UUID patientId) {
         log.info("REST: Getting appointment history for patient: {}", patientId);
-
-        Result<List<AppointmentSessionDto>> result = appointmentSessionService.getPatientAppointmentHistory(patientId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.getPatientAppointmentHistory(patientId);
     }
 
     @GetMapping("/search")
@@ -120,14 +93,7 @@ public class AppointmentSessionController {
             @RequestParam String consultationName
     ) {
         log.info("REST: Adding consultation {} to session {}", consultationName, sessionId);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.addConsultationToSession(sessionId, consultationName);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.addConsultationToSession(sessionId, consultationName);
     }
 
     @PostMapping("/{sessionId}/start")
@@ -135,14 +101,7 @@ public class AppointmentSessionController {
     @Operation(summary = "Start appointment session")
     public AppointmentSessionDto startSession(@PathVariable UUID sessionId) {
         log.info("REST: Starting appointment session: {}", sessionId);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.startSession(sessionId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.startSession(sessionId);
     }
 
     @PatchMapping("/{sessionId}/medical-info")
@@ -156,20 +115,7 @@ public class AppointmentSessionController {
             @RequestParam(required = false) String notes
     ) {
         log.info("REST: Adding medical information to session: {}", sessionId);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.addMedicalInformation(
-                sessionId,
-                diagnosisIds,
-                freeTextDiagnosis,
-                treatmentInstructions,
-                notes
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.addMedicalInformation(sessionId, diagnosisIds, freeTextDiagnosis, treatmentInstructions, notes);
     }
 
     @PostMapping("/{sessionId}/complete")
@@ -182,19 +128,7 @@ public class AppointmentSessionController {
             @RequestParam(required = false) String freeTextObservations
     ) {
         log.info("REST: Completing appointment session: {}", sessionId);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.completeSession(
-                sessionId,
-                freeTextDiagnosis,
-                treatmentInstructions,
-                freeTextObservations
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.completeSession(sessionId, freeTextDiagnosis, treatmentInstructions, freeTextObservations);
     }
 
     @DeleteMapping("/{sessionId}")
@@ -206,18 +140,7 @@ public class AppointmentSessionController {
             @RequestParam(defaultValue = "false") boolean wasNoShow
     ) {
         log.info("REST: Cancelling appointment: {} (no-show: {})", sessionId, wasNoShow);
-
-        Result<AppointmentSessionDto> result = appointmentSessionService.cancelAppointment(
-                sessionId,
-                reason,
-                wasNoShow
-        );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.cancelAppointment(sessionId, reason, wasNoShow);
     }
 
     @GetMapping("/{sessionId}/required-forms")
@@ -225,14 +148,7 @@ public class AppointmentSessionController {
     @Operation(summary = "Get all required form templates for this appointment")
     public List<FormTemplateDto> getRequiredForms(@PathVariable UUID sessionId) {
         log.info("REST: Getting required forms for session: {}", sessionId);
-
-        Result<List<FormTemplateDto>> result = appointmentSessionService.getRequiredFormsForSession(sessionId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return appointmentSessionService.getRequiredFormsForSession(sessionId);
     }
 
     @GetMapping("/{sessionId}/missing-forms")
@@ -240,13 +156,22 @@ public class AppointmentSessionController {
     @Operation(summary = "Get form templates patient still needs to fill")
     public List<FormTemplateDto> getMissingForms(@PathVariable UUID sessionId) {
         log.info("REST: Getting missing forms for session: {}", sessionId);
+        return appointmentSessionService.getMissingFormsForSession(sessionId);
+    }
 
-        Result<List<FormTemplateDto>> result = appointmentSessionService.getMissingFormsForSession(sessionId);
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+    /**
+     * Checks form readiness for an appointment session (Forms v2 approach).
+     * Returns comprehensive form requirement status with detailed breakdown.
+     *
+     * @param sessionId the appointment session ID
+     * @return FormReadinessDto with all required forms and their statuses
+     */
+    @GetMapping("/{sessionId}/form-readiness")
+    @StandardApiResponses
+    @Operation(summary = "Check form readiness for appointment (v2)",
+               description = "Returns detailed status of all required forms: VALID, MISSING, EXPIRED, PENDING_SIGNATURE")
+    public FormReadinessDto getFormReadiness(@PathVariable UUID sessionId) {
+        log.info("REST: Checking form readiness for session: {}", sessionId);
+        return appointmentSessionService.checkFormReadiness(sessionId);
     }
 }

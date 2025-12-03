@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.SecurityAuditLogDto;
 import com.example.policlicabine.dto.SecurityAuditSearchDto;
@@ -73,12 +72,8 @@ public class SecurityAuditController {
     @SecurityRequirement(name = "bearer-jwt")
     @StandardApiResponses
     @Operation(summary = "Get audit log by ID", description = "Retrieve a single audit log entry")
-    public ResponseEntity<Result<SecurityAuditLogDto>> getAuditLog(@PathVariable UUID auditId) {
-        Result<SecurityAuditLogDto> result = auditService.findById(auditId);
-
-        return result.isSuccess()
-            ? ResponseEntity.ok(result)
-            : ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+    public SecurityAuditLogDto getAuditLog(@PathVariable UUID auditId) {
+        return auditService.findById(auditId);
     }
 
     /**
@@ -90,7 +85,7 @@ public class SecurityAuditController {
     @SecurityRequirement(name = "bearer-jwt")
     @StandardApiResponses
     @Operation(summary = "Search audit logs", description = "Search and filter audit logs with pagination")
-    public ResponseEntity<Result<Page<SecurityAuditLogDto>>> searchAuditLogs(
+    public Page<SecurityAuditLogDto> searchAuditLogs(
         @RequestParam(required = false) AuditEventType eventType,
         @RequestParam(required = false) AuditSeverity severity,
         @RequestParam(required = false) String principal,
@@ -119,9 +114,7 @@ public class SecurityAuditController {
             .sortDirection(sortDirection)
             .build();
 
-        Result<Page<SecurityAuditLogDto>> result = auditService.search(searchDto);
-
-        return ResponseEntity.ok(result);
+        return auditService.search(searchDto);
     }
 
     /**
@@ -133,13 +126,11 @@ public class SecurityAuditController {
     @SecurityRequirement(name = "bearer-jwt")
     @StandardApiResponses
     @Operation(summary = "Get audit statistics", description = "Get security audit statistics and metrics")
-    public ResponseEntity<Result<SecurityAuditStatsDto>> getStatistics(
+    public SecurityAuditStatsDto getStatistics(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime after,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime before
     ) {
-        Result<SecurityAuditStatsDto> result = auditService.getStatistics(after, before);
-
-        return ResponseEntity.ok(result);
+        return auditService.getStatistics(after, before);
     }
 
     /**

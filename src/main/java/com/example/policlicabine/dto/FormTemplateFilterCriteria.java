@@ -1,6 +1,5 @@
 package com.example.policlicabine.dto;
 
-import com.example.policlicabine.entity.enums.FormPurpose;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,9 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FormTemplateFilterCriteria {
-    private String code;                    // Partial match on template code
     private String name;                    // Partial match on template name
-    private FormPurpose purpose;            // Exact match (enum)
     private Boolean active;                 // Boolean filter
     private Boolean isDeleted;              // Boolean filter
     private LocalDateTime createdAfter;     // Date range (inclusive)

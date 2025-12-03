@@ -1,6 +1,5 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.dto.UserFilterCriteria;
 import com.example.policlicabine.dto.UserProfileDto;
@@ -9,6 +8,8 @@ import com.example.policlicabine.entity.User;
 import com.example.policlicabine.entity.enums.UserRole;
 import com.example.policlicabine.event.NewPatientRegisteredEvent;
 import com.example.policlicabine.event.UserCreated;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.DoctorMapper;
 import com.example.policlicabine.mapper.ManagerMapper;
 import com.example.policlicabine.mapper.PatientMapper;
@@ -83,128 +84,96 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
         }
     }
 
-    public Result<UserDto> createUser(String username, Set<UserRole> roleNames) {
-        try {
-            if (username == null || username.trim().isEmpty()) {
-                return Result.failure("Username is required");
-            }
-            if (roleNames == null || roleNames.isEmpty()) {
-                return Result.failure("At least one role is required");
-            }
-
-            if (userRepository.existsByUsername(username.trim())) {
-                return Result.failure("Username already exists");
-            }
-
-            Set<Role> roles = roleRepository.findByNameIn(roleNames);
-
-            if (roles.size() != roleNames.size()) {
-                return Result.failure("One or more roles not found in database");
-            }
-
-            User user = User.builder()
-                .username(username.trim())
-                .build();
-
-            roles.forEach(user::addRole);
-
-            User savedUser = userRepository.save(user);
-
-            eventPublisher.publishEvent(new UserCreated(
-                savedUser.getUserId(),
-                savedUser.getUsername(),
-                roleNames
-            ));
-
-            log.info("User created: {} with roles {}", username, roleNames);
-
-            return Result.success(userMapper.toDto(savedUser));
-
-        } catch (Exception e) {
-            log.error("Error creating user", e);
-            return Result.failure("Failed to create user: " + e.getMessage());
+    public UserDto createUser(String username, Set<UserRole> roleNames) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new BusinessException("Username is required");
         }
+        if (roleNames == null || roleNames.isEmpty()) {
+            throw new BusinessException("At least one role is required");
+        }
+
+        if (userRepository.existsByUsername(username.trim())) {
+            throw new BusinessException("Username already exists");
+        }
+
+        Set<Role> roles = roleRepository.findByNameIn(roleNames);
+
+        if (roles.size() != roleNames.size()) {
+            throw new BusinessException("One or more roles not found in database");
+        }
+
+        User user = User.builder()
+            .username(username.trim())
+            .build();
+
+        roles.forEach(user::addRole);
+
+        User savedUser = userRepository.save(user);
+
+        eventPublisher.publishEvent(new UserCreated(
+            savedUser.getUserId(),
+            savedUser.getUsername(),
+            roleNames
+        ));
+
+        log.info("User created: {} with roles {}", username, roleNames);
+
+        return userMapper.toDto(savedUser);
     }
 
     @Transactional(readOnly = true)
     public Page<UserDto> search(UserFilterCriteria criteria, Pageable pageable) {
         log.debug("Searching users with criteria: {} and pageable: {}", criteria, pageable);
 
-        try {
-            Specification<User> spec = specificationBuilder.build(criteria);
-            Page<User> entityPage = userRepository.findAll(spec, pageable);
-            Page<UserDto> dtoPage = entityPage.map(this::toDto);
+        Specification<User> spec = specificationBuilder.build(criteria);
+        Page<User> entityPage = userRepository.findAll(spec, pageable);
+        Page<UserDto> dtoPage = entityPage.map(this::toDto);
 
-            log.info("User search returned {} results (page {}/{})",
-                    dtoPage.getNumberOfElements(),
-                    dtoPage.getNumber() + 1,
-                    dtoPage.getTotalPages());
+        log.info("User search returned {} results (page {}/{})",
+                dtoPage.getNumberOfElements(),
+                dtoPage.getNumber() + 1,
+                dtoPage.getTotalPages());
 
-            return dtoPage;
-
-        } catch (Exception e) {
-            log.error("Error searching users with criteria: {}", criteria, e);
-            throw new RuntimeException("Failed to search users: " + e.getMessage(), e);
-        }
+        return dtoPage;
     }
 
     @Transactional(readOnly = true)
-    public Result<UserDto> findUserById(UUID userId) {
+    public UserDto findUserById(UUID userId) {
         return findById(userId);
     }
 
     @Transactional(readOnly = true)
-    public Result<UserDto> findUserByUsername(String username) {
-        try {
-            if (username == null || username.trim().isEmpty()) {
-                return Result.failure("Username is required");
-            }
-
-            User user = userRepository.findByUsername(username.trim()).orElse(null);
-            if (user == null) {
-                return Result.failure("User not found with username: " + username);
-            }
-
-            return Result.success(userMapper.toDto(user));
-
-        } catch (Exception e) {
-            log.error("Error finding user by username", e);
-            return Result.failure("Failed to find user: " + e.getMessage());
+    public UserDto findUserByUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new BusinessException("Username is required");
         }
+
+        User user = userRepository.findByUsername(username.trim())
+            .orElseThrow(() -> new ResourceNotFoundException("User", "username: " + username));
+
+        return userMapper.toDto(user);
     }
 
     @Transactional(readOnly = true)
-    public Result<List<UserDto>> findUsersByRole(UserRole roleName) {
-        try {
-            if (roleName == null) {
-                return Result.failure("Role is required");
-            }
-
-            Role role = roleRepository.findByName(roleName).orElse(null);
-
-            if (role == null) {
-                return Result.failure("Role not found: " + roleName);
-            }
-
-            List<User> users = new ArrayList<>(role.getUsers());
-
-            List<UserDto> userDtos = users.stream()
-                .map(userMapper::toDto)
-                .collect(Collectors.toList());
-
-            return Result.success(userDtos);
-
-        } catch (Exception e) {
-            log.error("Error finding users by role", e);
-            return Result.failure("Failed to find users: " + e.getMessage());
+    public List<UserDto> findUsersByRole(UserRole roleName) {
+        if (roleName == null) {
+            throw new BusinessException("Role is required");
         }
+
+        Role role = roleRepository.findByName(roleName)
+            .orElseThrow(() -> new ResourceNotFoundException("Role", roleName.name()));
+
+        List<User> users = new ArrayList<>(role.getUsers());
+
+        return users.stream()
+            .map(userMapper::toDto)
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Result<Void> validateUserExists(UUID userId) {
-        return validateExists(userId);
+    public void validateUserExists(UUID userId) {
+        validateExists(userId);
     }
-
 
     @EventListener
     public void onNewPatientRegistered(NewPatientRegisteredEvent event) {
@@ -214,51 +183,35 @@ public class UserService extends BaseServiceImpl<User, UserDto, UUID> {
 
     /**
      * Get current user profile with all profile data loaded.
-     * Follows OAuth2/OIDC UserInfo endpoint pattern.
-     *
-     * @param userId the user ID (extracted from JWT token)
-     * @return UserProfileDto with profile data (doctor/patient/manager)
      */
     @Transactional(readOnly = true)
-    public Result<UserProfileDto> getCurrentUserProfile(UUID userId) {
-        try {
-            if (userId == null) {
-                return Result.failure("User ID is required");
-            }
-
-            // Load user with all profiles using EntityGraph (prevents N+1 queries)
-            User user = userRepository.findWithProfileByUserId(userId)
-                    .orElse(null);
-
-            if (user == null) {
-                return Result.failure("User not found");
-            }
-
-            // Build UserProfileDto with appropriate profile
-            UserProfileDto profileDto = UserProfileDto.builder()
-                    .userId(user.getUserId())
-                    .username(user.getUsername())
-                    .roles(user.getRoles().stream()
-                            .map(role -> role.getName())
-                            .collect(java.util.stream.Collectors.toSet()))
-                    .doctorProfile(user.getDoctorProfile() != null
-                            ? doctorMapper.toDto(user.getDoctorProfile())
-                            : null)
-                    .patientProfile(user.getPatientProfile() != null
-                            ? patientMapper.toDto(user.getPatientProfile())
-                            : null)
-                    .managerProfile(user.getManagerProfile() != null
-                            ? managerMapper.toDto(user.getManagerProfile())
-                            : null)
-                    .build();
-
-            log.debug("User profile loaded for user {}: type={}", userId, profileDto.getProfileType());
-
-            return Result.success(profileDto);
-
-        } catch (Exception e) {
-            log.error("Error loading user profile for userId: {}", userId, e);
-            return Result.failure("Failed to load user profile: " + e.getMessage());
+    public UserProfileDto getCurrentUserProfile(UUID userId) {
+        if (userId == null) {
+            throw new BusinessException("User ID is required");
         }
+
+        User user = userRepository.findWithProfileByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        UserProfileDto profileDto = UserProfileDto.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .roles(user.getRoles().stream()
+                        .map(role -> role.getName())
+                        .collect(java.util.stream.Collectors.toSet()))
+                .doctorProfile(user.getDoctorProfile() != null
+                        ? doctorMapper.toDto(user.getDoctorProfile())
+                        : null)
+                .patientProfile(user.getPatientProfile() != null
+                        ? patientMapper.toDto(user.getPatientProfile())
+                        : null)
+                .managerProfile(user.getManagerProfile() != null
+                        ? managerMapper.toDto(user.getManagerProfile())
+                        : null)
+                .build();
+
+        log.debug("User profile loaded for user {}: type={}", userId, profileDto.getProfileType());
+
+        return profileDto;
     }
 }

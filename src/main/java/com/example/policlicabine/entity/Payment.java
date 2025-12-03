@@ -83,10 +83,6 @@ public class Payment {
             .collect(Collectors.toList());
     }
 
-    public boolean canBeAppliedToProformaInvoice() {
-        return invoices.stream().noneMatch(Invoice::getIsProforma);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

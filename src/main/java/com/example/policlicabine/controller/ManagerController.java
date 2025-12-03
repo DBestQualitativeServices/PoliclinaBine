@@ -1,6 +1,5 @@
 package com.example.policlicabine.controller;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.dto.ManagerDto;
 import com.example.policlicabine.exception.BusinessException;
@@ -38,19 +37,12 @@ public class ManagerController {
     @Operation(summary = "Create manager profile (admin only - for linking existing users)")
     public ManagerDto createManager(@Valid @RequestBody ManagerDto managerDto) {
         log.info("REST: Creating new manager profile for user: {}", managerDto.getUser().getUserId());
-
-        Result<ManagerDto> result = managerService.createManager(
+        return managerService.createManager(
                 managerDto.getUser().getUserId(),
                 managerDto.getFullName(),
                 managerDto.getDepartment(),
                 managerDto.getHireDate()
         );
-
-        if (result.isFailure()) {
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
     }
 
     @GetMapping("/{managerId}")
@@ -60,14 +52,7 @@ public class ManagerController {
     @Operation(summary = "Get manager by ID")
     public ManagerDto getManager(@PathVariable UUID managerId) {
         log.info("REST: Getting manager by ID: {}", managerId);
-
-        Result<ManagerDto> result = managerService.findById(managerId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Manager", managerId);
-        }
-
-        return result.getValue();
+        return managerService.findById(managerId);
     }
 
     @GetMapping
@@ -77,7 +62,7 @@ public class ManagerController {
     @Operation(summary = "Get all managers")
     public List<ManagerDto> getAllManagers() {
         log.info("REST: Getting all managers");
-        return managerService.findAll().getValue();
+        return managerService.findAll();
     }
 
     @GetMapping("/user/{userId}")
@@ -87,14 +72,7 @@ public class ManagerController {
     @Operation(summary = "Get manager by user ID")
     public ManagerDto getManagerByUserId(@PathVariable UUID userId) {
         log.info("REST: Getting manager by user ID: {}", userId);
-
-        Result<ManagerDto> result = managerService.findManagerByUserId(userId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Manager not found for user: " + userId);
-        }
-
-        return result.getValue();
+        return managerService.findManagerByUserId(userId);
     }
 
     @PutMapping("/{managerId}")
@@ -107,17 +85,7 @@ public class ManagerController {
             @Valid @RequestBody ManagerDto managerDto
     ) {
         log.info("REST: Updating manager: {}", managerId);
-
-        Result<ManagerDto> result = managerService.update(managerId, managerDto);
-
-        if (result.isFailure()) {
-            if (result.getErrorMessage().contains("not found")) {
-                throw new ResourceNotFoundException("Manager", managerId);
-            }
-            throw new BusinessException(result.getErrorMessage());
-        }
-
-        return result.getValue();
+        return managerService.update(managerId, managerDto);
     }
 
     @DeleteMapping("/{managerId}")
@@ -128,11 +96,6 @@ public class ManagerController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteManager(@PathVariable UUID managerId) {
         log.info("REST: Deleting manager: {}", managerId);
-
-        Result<Void> result = managerService.deleteById(managerId);
-
-        if (result.isFailure()) {
-            throw new ResourceNotFoundException("Manager", managerId);
-        }
+        managerService.deleteById(managerId);
     }
 }

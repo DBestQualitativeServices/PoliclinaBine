@@ -1,16 +1,15 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.SecurityAuditLogDto;
-import com.example.policlicabine.service.base.BaseServiceImpl;
 import com.example.policlicabine.dto.SecurityAuditSearchDto;
 import com.example.policlicabine.dto.SecurityAuditStatsDto;
 import com.example.policlicabine.entity.SecurityAuditLog;
 import com.example.policlicabine.entity.enums.AuditEventType;
 import com.example.policlicabine.entity.enums.AuditSeverity;
+import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.mapper.SecurityAuditLogMapper;
 import com.example.policlicabine.repository.SecurityAuditLogRepository;
-import lombok.RequiredArgsConstructor;
+import com.example.policlicabine.service.base.BaseServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -74,8 +73,8 @@ public class SecurityAuditService extends BaseServiceImpl<SecurityAuditLog, Secu
      * Override update to prevent modifications - audit logs are immutable.
      */
     @Override
-    public Result<SecurityAuditLogDto> update(UUID id, SecurityAuditLogDto dto) {
-        return Result.failure("Audit logs are immutable and cannot be updated");
+    public SecurityAuditLogDto update(UUID id, SecurityAuditLogDto dto) {
+        throw new BusinessException("Audit logs are immutable and cannot be updated");
     }
 
     // ============= CORE LOGGING INFRASTRUCTURE =============
@@ -128,20 +127,15 @@ public class SecurityAuditService extends BaseServiceImpl<SecurityAuditLog, Secu
      * Log a security event synchronously (for cases where immediate persistence is needed).
      *
      * @param dto Security audit log DTO
-     * @return Result containing the saved DTO or error
+     * @return SecurityAuditLogDto the saved DTO
      */
     @Transactional
-    public Result<SecurityAuditLogDto> logEvent(SecurityAuditLogDto dto) {
-        try {
-            SecurityAuditLog saved = prepareAndSaveAuditLog(dto);
-            log.info("Audit event logged: {} | Principal: {} | Severity: {}",
-                saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
-            publishAuditEventForAlerting(saved);
-            return Result.success(auditLogMapper.toDto(saved));
-        } catch (Exception e) {
-            log.error("Failed to log security event", e);
-            return Result.failure("Failed to log security event: " + e.getMessage());
-        }
+    public SecurityAuditLogDto logEvent(SecurityAuditLogDto dto) {
+        SecurityAuditLog saved = prepareAndSaveAuditLog(dto);
+        log.info("Audit event logged: {} | Principal: {} | Severity: {}",
+            saved.getEventType(), saved.getPrincipal(), saved.getSeverity());
+        publishAuditEventForAlerting(saved);
+        return auditLogMapper.toDto(saved);
     }
 
     /**
@@ -172,38 +166,30 @@ public class SecurityAuditService extends BaseServiceImpl<SecurityAuditLog, Secu
      * Search audit logs with filters and pagination.
      */
     @Transactional(readOnly = true)
-    public Result<Page<SecurityAuditLogDto>> search(SecurityAuditSearchDto searchDto) {
-        try {
-            // Build pageable
-            int page = searchDto.getPage() != null ? searchDto.getPage() : 0;
-            int size = searchDto.getSize() != null ? searchDto.getSize() : 20;
-            String sortBy = searchDto.getSortBy() != null ? searchDto.getSortBy() : "timestamp";
-            Sort.Direction direction = "asc".equalsIgnoreCase(searchDto.getSortDirection())
-                ? Sort.Direction.ASC
-                : Sort.Direction.DESC;
+    public Page<SecurityAuditLogDto> search(SecurityAuditSearchDto searchDto) {
+        // Build pageable
+        int page = searchDto.getPage() != null ? searchDto.getPage() : 0;
+        int size = searchDto.getSize() != null ? searchDto.getSize() : 20;
+        String sortBy = searchDto.getSortBy() != null ? searchDto.getSortBy() : "timestamp";
+        Sort.Direction direction = "asc".equalsIgnoreCase(searchDto.getSortDirection())
+            ? Sort.Direction.ASC
+            : Sort.Direction.DESC;
 
-            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-            // Execute search
-            Page<SecurityAuditLog> results = auditLogRepository.searchAuditLogs(
-                searchDto.getEventType(),
-                searchDto.getSeverity(),
-                searchDto.getPrincipal(),
-                searchDto.getUserId(),
-                searchDto.getAfter(),
-                searchDto.getBefore(),
-                pageable
-            );
+        // Execute search
+        Page<SecurityAuditLog> results = auditLogRepository.searchAuditLogs(
+            searchDto.getEventType(),
+            searchDto.getSeverity(),
+            searchDto.getPrincipal(),
+            searchDto.getUserId(),
+            searchDto.getAfter(),
+            searchDto.getBefore(),
+            pageable
+        );
 
-            // Convert to DTOs
-            Page<SecurityAuditLogDto> dtoPage = results.map(auditLogMapper::toDto);
-
-            return Result.success(dtoPage);
-
-        } catch (Exception e) {
-            log.error("Failed to search audit logs", e);
-            return Result.failure("Failed to search audit logs: " + e.getMessage());
-        }
+        // Convert to DTOs
+        return results.map(auditLogMapper::toDto);
     }
 
     /**
@@ -211,73 +197,65 @@ public class SecurityAuditService extends BaseServiceImpl<SecurityAuditLog, Secu
      * Uses efficient time-filtered database aggregation queries instead of loading events into memory.
      */
     @Transactional(readOnly = true)
-    public Result<SecurityAuditStatsDto> getStatistics(OffsetDateTime after, OffsetDateTime before) {
-        try {
-            // Default time range if not provided (last 7 days)
-            if (after == null) {
-                after = OffsetDateTime.now(ZoneOffset.UTC).minusDays(7);
-            }
-
-            // Use time-filtered database aggregations (efficient - no memory loading)
-            List<Object[]> eventTypeCounts = auditLogRepository.countByEventTypeAfter(after);
-            Map<String, Long> eventTypeMap = eventTypeCounts.stream()
-                .collect(Collectors.toMap(
-                    row -> ((AuditEventType) row[0]).name(),
-                    row -> (Long) row[1]
-                ));
-
-            List<Object[]> severityCounts = auditLogRepository.countBySeverityAfter(after);
-            Map<String, Long> severityMap = severityCounts.stream()
-                .collect(Collectors.toMap(
-                    row -> ((AuditSeverity) row[0]).name(),
-                    row -> (Long) row[1]
-                ));
-
-            // Single count query instead of loading all events
-            long totalEvents = auditLogRepository.countEventsAfter(after);
-
-            // Calculate specific counts from maps (no additional DB calls)
-            long criticalEvents = severityMap.getOrDefault("CRITICAL", 0L);
-            long warningEvents = severityMap.getOrDefault("WARNING", 0L);
-            long infoEvents = severityMap.getOrDefault("INFO", 0L);
-
-            long failedLoginAttempts = eventTypeMap.getOrDefault("LOGIN_FAILURE", 0L);
-            long unauthorizedAccessAttempts = eventTypeMap.getOrDefault("UNAUTHORIZED_ACCESS", 0L);
-            long suspiciousActivities = eventTypeMap.getOrDefault("SUSPICIOUS_ACTIVITY", 0L)
-                + eventTypeMap.getOrDefault("BRUTE_FORCE_DETECTED", 0L);
-
-            // Database aggregation for top principals (efficient - LIMIT 10 in query)
-            List<Object[]> topPrincipalsList = auditLogRepository.findTopPrincipalsSince(after);
-            Map<String, Long> topPrincipals = topPrincipalsList.stream()
-                .collect(Collectors.toMap(
-                    row -> (String) row[0],
-                    row -> (Long) row[1],
-                    (e1, e2) -> e1,
-                    LinkedHashMap::new
-                ));
-
-            String period = determinePeriodDescription(after, before);
-
-            SecurityAuditStatsDto stats = SecurityAuditStatsDto.builder()
-                .totalEvents(totalEvents)
-                .eventTypeCounts(eventTypeMap)
-                .severityCounts(severityMap)
-                .criticalEvents(criticalEvents)
-                .warningEvents(warningEvents)
-                .infoEvents(infoEvents)
-                .failedLoginAttempts(failedLoginAttempts)
-                .unauthorizedAccessAttempts(unauthorizedAccessAttempts)
-                .suspiciousActivities(suspiciousActivities)
-                .topPrincipals(topPrincipals)
-                .period(period)
-                .build();
-
-            return Result.success(stats);
-
-        } catch (Exception e) {
-            log.error("Failed to get audit statistics", e);
-            return Result.failure("Failed to get statistics: " + e.getMessage());
+    public SecurityAuditStatsDto getStatistics(OffsetDateTime after, OffsetDateTime before) {
+        // Default time range if not provided (last 7 days)
+        if (after == null) {
+            after = OffsetDateTime.now(ZoneOffset.UTC).minusDays(7);
         }
+
+        // Use time-filtered database aggregations (efficient - no memory loading)
+        List<Object[]> eventTypeCounts = auditLogRepository.countByEventTypeAfter(after);
+        Map<String, Long> eventTypeMap = eventTypeCounts.stream()
+            .collect(Collectors.toMap(
+                row -> ((AuditEventType) row[0]).name(),
+                row -> (Long) row[1]
+            ));
+
+        List<Object[]> severityCounts = auditLogRepository.countBySeverityAfter(after);
+        Map<String, Long> severityMap = severityCounts.stream()
+            .collect(Collectors.toMap(
+                row -> ((AuditSeverity) row[0]).name(),
+                row -> (Long) row[1]
+            ));
+
+        // Single count query instead of loading all events
+        long totalEvents = auditLogRepository.countEventsAfter(after);
+
+        // Calculate specific counts from maps (no additional DB calls)
+        long criticalEvents = severityMap.getOrDefault("CRITICAL", 0L);
+        long warningEvents = severityMap.getOrDefault("WARNING", 0L);
+        long infoEvents = severityMap.getOrDefault("INFO", 0L);
+
+        long failedLoginAttempts = eventTypeMap.getOrDefault("LOGIN_FAILURE", 0L);
+        long unauthorizedAccessAttempts = eventTypeMap.getOrDefault("UNAUTHORIZED_ACCESS", 0L);
+        long suspiciousActivities = eventTypeMap.getOrDefault("SUSPICIOUS_ACTIVITY", 0L)
+            + eventTypeMap.getOrDefault("BRUTE_FORCE_DETECTED", 0L);
+
+        // Database aggregation for top principals (efficient - LIMIT 10 in query)
+        List<Object[]> topPrincipalsList = auditLogRepository.findTopPrincipalsSince(after);
+        Map<String, Long> topPrincipals = topPrincipalsList.stream()
+            .collect(Collectors.toMap(
+                row -> (String) row[0],
+                row -> (Long) row[1],
+                (e1, e2) -> e1,
+                LinkedHashMap::new
+            ));
+
+        String period = determinePeriodDescription(after, before);
+
+        return SecurityAuditStatsDto.builder()
+            .totalEvents(totalEvents)
+            .eventTypeCounts(eventTypeMap)
+            .severityCounts(severityMap)
+            .criticalEvents(criticalEvents)
+            .warningEvents(warningEvents)
+            .infoEvents(infoEvents)
+            .failedLoginAttempts(failedLoginAttempts)
+            .unauthorizedAccessAttempts(unauthorizedAccessAttempts)
+            .suspiciousActivities(suspiciousActivities)
+            .topPrincipals(topPrincipals)
+            .period(period)
+            .build();
     }
 
     /**

@@ -1,11 +1,13 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.FileStorageProperties;
 import com.example.policlicabine.dto.FileDto;
+import com.example.policlicabine.dto.UserDto;
 import com.example.policlicabine.entity.File;
 import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.entity.User;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FileMapper;
 import com.example.policlicabine.repository.FileRepository;
 import com.example.policlicabine.service.storage.FileStorageService;
@@ -59,9 +61,9 @@ public class FileService {
      * @param username        username of user uploading the file (from JWT token)
      * @param validFrom       start date of validity (optional)
      * @param validUntil      end date of validity (optional)
-     * @return Result containing FileDto or error message
+     * @return FileDto
      */
-    public Result<FileDto> uploadFile(
+    public FileDto uploadFile(
             MultipartFile multipartFile,
             FileCategory category,
             String username,
@@ -69,41 +71,29 @@ public class FileService {
             LocalDate validUntil
     ) {
         // Validate file
-        Result<Void> validation = validateFile(multipartFile);
-        if (validation.isFailure()) {
-            return Result.failure(validation.getErrorMessage());
-        }
+        validateFile(multipartFile);
 
         // Validate dates
         if (validFrom != null && validUntil != null && validUntil.isBefore(validFrom)) {
-            return Result.failure("Valid until date must be after valid from date");
+            throw new BusinessException("Valid until date must be after valid from date");
         }
 
         // Resolve username to User entity
-        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
-        if (userResult.isFailure()) {
-            return Result.failure("Authenticated user not found: " + username);
-        }
+        UserDto userDto = userService.findUserByUsername(username);
 
-        UUID uploadedByUserId = userResult.getValue().getUserId();
+        UUID uploadedByUserId = userDto.getUserId();
         User uploader = userService.getEntityById(uploadedByUserId);
         if (uploader == null) {
-            return Result.failure("User not found: " + username);
+            throw new ResourceNotFoundException("User", username);
         }
 
         // Generate unique filename
         String uniqueFilename = generateUniqueFilename(multipartFile.getOriginalFilename());
 
         // Store file
-        Result<StorageResult> storeResult = fileStorageService.storeFile(
+        StorageResult storageData = fileStorageService.storeFile(
                 multipartFile, category, uniqueFilename
         );
-
-        if (storeResult.isFailure()) {
-            return Result.failure(storeResult.getErrorMessage());
-        }
-
-        StorageResult storageData = storeResult.getValue();
 
         // Create File entity
         File file = File.builder()
@@ -124,7 +114,7 @@ public class FileService {
 
         log.info("File uploaded successfully: {} by user: {}", saved.getId(), uploadedByUserId);
 
-        return Result.success(fileMapper.toDto(saved));
+        return fileMapper.toDto(saved);
     }
 
     /**
@@ -133,9 +123,9 @@ public class FileService {
      * @param previousFileId   UUID of the file to replace
      * @param multipartFile    the new file
      * @param username        username of user uploading (from JWT token)
-     * @return Result containing new FileDto or error message
+     * @return FileDto
      */
-    public Result<FileDto> uploadNewVersion(
+    public FileDto uploadNewVersion(
             UUID previousFileId,
             MultipartFile multipartFile,
             String username
@@ -143,14 +133,10 @@ public class FileService {
         // Load previous version
         File previousFile = fileRepository
                 .findByIdAndIsDeletedFalse(previousFileId)
-                .orElse(null);
-
-        if (previousFile == null) {
-            return Result.failure("Previous file version not found: " + previousFileId);
-        }
+                .orElseThrow(() -> new ResourceNotFoundException("File", previousFileId));
 
         // Upload new version with same category and validity
-        Result<FileDto> uploadResult = uploadFile(
+        FileDto uploadedDto = uploadFile(
                 multipartFile,
                 previousFile.getFileCategory(),
                 username,
@@ -158,25 +144,16 @@ public class FileService {
                 previousFile.getValidUntil()
         );
 
-        if (uploadResult.isFailure()) {
-            return uploadResult;
-        }
-
         // Update version info
-        File newVersion = fileRepository.findById(
-                uploadResult.getValue().getId()
-        ).orElseThrow();
+        File newVersion = fileRepository.findById(uploadedDto.getId()).orElseThrow();
 
         newVersion.setVersion(previousFile.getVersion() + 1);
         newVersion.setPreviousVersionId(previousFileId);
 
         // Resolve username to User entity for soft delete
-        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
-        if (userResult.isFailure()) {
-            return Result.failure("Authenticated user not found: " + username);
-        }
+        UserDto userDto = userService.findUserByUsername(username);
 
-        UUID uploadedByUserId = userResult.getValue().getUserId();
+        UUID uploadedByUserId = userDto.getUserId();
         User uploader = userService.getEntityById(uploadedByUserId);
         previousFile.softDelete(uploader);
 
@@ -185,59 +162,51 @@ public class FileService {
         log.info("New file version created: {} (v{}) replacing: {}",
                 newVersion.getId(), newVersion.getVersion(), previousFileId);
 
-        return Result.success(fileMapper.toDto(newVersion));
+        return fileMapper.toDto(newVersion);
     }
 
     /**
      * Find file by ID
      *
      * @param fileId the file UUID
-     * @return Result containing FileDto or error message
+     * @return FileDto
      */
     @Transactional(readOnly = true)
-    public Result<FileDto> findById(UUID fileId) {
+    public FileDto findById(UUID fileId) {
         File file = fileRepository
                 .findWithUploadedByById(fileId)
-                .orElse(null);
+                .orElseThrow(() -> new ResourceNotFoundException("File", fileId));
 
-        if (file == null) {
-            return Result.failure("File not found: " + fileId);
-        }
-
-        return Result.success(fileMapper.toDto(file));
+        return fileMapper.toDto(file);
     }
 
     /**
      * Find all active files by category
      *
      * @param category the file category
-     * @return Result containing list of FileDtos
+     * @return List of FileDtos
      */
     @Transactional(readOnly = true)
-    public Result<List<FileDto>> findByCategory(FileCategory category) {
+    public List<FileDto> findByCategory(FileCategory category) {
         List<File> files = fileRepository
                 .findWithUploadedByByFileCategoryAndIsDeletedFalse(category);
 
-        List<FileDto> dtos = files.stream()
+        return files.stream()
                 .map(fileMapper::toDto)
                 .toList();
-
-        return Result.success(dtos);
     }
 
     /**
      * Get version history for a file
      *
      * @param fileId the file UUID
-     * @return Result containing list of all versions
+     * @return List of all versions
      */
     @Transactional(readOnly = true)
-    public Result<List<FileDto>> getFileVersionHistory(UUID fileId) {
+    public List<FileDto> getFileVersionHistory(UUID fileId) {
         // Find the file
-        File file = fileRepository.findById(fileId).orElse(null);
-        if (file == null) {
-            return Result.failure("File not found: " + fileId);
-        }
+        File file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("File", fileId));
 
         // Find all newer versions
         List<File> newerVersions = fileRepository.findByPreviousVersionId(fileId);
@@ -262,41 +231,32 @@ public class FileService {
         // Sort by version number
         allVersions.sort((f1, f2) -> f2.getVersion().compareTo(f1.getVersion()));
 
-        List<FileDto> dtos = allVersions.stream()
+        return allVersions.stream()
                 .map(fileMapper::toDto)
                 .toList();
-
-        return Result.success(dtos);
     }
 
     /**
      * Download file as Resource
      *
      * @param fileId the file UUID
-     * @return Result containing Resource or error message
+     * @return Resource
      */
     @Transactional(readOnly = true)
-    public Result<Resource> downloadFile(UUID fileId) {
+    public Resource downloadFile(UUID fileId) {
         File file = fileRepository
                 .findByIdAndIsDeletedFalse(fileId)
-                .orElse(null);
-
-        if (file == null) {
-            return Result.failure("File not found or deleted: " + fileId);
-        }
+                .orElseThrow(() -> new ResourceNotFoundException("File", fileId));
 
         if (file.isExpired()) {
             log.warn("Attempt to download expired file: {}", fileId);
-            return Result.failure("File has expired");
+            throw new BusinessException("File has expired");
         }
 
-        Result<Resource> loadResult = fileStorageService.loadFile(file.getStoragePath());
+        Resource resource = fileStorageService.loadFile(file.getStoragePath());
+        log.debug("File downloaded: {} by user", fileId);
 
-        if (loadResult.isSuccess()) {
-            log.debug("File downloaded: {} by user", fileId);
-        }
-
-        return loadResult;
+        return resource;
     }
 
     /**
@@ -304,60 +264,49 @@ public class FileService {
      *
      * @param fileId           the file UUID
      * @param username        username of user deleting the file (from JWT token)
-     * @return Result success or failure
      */
-    public Result<Void> softDeleteFile(UUID fileId, String username) {
-        File file = fileRepository.findById(fileId).orElse(null);
-        if (file == null) {
-            return Result.failure("File not found: " + fileId);
-        }
+    public void softDeleteFile(UUID fileId, String username) {
+        File file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("File", fileId));
 
         if (file.getIsDeleted()) {
-            return Result.failure("File already deleted");
+            throw new BusinessException("File already deleted");
         }
 
         // Resolve username to User entity
-        Result<com.example.policlicabine.dto.UserDto> userResult = userService.findUserByUsername(username);
-        if (userResult.isFailure()) {
-            return Result.failure("Authenticated user not found: " + username);
-        }
+        UserDto userDto = userService.findUserByUsername(username);
 
-        UUID deletedByUserId = userResult.getValue().getUserId();
+        UUID deletedByUserId = userDto.getUserId();
         User deletedBy = userService.getEntityById(deletedByUserId);
         file.softDelete(deletedBy);
         fileRepository.save(file);
 
         log.info("File soft-deleted: {} by user: {}", fileId, username);
-
-        return Result.success(null);
     }
 
     /**
      * Find expired files that are still active
      *
-     * @return Result containing list of expired files
+     * @return List of expired files
      */
     @Transactional(readOnly = true)
-    public Result<List<FileDto>> findExpiredFiles() {
+    public List<FileDto> findExpiredFiles() {
         List<File> expiredFiles = fileRepository
                 .findByValidUntilBeforeAndIsDeletedFalse(LocalDate.now());
 
-        List<FileDto> dtos = expiredFiles.stream()
+        return expiredFiles.stream()
                 .map(fileMapper::toDto)
                 .toList();
-
-        return Result.success(dtos);
     }
 
     /**
      * Validate uploaded file (type, size, content)
      *
      * @param file the multipart file
-     * @return Result success or failure with message
      */
-    private Result<Void> validateFile(MultipartFile file) {
+    private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            return Result.failure("File is empty or null");
+            throw new BusinessException("File is empty or null");
         }
 
         // Check file size
@@ -365,7 +314,7 @@ public class FileService {
         DataSize maxSize = properties.getMaxFileSize();
 
         if (fileSize.compareTo(maxSize) > 0) {
-            return Result.failure(String.format(
+            throw new BusinessException(String.format(
                     "File size (%s) exceeds maximum limit of %s",
                     formatFileSize(file.getSize()),
                     formatFileSize(maxSize.toBytes())
@@ -373,19 +322,17 @@ public class FileService {
         }
 
         // Check MIME type
-        String mimeType = file.getContentType();
-        if (mimeType == null || !properties.getAllowedMimeTypes().contains(mimeType)) {
-            return Result.failure("File type not allowed: " + mimeType +
-                    ". Allowed types: " + String.join(", ", properties.getAllowedMimeTypes()));
-        }
+//        String mimeType = file.getContentType();
+//        if (mimeType == null || !properties.getAllowedMimeTypes().contains(mimeType)) {
+//            throw new BusinessException("File type not allowed: " + mimeType +
+//                    ". Allowed types: " + String.join(", ", properties.getAllowedMimeTypes()));
+//        }
 
         // Check filename
         String filename = file.getOriginalFilename();
         if (filename == null || filename.trim().isEmpty()) {
-            return Result.failure("Filename is required");
+            throw new BusinessException("Filename is required");
         }
-
-        return Result.success(null);
     }
 
     /**

@@ -60,7 +60,8 @@ public class FileStorageProperties {
     List<String> allowedMimeTypes = List.of(
             "image/png",
             "image/jpeg",
-            "image/jpg"
+            "image/jpg",
+            "application/pdf"
     );
 
     /**

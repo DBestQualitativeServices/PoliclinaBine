@@ -1,9 +1,9 @@
 package com.example.policlicabine.service.storage;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.config.properties.FileStorageProperties;
 import com.example.policlicabine.entity.enums.FileCategory;
 import com.example.policlicabine.exception.FileStorageException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -86,7 +86,7 @@ public class LocalFileStorageService implements FileStorageService {
             backoff = @Backoff(delay = 1000, multiplier = 2),
             retryFor = {IOException.class}
     )
-    public Result<StorageResult> storeFile(
+    public StorageResult storeFile(
             MultipartFile file,
             FileCategory category,
             String uniqueFilename
@@ -121,18 +121,16 @@ public class LocalFileStorageService implements FileStorageService {
             String relativePath = category.name().toLowerCase() + "/" + uniqueFilename;
 
             // Return result
-            StorageResult result = StorageResult.builder()
+            return StorageResult.builder()
                     .storagePath(relativePath)
                     .storedFilename(uniqueFilename)
                     .fileSize(file.getSize())
                     .checksum(checksum)
                     .build();
 
-            return Result.success(result);
-
         } catch (IOException e) {
             log.error("Failed to store file: {} in category: {}", uniqueFilename, category, e);
-            return Result.failure("Failed to store file: " + e.getMessage());
+            throw new FileStorageException("Failed to store file: " + e.getMessage(), e);
         }
     }
 
@@ -140,40 +138,40 @@ public class LocalFileStorageService implements FileStorageService {
      * Fallback method when all retry attempts fail
      */
     @Recover
-    public Result<StorageResult> recoverStoreFile(
+    public StorageResult recoverStoreFile(
             IOException e,
             MultipartFile file,
             FileCategory category,
             String uniqueFilename
     ) {
         log.error("Failed to store file after {} retries: {}", 3, uniqueFilename, e);
-        return Result.failure("Failed to store file after multiple attempts: " + e.getMessage());
+        throw new FileStorageException("Failed to store file after multiple attempts: " + e.getMessage(), e);
     }
 
     @Override
-    public Result<Resource> loadFile(String storagePath) {
+    public Resource loadFile(String storagePath) {
         try {
             Path filePath = Paths.get(properties.getUploadDir()).resolve(storagePath).normalize();
 
             // Security check: prevent path traversal attacks
             if (!filePath.startsWith(Paths.get(properties.getUploadDir()))) {
                 log.warn("Path traversal attempt detected: {}", storagePath);
-                return Result.failure("Invalid file path");
+                throw new FileStorageException("Invalid file path");
             }
 
             Resource resource = new UrlResource(filePath.toUri());
 
             if (resource.exists() && resource.isReadable()) {
                 log.debug("Loaded file: {}", storagePath);
-                return Result.success(resource);
+                return resource;
             } else {
                 log.warn("File not found or not readable: {}", storagePath);
-                return Result.failure("File not found: " + storagePath);
+                throw new ResourceNotFoundException("File", storagePath);
             }
 
         } catch (MalformedURLException e) {
             log.error("Invalid file path: {}", storagePath, e);
-            return Result.failure("Invalid file path: " + storagePath);
+            throw new FileStorageException("Invalid file path: " + storagePath, e);
         }
     }
 
@@ -183,14 +181,14 @@ public class LocalFileStorageService implements FileStorageService {
             backoff = @Backoff(delay = 500),
             retryFor = {IOException.class}
     )
-    public Result<Void> deleteFile(String storagePath) {
+    public void deleteFile(String storagePath) {
         try {
             Path filePath = Paths.get(properties.getUploadDir()).resolve(storagePath).normalize();
 
             // Security check: prevent path traversal
             if (!filePath.startsWith(Paths.get(properties.getUploadDir()))) {
                 log.warn("Path traversal attempt in delete: {}", storagePath);
-                return Result.failure("Invalid file path");
+                throw new FileStorageException("Invalid file path");
             }
 
             boolean deleted = Files.deleteIfExists(filePath);
@@ -200,11 +198,9 @@ public class LocalFileStorageService implements FileStorageService {
                 log.debug("File already deleted: {}", storagePath);
             }
 
-            return Result.success(null);
-
         } catch (IOException e) {
             log.error("Failed to delete file: {}", storagePath, e);
-            return Result.failure("Failed to delete file: " + e.getMessage());
+            throw new FileStorageException("Failed to delete file: " + e.getMessage(), e);
         }
     }
 

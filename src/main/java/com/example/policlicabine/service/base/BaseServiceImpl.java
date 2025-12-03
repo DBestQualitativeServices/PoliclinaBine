@@ -1,6 +1,7 @@
 package com.example.policlicabine.service.base;
 
-import com.example.policlicabine.common.Result;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,9 +14,8 @@ import java.util.List;
  *
  * This class implements the generic patterns used across all services:
  * - Standard findById, validateExists, getEntityById methods
- * - Consistent error handling with try-catch and logging
+ * - Consistent error handling with exceptions
  * - Transaction management (readOnly for queries)
- * - Result pattern for error propagation
  *
  * Type Parameters:
  * @param <E> Entity type
@@ -53,7 +53,7 @@ import java.util.List;
  *     }
  *
  *     // Business-specific methods
- *     public Result<PatientDto> registerNewPatient(...) { ... }
+ *     public PatientDto registerNewPatient(...) { ... }
  * }
  * }
  * </pre>
@@ -75,7 +75,7 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      */
     protected final Object mapper;
 
-    // ============= PUBLIC API METHODS (Return Result<DTO>) =============
+    // ============= PUBLIC API METHODS (Return DTO, throw exceptions) =============
 
     /**
      * {@inheritDoc}
@@ -84,27 +84,19 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      * 1. Validates ID is not null
      * 2. Queries repository
      * 3. Converts to DTO
-     * 4. Returns Result with proper error handling
+     * 4. Throws ResourceNotFoundException if not found
      */
     @Override
     @Transactional(readOnly = true)
-    public Result<D> findById(ID id) {
-        try {
-            if (id == null) {
-                return Result.failure(getEntityName() + " ID is required");
-            }
-
-            E entity = repository.findById(id).orElse(null);
-            if (entity == null) {
-                return Result.failure(getEntityName() + " not found");
-            }
-
-            return Result.success(toDto(entity));
-
-        } catch (Exception e) {
-            log.error("Error finding {} by ID", getEntityName(), e);
-            return Result.failure("Failed to find " + getEntityName() + ": " + e.getMessage());
+    public D findById(ID id) {
+        if (id == null) {
+            throw new BusinessException(getEntityName() + " ID is required");
         }
+
+        E entity = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(getEntityName(), id));
+
+        return toDto(entity);
     }
 
     /**
@@ -113,26 +105,18 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      * Implementation:
      * 1. Queries all entities from repository
      * 2. Converts each to DTO
-     * 3. Returns Result with list
+     * 3. Returns list
      *
      * Note: Use with caution for large datasets.
      */
     @Override
     @Transactional(readOnly = true)
-    public Result<List<D>> findAll() {
-        try {
-            List<E> entities = repository.findAll();
+    public List<D> findAll() {
+        List<E> entities = repository.findAll();
 
-            List<D> dtos = entities.stream()
+        return entities.stream()
                 .map(this::toDto)
                 .toList();
-
-            return Result.success(dtos);
-
-        } catch (Exception e) {
-            log.error("Error getting all {}", getEntityName() + "s", e);
-            return Result.failure("Failed to get " + getEntityName() + "s: " + e.getMessage());
-        }
     }
 
     // ============= INTERNAL METHODS FOR SERVICE-TO-SERVICE COMMUNICATION =============
@@ -142,17 +126,17 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      *
      * Implementation:
      * Uses repository.existsById() for efficient validation without loading entity.
+     * Throws ResourceNotFoundException if not found.
      */
     @Override
     @Transactional(readOnly = true)
-    public Result<Void> validateExists(ID id) {
+    public void validateExists(ID id) {
         if (id == null) {
-            return Result.failure(getEntityName() + " ID is required");
+            throw new BusinessException(getEntityName() + " ID is required");
         }
         if (!repository.existsById(id)) {
-            return Result.failure(getEntityName() + " not found");
+            throw new ResourceNotFoundException(getEntityName(), id);
         }
-        return Result.success(null);
     }
 
     /**
@@ -214,33 +198,25 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      */
     @Override
     @Transactional
-    public Result<D> update(ID id, D dto) {
-        try {
-            if (id == null) {
-                return Result.failure(getEntityName() + " ID is required");
-            }
-            if (dto == null) {
-                return Result.failure(getEntityName() + " data is required");
-            }
-
-            E entity = repository.findById(id).orElse(null);
-            if (entity == null) {
-                return Result.failure(getEntityName() + " not found");
-            }
-
-            // Apply DTO changes to entity (subclass implements the mapping logic)
-            updateEntityFromDto(entity, dto);
-
-            E savedEntity = repository.save(entity);
-
-            log.info("{} updated: {}", getEntityName(), id);
-
-            return Result.success(toDto(savedEntity));
-
-        } catch (Exception e) {
-            log.error("Error updating {}", getEntityName(), e);
-            return Result.failure("Failed to update " + getEntityName() + ": " + e.getMessage());
+    public D update(ID id, D dto) {
+        if (id == null) {
+            throw new BusinessException(getEntityName() + " ID is required");
         }
+        if (dto == null) {
+            throw new BusinessException(getEntityName() + " data is required");
+        }
+
+        E entity = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(getEntityName(), id));
+
+        // Apply DTO changes to entity (subclass implements the mapping logic)
+        updateEntityFromDto(entity, dto);
+
+        E savedEntity = repository.save(entity);
+
+        log.info("{} updated: {}", getEntityName(), id);
+
+        return toDto(savedEntity);
     }
 
     /**
@@ -252,26 +228,18 @@ public abstract class BaseServiceImpl<E, D, ID> implements BaseService<E, D, ID>
      */
     @Override
     @Transactional
-    public Result<Void> deleteById(ID id) {
-        try {
-            if (id == null) {
-                return Result.failure(getEntityName() + " ID is required");
-            }
-
-            if (!repository.existsById(id)) {
-                return Result.failure(getEntityName() + " not found");
-            }
-
-            repository.deleteById(id);
-
-            log.info("{} deleted: {}", getEntityName(), id);
-
-            return Result.success(null);
-
-        } catch (Exception e) {
-            log.error("Error deleting {}", getEntityName(), e);
-            return Result.failure("Failed to delete " + getEntityName() + ": " + e.getMessage());
+    public void deleteById(ID id) {
+        if (id == null) {
+            throw new BusinessException(getEntityName() + " ID is required");
         }
+
+        if (!repository.existsById(id)) {
+            throw new ResourceNotFoundException(getEntityName(), id);
+        }
+
+        repository.deleteById(id);
+
+        log.info("{} deleted: {}", getEntityName(), id);
     }
 
     // ============= ABSTRACT METHODS TO BE IMPLEMENTED BY SUBCLASSES =============

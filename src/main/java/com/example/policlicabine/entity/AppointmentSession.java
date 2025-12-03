@@ -62,10 +62,6 @@ public class AppointmentSession {
     @BatchSize(size = 10)
     private List<Diagnosis> diagnoses;
 
-    @OneToMany(mappedBy = "appointmentSession", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @BatchSize(size = 20)
-    private List<FormSubmission> formSubmissions;
-
     @Column(columnDefinition = "TEXT")
     private String freeTextDiagnosis;
 
@@ -104,28 +100,12 @@ public class AppointmentSession {
         }
     }
 
-    public boolean requiresSurgeryRoom() {
-        return consultationTypes != null && consultationTypes.stream()
-            .anyMatch(ConsultationType::getRequiresSurgeryRoom);
-    }
-
     public boolean isCompleted() {
         return status == SessionStatus.COMPLETED;
     }
 
     public boolean isCancelled() {
         return status == SessionStatus.CANCELLED || status == SessionStatus.NO_SHOW;
-    }
-
-    public boolean hasBeenRescheduled() {
-        return rescheduleCount > 0;
-    }
-
-    public boolean hasMedicalData() {
-        return (diagnoses != null && !diagnoses.isEmpty()) ||
-               freeTextDiagnosis != null ||
-               treatmentInstructions != null ||
-               freeTextObservations != null;
     }
 
     public BigDecimal getSubtotalAmount() {
@@ -135,6 +115,20 @@ public class AppointmentSession {
         return consultationTypes.stream()
             .map(consultationType -> consultationType.getPrice() != null ? consultationType.getPrice() : BigDecimal.ZERO)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Returns list of consultation type names for this session.
+     * Used to avoid duplicate code in services.
+     * @return List of consultation type names
+     */
+    public List<String> getConsultationNames() {
+        if (consultationTypes == null || consultationTypes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return consultationTypes.stream()
+            .map(ConsultationType::getName)
+            .collect(Collectors.toList());
     }
 
     @Override

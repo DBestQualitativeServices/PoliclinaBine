@@ -1,6 +1,6 @@
 package com.example.policlicabine.service.base;
 
-import com.example.policlicabine.common.Result;
+import com.example.policlicabine.exception.BusinessException;
 
 /**
  * Utility class providing common validation and helper methods for services.
@@ -14,13 +14,8 @@ import com.example.policlicabine.common.Result;
  * Usage:
  * <pre>
  * {@code
- * // In any service
- * Result<Void> validation = ServiceHelper.validateRequiredString(
- *     firstName, "First name"
- * );
- * if (validation.isFailure()) {
- *     return Result.failure(validation.getErrorMessage());
- * }
+ * // In any service - throws BusinessException if invalid
+ * ServiceHelper.validateRequiredString(firstName, "First name");
  * }
  * </pre>
  */
@@ -34,16 +29,16 @@ public final class ServiceHelper {
 
     /**
      * Validates that a string is not null or empty (after trimming).
+     * Throws BusinessException if invalid.
      *
      * @param value String to validate
      * @param fieldName Field name for error message
-     * @return Result.success if valid, Result.failure with message otherwise
+     * @throws BusinessException if value is null or empty
      */
-    public static Result<Void> validateRequiredString(String value, String fieldName) {
+    public static void validateRequiredString(String value, String fieldName) {
         if (value == null || value.trim().isEmpty()) {
-            return Result.failure(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
-        return Result.success(null);
     }
 
     /**
@@ -63,16 +58,16 @@ public final class ServiceHelper {
 
     /**
      * Validates and trims a required string.
-     * Throws IllegalArgumentException if null or empty.
+     * Throws BusinessException if null or empty.
      *
      * @param value String to validate and trim
      * @param fieldName Field name for error message
      * @return Trimmed string (never null)
-     * @throws IllegalArgumentException if value is null or empty
+     * @throws BusinessException if value is null or empty
      */
     public static String requireTrimmed(String value, String fieldName) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
         return value.trim();
     }
@@ -81,32 +76,32 @@ public final class ServiceHelper {
 
     /**
      * Validates that an object is not null.
+     * Throws BusinessException if null.
      *
      * @param value Object to validate
      * @param fieldName Field name for error message
      * @param <T> Type of the object
-     * @return Result.success if not null, Result.failure with message otherwise
+     * @throws BusinessException if value is null
      */
-    public static <T> Result<Void> validateRequired(T value, String fieldName) {
+    public static <T> void validateRequired(T value, String fieldName) {
         if (value == null) {
-            return Result.failure(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
-        return Result.success(null);
     }
 
     /**
      * Validates that an object is not null.
-     * Throws IllegalArgumentException if null.
+     * Throws BusinessException if null.
      *
      * @param value Object to validate
      * @param fieldName Field name for error message
      * @param <T> Type of the object
      * @return The validated object (never null)
-     * @throws IllegalArgumentException if value is null
+     * @throws BusinessException if value is null
      */
     public static <T> T requireNonNull(T value, String fieldName) {
         if (value == null) {
-            throw new IllegalArgumentException(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
         return value;
     }
@@ -115,36 +110,36 @@ public final class ServiceHelper {
 
     /**
      * Validates that a numeric value is positive (greater than zero).
+     * Throws BusinessException if invalid.
      *
      * @param value Value to validate
      * @param fieldName Field name for error message
-     * @return Result.success if positive, Result.failure with message otherwise
+     * @throws BusinessException if value is null or not positive
      */
-    public static Result<Void> validatePositive(Number value, String fieldName) {
+    public static void validatePositive(Number value, String fieldName) {
         if (value == null) {
-            return Result.failure(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
         if (value.doubleValue() <= 0) {
-            return Result.failure(fieldName + " must be positive");
+            throw new BusinessException(fieldName + " must be positive");
         }
-        return Result.success(null);
     }
 
     /**
      * Validates that a numeric value is non-negative (zero or greater).
+     * Throws BusinessException if invalid.
      *
      * @param value Value to validate
      * @param fieldName Field name for error message
-     * @return Result.success if non-negative, Result.failure with message otherwise
+     * @throws BusinessException if value is null or negative
      */
-    public static Result<Void> validateNonNegative(Number value, String fieldName) {
+    public static void validateNonNegative(Number value, String fieldName) {
         if (value == null) {
-            return Result.failure(fieldName + " is required");
+            throw new BusinessException(fieldName + " is required");
         }
         if (value.doubleValue() < 0) {
-            return Result.failure(fieldName + " cannot be negative");
+            throw new BusinessException(fieldName + " cannot be negative");
         }
-        return Result.success(null);
     }
 
     // ============= ERROR MESSAGE FORMATTING =============

@@ -1,9 +1,9 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.PatientDto;
 import com.example.policlicabine.entity.AppointmentSession;
 import com.example.policlicabine.entity.enums.SessionStatus;
+import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.mapper.PatientMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,36 +51,30 @@ public class MedicalFileAccessService {
      *
      * @param doctorId Doctor identifier
      * @param patientId Patient identifier
-     * @return Result containing Boolean access flag or error message
+     * @return Boolean access flag
      */
-    public Result<Boolean> canDoctorAccessMedicalData(UUID doctorId, UUID patientId) {
-        try {
-            if (doctorId == null) {
-                return Result.failure("Doctor ID is required");
-            }
-            if (patientId == null) {
-                return Result.failure("Patient ID is required");
-            }
-
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
-
-            // Check for future appointments (not cancelled) via AppointmentSessionService
-            boolean hasAccess = appointmentSessionService.hasAppointmentsInRange(
-                doctorId, patientId, now, futureLimit, SessionStatus.CANCELLED);
-
-            if (hasAccess) {
-                log.debug("Doctor {} has access to patient {} medical records", doctorId, patientId);
-            } else {
-                log.debug("Doctor {} does NOT have access to patient {} medical records", doctorId, patientId);
-            }
-
-            return Result.success(hasAccess);
-
-        } catch (Exception e) {
-            log.error("Error checking doctor access", e);
-            return Result.failure("Failed to check access: " + e.getMessage());
+    public boolean canDoctorAccessMedicalData(UUID doctorId, UUID patientId) {
+        if (doctorId == null) {
+            throw new BusinessException("Doctor ID is required");
         }
+        if (patientId == null) {
+            throw new BusinessException("Patient ID is required");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
+
+        // Check for future appointments (not cancelled) via AppointmentSessionService
+        boolean hasAccess = appointmentSessionService.hasAppointmentsInRange(
+            doctorId, patientId, now, futureLimit, SessionStatus.CANCELLED);
+
+        if (hasAccess) {
+            log.debug("Doctor {} has access to patient {} medical records", doctorId, patientId);
+        } else {
+            log.debug("Doctor {} does NOT have access to patient {} medical records", doctorId, patientId);
+        }
+
+        return hasAccess;
     }
 
     /**
@@ -91,36 +85,30 @@ public class MedicalFileAccessService {
      * - Uses AppointmentSessionService to get appointments with patients loaded (EntityGraph)
      *
      * @param doctorId Doctor identifier
-     * @return Result containing list of PatientDto or error message
+     * @return List of PatientDto
      */
-    public Result<List<PatientDto>> getPatientsAccessibleToDoctor(UUID doctorId) {
-        try {
-            if (doctorId == null) {
-                return Result.failure("Doctor ID is required");
-            }
-
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
-
-            // Get all future appointments (not cancelled) with patients loaded via AppointmentSessionService
-            List<AppointmentSession> futureAppointments = appointmentSessionService
-                .getAppointmentsInRangeWithPatient(doctorId, now, futureLimit, SessionStatus.CANCELLED);
-
-            // Extract unique patients
-            List<PatientDto> patients = futureAppointments.stream()
-                .map(AppointmentSession::getPatient)
-                .distinct()
-                .map(patientMapper::toDto)
-                .collect(Collectors.toList());
-
-            log.info("Doctor {} has access to {} patients", doctorId, patients.size());
-
-            return Result.success(patients);
-
-        } catch (Exception e) {
-            log.error("Error getting accessible patients", e);
-            return Result.failure("Failed to get accessible patients: " + e.getMessage());
+    public List<PatientDto> getPatientsAccessibleToDoctor(UUID doctorId) {
+        if (doctorId == null) {
+            throw new BusinessException("Doctor ID is required");
         }
+
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime futureLimit = now.plusDays(ACCESS_WINDOW_DAYS);
+
+        // Get all future appointments (not cancelled) with patients loaded via AppointmentSessionService
+        List<AppointmentSession> futureAppointments = appointmentSessionService
+            .getAppointmentsInRangeWithPatient(doctorId, now, futureLimit, SessionStatus.CANCELLED);
+
+        // Extract unique patients
+        List<PatientDto> patients = futureAppointments.stream()
+            .map(AppointmentSession::getPatient)
+            .distinct()
+            .map(patientMapper::toDto)
+            .collect(Collectors.toList());
+
+        log.info("Doctor {} has access to {} patients", doctorId, patients.size());
+
+        return patients;
     }
 
     /**
@@ -132,29 +120,21 @@ public class MedicalFileAccessService {
      *
      * @param doctorId Doctor identifier
      * @param patientId Patient identifier
-     * @return Result containing Boolean flag or error message
+     * @return Boolean flag
      */
-    public Result<Boolean> hasUpcomingAppointments(UUID doctorId, UUID patientId) {
-        try {
-            if (doctorId == null) {
-                return Result.failure("Doctor ID is required");
-            }
-            if (patientId == null) {
-                return Result.failure("Patient ID is required");
-            }
-
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            OffsetDateTime futureLimit = now.plusYears(1); // Check full year
-
-            // Check via AppointmentSessionService
-            boolean hasAppointments = appointmentSessionService.hasAppointmentsInRange(
-                doctorId, patientId, now, futureLimit, SessionStatus.CANCELLED);
-
-            return Result.success(hasAppointments);
-
-        } catch (Exception e) {
-            log.error("Error checking upcoming appointments", e);
-            return Result.failure("Failed to check appointments: " + e.getMessage());
+    public boolean hasUpcomingAppointments(UUID doctorId, UUID patientId) {
+        if (doctorId == null) {
+            throw new BusinessException("Doctor ID is required");
         }
+        if (patientId == null) {
+            throw new BusinessException("Patient ID is required");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime futureLimit = now.plusYears(1); // Check full year
+
+        // Check via AppointmentSessionService
+        return appointmentSessionService.hasAppointmentsInRange(
+            doctorId, patientId, now, futureLimit, SessionStatus.CANCELLED);
     }
 }

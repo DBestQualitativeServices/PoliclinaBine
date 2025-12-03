@@ -1,10 +1,10 @@
 package com.example.policlicabine.service;
 
-import com.example.policlicabine.common.Result;
 import com.example.policlicabine.dto.FormSubmissionDto;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.FormPurpose;
-import com.example.policlicabine.entity.enums.SubmissionStatus;
+import com.example.policlicabine.exception.BusinessException;
+import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FormSubmissionMapper;
 import com.example.policlicabine.model.FormField;
 import com.example.policlicabine.model.FormSection;
@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -99,13 +100,12 @@ class FormSubmissionServiceTest {
     void shouldSubmitFormSuccessfully() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any())).thenReturn(List.of());
         when(formSubmissionRepository.save(any(FormSubmission.class))).thenReturn(testSubmission);
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        FormSubmissionDto result = formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
@@ -115,9 +115,7 @@ class FormSubmissionServiceTest {
         );
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isNotNull();
-        assertThat(result.getValue().getStatus()).isEqualTo(SubmissionStatus.PENDING_SIGNATURE);
+        assertThat(result).isNotNull();
         verify(formSubmissionRepository).save(any(FormSubmission.class));
     }
 
@@ -126,18 +124,15 @@ class FormSubmissionServiceTest {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(null);
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
+        ));
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -147,19 +142,16 @@ class FormSubmissionServiceTest {
         testTemplate.setActive(false);
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not active");
+        ));
+        assertThat(exception.getMessage()).contains("not active");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -167,22 +159,18 @@ class FormSubmissionServiceTest {
     void shouldFailWhenPatientNotFound() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId))
-            .thenReturn(Result.failure("Patient not found"));
+        when(patientService.existsById(testPatientId)).thenReturn(false);
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("Patient not found");
+        ));
+        assertThat(exception.getMessage()).contains("Patient not found");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -192,23 +180,19 @@ class FormSubmissionServiceTest {
     void shouldFailWhenRequiredFieldMissing() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any()))
             .thenReturn(List.of("Field 'email' is required"));
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("Field 'email' is required");
+        ));
+        assertThat(exception.getMessage()).contains("Field 'email' is required");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -216,23 +200,19 @@ class FormSubmissionServiceTest {
     void shouldFailWhenInvalidEmailFormat() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any()))
             .thenReturn(List.of("Field 'Email Address' must be a valid email address"));
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).containsAnyOf("valid email", "pattern");
+        ));
+        assertThat(exception.getMessage()).containsAnyOf("valid email", "pattern");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -240,23 +220,19 @@ class FormSubmissionServiceTest {
     void shouldFailWhenNumberOutOfRange() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any()))
             .thenReturn(List.of("Field 'Age' must not exceed 120"));
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).containsAnyOf("at least", "not exceed");
+        ));
+        assertThat(exception.getMessage()).containsAnyOf("at least", "not exceed");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -264,23 +240,19 @@ class FormSubmissionServiceTest {
     void shouldFailWhenStringTooLong() {
         // Arrange
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any()))
             .thenReturn(List.of("Field 'Name' must not exceed 100 characters"));
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () -> formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             testFormData,
             null,
             null,
             testUserId
-        );
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("must not exceed");
+        ));
+        assertThat(exception.getMessage()).contains("must not exceed");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -291,13 +263,12 @@ class FormSubmissionServiceTest {
         dataWithMissingOptional.remove("optionalField");
 
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), eq(dataWithMissingOptional))).thenReturn(List.of());
         when(formSubmissionRepository.save(any(FormSubmission.class))).thenReturn(testSubmission);
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<FormSubmissionDto> result = formSubmissionService.submitForm(
+        FormSubmissionDto result = formSubmissionService.submitForm(
             testTemplateId,
             testPatientId,
             dataWithMissingOptional,
@@ -307,7 +278,7 @@ class FormSubmissionServiceTest {
         );
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(formSubmissionRepository).save(any(FormSubmission.class));
     }
 
@@ -316,7 +287,6 @@ class FormSubmissionServiceTest {
     @Test
     void shouldSignFormSuccessfully() {
         // Arrange
-        testSubmission.setStatus(SubmissionStatus.PENDING_SIGNATURE);
         testSubmission.setPatientSignedAt(null);
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.of(testSubmission));
@@ -324,20 +294,19 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<FormSubmissionDto> result =
+        FormSubmissionDto result =
             formSubmissionService.signForm(testSubmissionId, testUserId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         assertThat(testSubmission.getPatientSignedAt()).isNotNull();
-        assertThat(testSubmission.getStatus()).isEqualTo(SubmissionStatus.SIGNED);
         verify(formSubmissionRepository).save(testSubmission);
     }
 
     @Test
-    void shouldUpdateStatusToSigned() {
+    void shouldRecordSignatureTimestamp() {
         // Arrange
-        testSubmission.setStatus(SubmissionStatus.PENDING_SIGNATURE);
+        testSubmission.setPatientSignedAt(null);
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.of(testSubmission));
         when(formSubmissionRepository.save(testSubmission)).thenReturn(testSubmission);
@@ -347,7 +316,7 @@ class FormSubmissionServiceTest {
         formSubmissionService.signForm(testSubmissionId, testUserId);
 
         // Assert
-        assertThat(testSubmission.getStatus()).isEqualTo(SubmissionStatus.SIGNED);
+        assertThat(testSubmission.getPatientSignedAt()).isNotNull();
     }
 
     @Test
@@ -355,7 +324,7 @@ class FormSubmissionServiceTest {
         // Arrange
         User witness = new User();
         witness.setUserId(testUserId);
-        testSubmission.setStatus(SubmissionStatus.PENDING_SIGNATURE);
+        testSubmission.setPatientSignedAt(null);
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.of(testSubmission));
         lenient().when(entityManager.getReference(eq(User.class), eq(testUserId))).thenReturn(witness);
@@ -372,18 +341,15 @@ class FormSubmissionServiceTest {
     @Test
     void shouldFailWhenAlreadySigned() {
         // Arrange
-        testSubmission.setStatus(SubmissionStatus.SIGNED);
         testSubmission.setPatientSignedAt(LocalDateTime.now());
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.of(testSubmission));
 
-        // Act
-        Result<FormSubmissionDto> result =
-            formSubmissionService.signForm(testSubmissionId, testUserId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("already signed");
+        // Act & Assert
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+            formSubmissionService.signForm(testSubmissionId, testUserId)
+        );
+        assertThat(exception.getMessage()).contains("already signed");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -393,13 +359,11 @@ class FormSubmissionServiceTest {
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.empty());
 
-        // Act
-        Result<FormSubmissionDto> result =
-            formSubmissionService.signForm(testSubmissionId, testUserId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not found");
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+            formSubmissionService.signForm(testSubmissionId, testUserId)
+        );
+        assertThat(exception.getMessage()).contains("not found");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -408,7 +372,6 @@ class FormSubmissionServiceTest {
     @Test
     void shouldReturnTrueWhenValidFormExists() {
         // Arrange
-        testSubmission.setStatus(SubmissionStatus.SIGNED);
         testSubmission.setPatientSignedAt(LocalDateTime.now());
         testSubmission.setExpiresAt(LocalDateTime.now().plusMonths(6));
         when(formSubmissionRepository.findValidFormByPatientAndPurpose(
@@ -418,12 +381,11 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.of(testSubmission));
 
         // Act
-        Result<Boolean> result =
+        boolean result =
             formSubmissionService.hasValidForm(testPatientId, FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isTrue();
+        assertThat(result).isTrue();
     }
 
     @Test
@@ -436,12 +398,11 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.empty());
 
         // Act
-        Result<Boolean> result =
+        boolean result =
             formSubmissionService.hasValidForm(testPatientId, FormPurpose.SURGERY_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isFalse();
+        assertThat(result).isFalse();
     }
 
     @Test
@@ -455,18 +416,16 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.empty());
 
         // Act
-        Result<Boolean> result =
+        boolean result =
             formSubmissionService.hasValidForm(testPatientId, FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isFalse();
+        assertThat(result).isFalse();
     }
 
     @Test
     void shouldReturnFalseWhenFormNotSigned() {
         // Arrange
-        testSubmission.setStatus(SubmissionStatus.PENDING_SIGNATURE);
         testSubmission.setPatientSignedAt(null);
         when(formSubmissionRepository.findValidFormByPatientAndPurpose(
             eq(testPatientId),
@@ -475,12 +434,11 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.empty());
 
         // Act
-        Result<Boolean> result =
+        boolean result =
             formSubmissionService.hasValidForm(testPatientId, FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isFalse();
+        assertThat(result).isFalse();
     }
 
     @Test
@@ -494,12 +452,11 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.empty());
 
         // Act
-        Result<Boolean> result =
+        boolean result =
             formSubmissionService.hasValidForm(testPatientId, FormPurpose.GDPR_CONSENT);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).isFalse();
+        assertThat(result).isFalse();
     }
 
     // ==================== GET FORMS TESTS ====================
@@ -513,13 +470,12 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<List<FormSubmissionDto>> result =
+        List<FormSubmissionDto> result =
             formSubmissionService.getFormsByPatient(testPatientId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
-        assertThat(result.getValue().get(0).getPatientId()).isEqualTo(testPatientId);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPatientId()).isEqualTo(testPatientId);
     }
 
     @Test
@@ -531,12 +487,11 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<List<FormSubmissionDto>> result =
+        List<FormSubmissionDto> result =
             formSubmissionService.getFormsBySession(testSessionId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -547,10 +502,10 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<FormSubmissionDto> result = formSubmissionService.findById(testSubmissionId);
+        FormSubmissionDto result = formSubmissionService.findById(testSubmissionId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(formSubmissionRepository).findWithDetailsById(testSubmissionId);
     }
 
@@ -561,11 +516,10 @@ class FormSubmissionServiceTest {
         when(formSubmissionRepository.findWithDetailsById(testSubmissionId))
             .thenReturn(Optional.of(testSubmission));
 
-        // Act
-        Result<FormSubmissionDto> result = formSubmissionService.findById(testSubmissionId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> 
+            formSubmissionService.findById(testSubmissionId)
+        );
     }
 
     // ==================== FILE ATTACHMENT TESTS ====================
@@ -582,11 +536,11 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<FormSubmissionDto> result =
+        FormSubmissionDto result =
             formSubmissionService.attachFile(testSubmissionId, testFileId);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(formSubmissionRepository).save(testSubmission);
     }
 
@@ -597,12 +551,10 @@ class FormSubmissionServiceTest {
             .thenReturn(Optional.of(testSubmission));
         when(entityManager.getReference(File.class, testFileId)).thenThrow(new RuntimeException("File not found"));
 
-        // Act
-        Result<FormSubmissionDto> result =
-            formSubmissionService.attachFile(testSubmissionId, testFileId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
+        // Act & Assert
+        assertThrows(RuntimeException.class, () ->
+            formSubmissionService.attachFile(testSubmissionId, testFileId)
+        );
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -612,13 +564,11 @@ class FormSubmissionServiceTest {
         when(formSubmissionRepository.findById(testSubmissionId))
             .thenReturn(Optional.empty());
 
-        // Act
-        Result<FormSubmissionDto> result =
-            formSubmissionService.attachFile(testSubmissionId, testFileId);
-
-        // Assert
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.getErrorMessage()).contains("not found");
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+            formSubmissionService.attachFile(testSubmissionId, testFileId)
+        );
+        assertThat(exception.getMessage()).contains("not found");
         verify(formSubmissionRepository, never()).save(any());
     }
 
@@ -655,11 +605,10 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<List<FormSubmissionDto>> result = formSubmissionService.getExpiringSoon(30);
+        List<FormSubmissionDto> result = formSubmissionService.getExpiringSoon(30);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
-        assertThat(result.getValue()).hasSize(1);
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -667,7 +616,6 @@ class FormSubmissionServiceTest {
         // Arrange
         testTemplate.setValidityMonths(12);
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any())).thenReturn(List.of());
         when(formSubmissionRepository.save(any(FormSubmission.class))).thenAnswer(invocation -> {
             FormSubmission submission = invocation.getArgument(0);
@@ -689,7 +637,6 @@ class FormSubmissionServiceTest {
         // Arrange
         testTemplate.setValidityMonths(null);
         when(formTemplateService.getEntityById(testTemplateId)).thenReturn(testTemplate);
-        when(patientService.validateExists(testPatientId)).thenReturn(Result.success(null));
         when(formValidationService.validate(any(), any())).thenReturn(List.of());
         when(formSubmissionRepository.save(any(FormSubmission.class))).thenAnswer(invocation -> {
             FormSubmission submission = invocation.getArgument(0);
@@ -714,10 +661,10 @@ class FormSubmissionServiceTest {
         when(formSubmissionMapper.toDto(testSubmission)).thenReturn(testSubmissionDto);
 
         // Act
-        Result<List<FormSubmissionDto>> result = formSubmissionService.getExpiringSoon(30);
+        List<FormSubmissionDto> result = formSubmissionService.getExpiringSoon(30);
 
         // Assert
-        assertThat(result.isSuccess()).isTrue();
+        assertThat(result).isNotNull();
         verify(formSubmissionRepository).findExpiringSoon(any(LocalDateTime.class), any(LocalDateTime.class));
     }
 
@@ -752,7 +699,6 @@ class FormSubmissionServiceTest {
         submission.setPatient(testPatient);
         submission.setTemplateSnapshot(testTemplate.getStructure());
         submission.setData(testFormData);
-        submission.setStatus(SubmissionStatus.PENDING_SIGNATURE);
         submission.setSubmittedAt(LocalDateTime.now());
         submission.setExpiresAt(LocalDateTime.now().plusMonths(12));
         submission.setIsDeleted(false);
@@ -768,7 +714,6 @@ class FormSubmissionServiceTest {
             .patientName("John Doe")
             .templateSnapshot(testTemplate.getStructure())
             .data(testFormData)
-            .status(SubmissionStatus.PENDING_SIGNATURE)
             .submittedAt(LocalDateTime.now())
             .expiresAt(LocalDateTime.now().plusMonths(12))
             .submittedByUserId(testUserId)
@@ -788,8 +733,6 @@ class FormSubmissionServiceTest {
         section.setFields(List.of(emailField));
 
         FormStructure structure = new FormStructure();
-        structure.setFormId("gdpr-consent-v1");
-        structure.setVersion("1.0");
         structure.setSections(List.of(section));
         return structure;
     }

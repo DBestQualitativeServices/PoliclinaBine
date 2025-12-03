@@ -1,13 +1,13 @@
 package com.example.policlicabine.repository;
 
 import com.example.policlicabine.entity.FormSubmission;
-import com.example.policlicabine.entity.enums.FormPurpose;
-import com.example.policlicabine.entity.enums.SubmissionStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,27 +20,23 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
     @EntityGraph(attributePaths = {"template", "patient", "appointmentSession", "attachedFiles"})
     Optional<FormSubmission> findWithDetailsById(UUID id);
 
-    @Query(value = """
-        SELECT * FROM form_submissions fs
-        JOIN form_templates ft ON fs.template_id = ft.id
-        WHERE fs.patient_id = :patientId
-        AND ft.purpose = CAST(:purpose AS text)
-        AND fs.status = 'SIGNED'
-        AND (fs.expires_at IS NULL OR fs.expires_at > :now)
-        AND fs.is_deleted = false
-        ORDER BY fs.submitted_at DESC
-        LIMIT 1
-        """, nativeQuery = true)
-    Optional<FormSubmission> findValidFormByPatientAndPurpose(
+    @Query("""
+        SELECT fs FROM FormSubmission fs
+        WHERE fs.patient.patientId = :patientId
+          AND fs.template.id = :templateId
+          AND fs.isDeleted = false
+          AND (fs.expiresAt IS NULL OR fs.expiresAt > :targetDate)
+        ORDER BY fs.submittedAt DESC
+        """)
+    Optional<FormSubmission> findValidSubmissionForTemplate(
             @Param("patientId") UUID patientId,
-            @Param("purpose") String purpose,
-            @Param("now") LocalDateTime now
+            @Param("templateId") UUID templateId,
+            @Param("targetDate") LocalDateTime targetDate
     );
 
     @Query(value = """
         SELECT * FROM form_submissions
         WHERE expires_at BETWEEN :now AND :futureDate
-        AND status = 'SIGNED'
         AND is_deleted = false
         ORDER BY expires_at ASC
         """, nativeQuery = true)
@@ -59,28 +55,44 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
 
     List<FormSubmission> findByPatientPatientIdAndIsDeletedFalse(UUID patientId);
 
+    List<FormSubmission> findByPatientPatientIdAndTemplateIdAndIsDeletedFalse(UUID patientId, UUID templateId);
+
     List<FormSubmission> findByAppointmentSessionSessionIdAndIsDeletedFalse(UUID sessionId);
 
-    List<FormSubmission> findByStatusAndIsDeletedFalse(SubmissionStatus status);
+    /**
+     * Check if patient has a valid submission for a specific template.
+     * Used at booking time to verify form requirements.
+     */
+    @Query("""
+        SELECT COUNT(fs) > 0 FROM FormSubmission fs
+        WHERE fs.patient.patientId = :patientId
+          AND fs.template.id = :templateId
+          AND fs.isDeleted = false
+          AND (fs.expiresAt IS NULL OR fs.expiresAt > :targetDate)
+        """)
+    boolean existsValidSubmission(
+            @Param("patientId") UUID patientId,
+            @Param("templateId") UUID templateId,
+            @Param("targetDate") LocalDateTime targetDate);
 
-    // ===== DATE-AWARE VALIDITY QUERIES =====
-    // Used to check if patient has valid form that will still be valid at a future appointment date
+    // ===== BATCH QUERIES =====
 
-    // Find patient's signed submission for a purpose that never expires (expiresAt IS NULL)
-    Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtIsNullOrderBySubmittedAtDesc(
-            UUID patientId, FormPurpose purpose, SubmissionStatus status);
+    @EntityGraph(attributePaths = {"template", "patient"})
+    List<FormSubmission> findByPatientPatientIdInAndIsDeletedFalse(List<UUID> patientIds);
 
-    // Find patient's signed submission for a purpose that expires after target date
-    Optional<FormSubmission> findFirstByPatientPatientIdAndTemplatePurposeAndStatusAndIsDeletedFalseAndExpiresAtGreaterThanOrderBySubmittedAtDesc(
-            UUID patientId, FormPurpose purpose, SubmissionStatus status, LocalDateTime targetDate);
+    // ===== ENTITYGRAPH QUERIES =====
 
-    // ===== BATCH QUERIES FOR FORM STATUS CALCULATION =====
+    @EntityGraph(attributePaths = {"template", "patient"})
+    List<FormSubmission> findWithTemplateAndPatientByPatientPatientIdAndIsDeletedFalse(UUID patientId);
+
+    @EntityGraph(attributePaths = {"template", "patient", "appointmentSession"})
+    List<FormSubmission> findWithAllByAppointmentSessionSessionIdAndIsDeletedFalse(UUID sessionId);
 
     /**
-     * Batch query: Get all submissions for multiple patients with a given status.
-     * Use for efficient batch processing when calculating form counts for multiple appointments.
+     * Delete all form submissions for a specific template.
+     * Used when hard-deleting a form template.
      */
-    @EntityGraph(attributePaths = {"template", "patient"})
-    List<FormSubmission> findByPatientPatientIdInAndStatusAndIsDeletedFalse(
-            List<UUID> patientIds, SubmissionStatus status);
+    @Modifying
+    @Transactional
+    void deleteByTemplateId(UUID templateId);
 }

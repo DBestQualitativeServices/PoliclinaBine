@@ -1,6 +1,5 @@
 package com.example.policlicabine.dto;
 
-import com.example.policlicabine.entity.enums.SubmissionStatus;
 import com.example.policlicabine.model.FormStructure;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,7 +25,6 @@ public class FormSubmissionDto {
     private UUID consultationTypeId;
     private FormStructure templateSnapshot;
     private Map<String, Object> data;
-    private SubmissionStatus status;
     private List<UUID> attachedFileIds;
     private UUID submittedByUserId;
     private LocalDateTime submittedAt;
@@ -35,7 +33,6 @@ public class FormSubmissionDto {
     private UUID patientSignedByUserId;
     private LocalDateTime doctorSignedAt;
     private UUID doctorSignedByUserId;
-    private Boolean isSigned;
     private Boolean isExpired;
     private Boolean isValid;
 }
