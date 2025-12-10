@@ -38,6 +38,11 @@ public class FormValidationService {
                 String displayName = getFieldDisplayName(field);
                 Object value = data.get(fieldName);
 
+                // Skip signature fields - they are validated separately via /signatures endpoint
+                if ("signature".equals(field.getType())) {
+                    continue;
+                }
+
                 if (field.getRequired() != null && field.getRequired()) {
                     // Special handling for checkbox type
                     if ("checkbox".equals(field.getType())) {

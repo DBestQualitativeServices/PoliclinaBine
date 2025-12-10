@@ -1,5 +1,6 @@
 package com.example.policlicabine.entity;
 
+import com.example.policlicabine.model.FormField;
 import com.example.policlicabine.model.FormStructure;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,7 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "form_submissions", indexes = {
@@ -73,6 +76,15 @@ public class FormSubmission {
     @Builder.Default
     private List<File> attachedFiles = new ArrayList<>();
 
+    /**
+     * Collection of signatures for this form submission.
+     * Replaces the hardcoded patientSignedAt/doctorSignedAt fields.
+     */
+    @OneToMany(mappedBy = "formSubmission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @BatchSize(size = 20)
+    @Builder.Default
+    private List<FormSignature> signatures = new ArrayList<>();
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submitted_by_user_id")
     private User submittedBy;
@@ -83,16 +95,32 @@ public class FormSubmission {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    /**
+     * @deprecated Use signatures collection instead
+     */
+    @Deprecated
     @Column(name = "patient_signed_at")
     private LocalDateTime patientSignedAt;
 
+    /**
+     * @deprecated Use signatures collection instead
+     */
+    @Deprecated
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_signed_by_user_id")
     private User patientSignedBy;
 
+    /**
+     * @deprecated Use signatures collection instead
+     */
+    @Deprecated
     @Column(name = "doctor_signed_at")
     private LocalDateTime doctorSignedAt;
 
+    /**
+     * @deprecated Use signatures collection instead
+     */
+    @Deprecated
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_signed_by_user_id")
     private User doctorSignedBy;
@@ -150,6 +178,66 @@ public class FormSubmission {
             this.attachedFiles.remove(file);
             file.setFormSubmission(null);
         }
+    }
+
+    /**
+     * Adds a signature to this form submission.
+     */
+    public void addSignature(FormSignature signature) {
+        if (signature != null) {
+            signature.setFormSubmission(this);
+            if (!this.signatures.contains(signature)) {
+                this.signatures.add(signature);
+            }
+        }
+    }
+
+    /**
+     * Removes a signature from this form submission.
+     */
+    public void removeSignature(FormSignature signature) {
+        if (signature != null) {
+            this.signatures.remove(signature);
+            signature.setFormSubmission(null);
+        }
+    }
+
+    /**
+     * Checks if a specific signature field has been signed.
+     */
+    public boolean hasSignatureForField(String signatureFieldId) {
+        return signatures.stream()
+                .anyMatch(s -> s.getSignatureFieldId().equals(signatureFieldId));
+    }
+
+    /**
+     * Gets the set of signature field IDs that have been signed.
+     */
+    public Set<String> getSignedFieldIds() {
+        return signatures.stream()
+                .map(FormSignature::getSignatureFieldId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Checks if all required signature fields have been signed.
+     * Requires parsing the templateSnapshot to determine required fields.
+     */
+    public boolean isFullySigned() {
+        if (templateSnapshot == null || templateSnapshot.getSections() == null) {
+            return true; // No template means no required signatures
+        }
+        
+        List<String> requiredFields = templateSnapshot.getSections().stream()
+                .filter(section -> section.getFields() != null)
+                .flatMap(section -> section.getFields().stream())
+                .filter(field -> "signature".equals(field.getType()))
+                .filter(field -> Boolean.TRUE.equals(field.getRequired()))
+                .map(field -> field.getName())
+                .toList();
+        
+        Set<String> signedFields = getSignedFieldIds();
+        return signedFields.containsAll(requiredFields);
     }
 
     @Override

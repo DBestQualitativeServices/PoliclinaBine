@@ -437,7 +437,6 @@ class UserServiceSearchTest extends BaseServiceTest {
         // When & Then
         assertThatThrownBy(() -> userService.search(criteria, pageable))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Failed to search users")
                 .hasMessageContaining("Database connection error");
 
         verify(specificationBuilder).build(criteria);

@@ -3,7 +3,9 @@ package com.example.policlicabine.controller;
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.dto.FormTemplateFilterCriteria;
 import com.example.policlicabine.model.FormStructure;
+import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.service.FormTemplateService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -61,12 +63,30 @@ public class FormTemplateController {
     }
 
     @GetMapping("/name/{name}")
-    public FormTemplateDto getTemplateByName(@PathVariable String name) {
+    @StandardApiResponses
+    @Operation(summary = "Get form template by name",
+               description = "Optionally prefill form fields with patient data by providing patientId query parameter")
+    public FormTemplateDto getTemplateByName(
+            @PathVariable String name,
+            @Parameter(description = "Optional patient ID to prefill form fields with patient data")
+            @RequestParam(required = false) UUID patientId) {
+        if (patientId != null) {
+            return formTemplateService.getByNameWithPatientData(name, patientId);
+        }
         return formTemplateService.getByName(name);
     }
 
     @GetMapping("/{id}")
-    public FormTemplateDto getTemplateById(@PathVariable UUID id) {
+    @StandardApiResponses
+    @Operation(summary = "Get form template by ID",
+               description = "Optionally prefill form fields with patient data by providing patientId query parameter")
+    public FormTemplateDto getTemplateById(
+            @PathVariable UUID id,
+            @Parameter(description = "Optional patient ID to prefill form fields with patient data")
+            @RequestParam(required = false) UUID patientId) {
+        if (patientId != null) {
+            return formTemplateService.findByIdWithPatientData(id, patientId);
+        }
         return formTemplateService.findById(id);
     }
 

@@ -20,7 +20,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.temporal.Temporal;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -84,6 +93,9 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (dto.getCiDataEliberare() != null) {
             entity.setCiDataEliberare(dto.getCiDataEliberare());
         }
+
+        // Sync entity fields to form field cache after any update
+        entity.syncEntityFieldsToCache();
     }
 
     /**
@@ -115,6 +127,9 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
             .ciDataEliberare(ciDataEliberare)
             .build();
+
+        // Initialize form field cache with entity fields
+        patient.syncEntityFieldsToCache();
 
         Patient savedPatient = patientRepository.save(patient);
 
@@ -150,6 +165,9 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (address != null) {
             patient.setAddress(address.trim());
         }
+
+        // Sync entity fields to form field cache
+        patient.syncEntityFieldsToCache();
 
         Patient savedPatient = patientRepository.save(patient);
 
@@ -247,6 +265,9 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .ciDataEliberare(ciDataEliberare)
                 .build();
 
+        // Initialize form field cache with entity fields
+        patient.syncEntityFieldsToCache();
+
         Patient savedPatient = patientRepository.save(patient);
 
         log.info("Patient profile created: {} for user {}", savedPatient.getPatientId(), user.getUserId());
@@ -259,5 +280,106 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         ));
 
         return patientMapper.toDto(savedPatient);
+    }
+
+    // ==================== Form Prefilling Methods ====================
+
+    /**
+     * Returns patient's cached form field data for form prefilling.
+     * The cache includes both entity fields and custom form fields from previous submissions.
+     * Returns empty map if patient not found (lenient behavior).
+     *
+     * @param patientId the patient ID
+     * @return Map with lowercase keys and string values, empty map if patient not found
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> getPatientFieldMapForPrefilling(UUID patientId) {
+        if (patientId == null) {
+            return Collections.emptyMap();
+        }
+
+        Patient patient = getEntityById(patientId);
+        if (patient == null) {
+            log.warn("Patient not found for form prefilling: {}", patientId);
+            return Collections.emptyMap();
+        }
+
+        return extractCachedFieldMap(patient);
+    }
+
+    /**
+     * Updates patient's form field cache with new data from form submission.
+     * Uses "latest wins" semantics - new values overwrite existing ones.
+     *
+     * @param patientId the patient ID
+     * @param formData the submitted form data to merge into cache
+     */
+    @Transactional
+    public void updateFormFieldCache(UUID patientId, Map<String, Object> formData) {
+        if (patientId == null || formData == null || formData.isEmpty()) {
+            return;
+        }
+
+        Patient patient = patientRepository.findById(patientId).orElse(null);
+        if (patient == null) {
+            log.warn("Cannot update form field cache: patient {} not found", patientId);
+            return;
+        }
+
+        patient.updateFormFieldCache(formData);
+        patientRepository.save(patient);
+
+        log.debug("Updated form field cache for patient {}: {} fields", patientId, formData.size());
+    }
+
+    /**
+     * Extracts cached form fields as lowercase-keyed string map.
+     */
+    private Map<String, String> extractCachedFieldMap(Patient patient) {
+        Map<String, String> result = new HashMap<>();
+
+        if (patient.getFormFieldCache() == null || patient.getFormFieldCache().isEmpty()) {
+            return result;
+        }
+
+        for (Map.Entry<String, Object> entry : patient.getFormFieldCache().entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                String key = entry.getKey().toLowerCase();
+                String value = convertToString(entry.getValue());
+                if (value != null && !value.isEmpty()) {
+                    result.put(key, value);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Converts various form field value types to string for prefilling.
+     * Handles: String, Number, Boolean, List, LocalDate, LocalDateTime, OffsetDateTime.
+     */
+    private String convertToString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String s) {
+            return s.trim().isEmpty() ? null : s.trim();
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return value.toString();
+        }
+        // Handle date types
+        if (value instanceof LocalDate || value instanceof LocalDateTime || value instanceof OffsetDateTime || value instanceof Temporal) {
+            return value.toString();
+        }
+        // Multi-select fields: join with comma
+        if (value instanceof List<?> list) {
+            return list.stream()
+                .filter(Objects::nonNull)
+                .map(Object::toString)
+                .collect(Collectors.joining(", "));
+        }
+        return value.toString();
     }
 }

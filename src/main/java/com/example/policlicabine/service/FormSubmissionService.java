@@ -1,19 +1,28 @@
 package com.example.policlicabine.service;
 
+import com.example.policlicabine.dto.FormSignatureDto;
 import com.example.policlicabine.dto.FormSubmissionDto;
+import com.example.policlicabine.dto.FormSubmissionFilterCriteria;
 import com.example.policlicabine.entity.*;
+import com.example.policlicabine.mapper.FormSignatureMapper;
+import com.example.policlicabine.repository.FormSignatureRepository;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.FormSubmissionMapper;
 import com.example.policlicabine.repository.FormSubmissionRepository;
 import com.example.policlicabine.service.base.BaseServiceImpl;
+import com.example.policlicabine.specification.FormSubmissionSpecificationBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,19 +38,26 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
     private final FormTemplateService formTemplateService;
     private final FormValidationService formValidationService;
     private final PatientService patientService;
+    private final FormSubmissionSpecificationBuilder specificationBuilder;
+    private final FormSignatureRepository formSignatureRepository;
+    private final FormSignatureMapper formSignatureMapper;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public FormSubmissionService(FormSubmissionRepository repository, FormSubmissionMapper mapper,
                                   FormTemplateService formTemplateService, FormValidationService formValidationService,
-                                  PatientService patientService) {
+                                  PatientService patientService, FormSubmissionSpecificationBuilder specificationBuilder,
+                                  FormSignatureRepository formSignatureRepository, FormSignatureMapper formSignatureMapper) {
         super(repository, mapper);
         this.formSubmissionRepository = repository;
         this.formSubmissionMapper = mapper;
         this.formTemplateService = formTemplateService;
         this.formValidationService = formValidationService;
         this.patientService = patientService;
+        this.specificationBuilder = specificationBuilder;
+        this.formSignatureRepository = formSignatureRepository;
+        this.formSignatureMapper = formSignatureMapper;
     }
 
     @Override
@@ -141,6 +157,10 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         }
 
         FormSubmission saved = formSubmissionRepository.save(submission);
+
+        // Update patient's form field cache with submitted data
+        patientService.updateFormFieldCache(patientId, data);
+
         log.info("Form submitted: {} for patient {}", template.getName(), patientId);
 
         return formSubmissionMapper.toDto(saved);
@@ -175,6 +195,81 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         log.info("Form signed: {} by witness {}", submissionId, witnessedByUserId);
 
         return formSubmissionMapper.toDto(saved);
+    }
+
+    /**
+     * Adds a signature to a form submission.
+     *
+     * @param submissionId the form submission ID
+     * @param signatureFieldId the signature field ID (matches FormField.name)
+     * @param signedByUserId the user who is signing
+     * @param signatureData the base64 encoded PNG signature image
+     * @return the created FormSignatureDto
+     */
+    @Transactional
+    public FormSignatureDto addSignature(UUID submissionId, String signatureFieldId, UUID signedByUserId, String signatureData) {
+        if (submissionId == null) {
+            throw new BusinessException("Submission ID is required");
+        }
+        if (signatureFieldId == null || signatureFieldId.trim().isEmpty()) {
+            throw new BusinessException("Signature field ID is required");
+        }
+        if (signedByUserId == null) {
+            throw new BusinessException("Signed by user ID is required");
+        }
+        if (signatureData == null || signatureData.trim().isEmpty()) {
+            throw new BusinessException("Signature data is required");
+        }
+
+        FormSubmission submission = formSubmissionRepository.findWithDetailsById(submissionId).orElse(null);
+        if (submission == null || submission.getIsDeleted()) {
+            throw new ResourceNotFoundException("FormSubmission", submissionId);
+        }
+
+        if (submission.isExpired()) {
+            throw new BusinessException("Form has expired");
+        }
+
+        // Check if signature already exists for this field
+        if (formSignatureRepository.existsByFormSubmissionIdAndSignatureFieldId(submissionId, signatureFieldId)) {
+            throw new BusinessException("Signature already exists for field: " + signatureFieldId);
+        }
+
+        // Validate that signature field exists in template
+        boolean fieldExists = submission.getTemplateSnapshot().getSections().stream()
+                .filter(section -> section.getFields() != null)
+                .flatMap(section -> section.getFields().stream())
+                .anyMatch(field -> "signature".equals(field.getType()) && signatureFieldId.equals(field.getName()));
+
+        if (!fieldExists) {
+            throw new BusinessException("Signature field not found in template: " + signatureFieldId);
+        }
+
+        User signedBy = entityManager.getReference(User.class, signedByUserId);
+
+        FormSignature signature = FormSignature.builder()
+                .formSubmission(submission)
+                .signatureFieldId(signatureFieldId)
+                .signedBy(signedBy)
+                .signatureData(Base64.getDecoder().decode(signatureData))
+                .build();
+
+        FormSignature saved = formSignatureRepository.save(signature);
+        log.info("Signature added to submission {} for field {} by user {}", submissionId, signatureFieldId, signedByUserId);
+
+        return formSignatureMapper.toDto(saved);
+    }
+
+    /**
+     * Gets all signatures for a form submission.
+     */
+    @Transactional(readOnly = true)
+    public List<FormSignatureDto> getSignatures(UUID submissionId) {
+        if (submissionId == null) {
+            throw new BusinessException("Submission ID is required");
+        }
+        List<FormSignature> signatures = formSignatureRepository.findWithSignerByFormSubmissionId(submissionId);
+        return formSignatureMapper.toDtoList(signatures);
     }
 
     /**
@@ -250,6 +345,32 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         return submissions.stream()
                 .map(formSubmissionMapper::toDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Search form submissions with dynamic filter criteria.
+     *
+     * @param criteria the filter criteria (all fields optional)
+     * @param pageable pagination information
+     * @return paginated list of matching form submissions
+     */
+    @Transactional(readOnly = true)
+    public Page<FormSubmissionDto> search(FormSubmissionFilterCriteria criteria, Pageable pageable) {
+        log.debug("Searching form submissions with criteria: {} and pageable: {}", criteria, pageable);
+
+        Specification<FormSubmission> spec = specificationBuilder.build(criteria)
+                .and((root, query, cb) -> cb.equal(root.get("isDeleted"), false));
+
+        Page<FormSubmission> entityPage = formSubmissionRepository.findAll(spec, pageable);
+
+        Page<FormSubmissionDto> dtoPage = entityPage.map(formSubmissionMapper::toDto);
+
+        log.info("Form submission search returned {} results (page {}/{})",
+                dtoPage.getNumberOfElements(),
+                dtoPage.getNumber() + 1,
+                dtoPage.getTotalPages());
+
+        return dtoPage;
     }
 
     /**

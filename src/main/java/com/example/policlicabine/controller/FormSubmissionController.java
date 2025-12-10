@@ -1,9 +1,9 @@
 package com.example.policlicabine.controller;
 
 import com.example.policlicabine.common.StandardApiResponses;
+import com.example.policlicabine.dto.FormSignatureDto;
 import com.example.policlicabine.dto.FormSubmissionDto;
-import com.example.policlicabine.exception.BusinessException;
-import com.example.policlicabine.exception.ResourceNotFoundException;
+import com.example.policlicabine.dto.FormSubmissionFilterCriteria;
 import com.example.policlicabine.service.FormSubmissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +11,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -56,6 +62,35 @@ public class FormSubmissionController {
     }
 
     /**
+     * Search and filter form submissions with pagination.
+     *
+     * @param criteria filter criteria (all fields optional)
+     * @param pageable pagination and sorting parameters
+     * @return paginated list of matching form submissions
+     */
+    @GetMapping("/search")
+    @StandardApiResponses
+    @Operation(summary = "Search and filter form submissions",
+               description = "Returns paginated form submissions matching filter criteria")
+    public ResponseEntity<Page<FormSubmissionDto>> searchSubmissions(
+            @ModelAttribute FormSubmissionFilterCriteria criteria,
+            @ParameterObject
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        log.info("REST: Searching form submissions with criteria: {} and pageable: {}", criteria, pageable);
+
+        Page<FormSubmissionDto> result = formSubmissionService.search(criteria, pageable);
+
+        log.info("REST: Form submission search returned {} results (page {}/{})",
+                result.getNumberOfElements(),
+                result.getNumber() + 1,
+                result.getTotalPages());
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * Signs a form submission.
      *
      * @param id the form submission ID
@@ -69,6 +104,37 @@ public class FormSubmissionController {
     public FormSubmissionDto signForm(@PathVariable UUID id, @Valid @RequestBody SignFormRequest request) {
         log.info("REST: Signing form submission: {} by witness: {}", id, request.witnessedByUserId);
         return formSubmissionService.signForm(id, request.witnessedByUserId);
+    }
+
+    /**
+     * Adds a signature to a form submission.
+     *
+     * @param id the form submission ID
+     * @param request the add signature request
+     * @return the created FormSignatureDto
+     */
+    @PostMapping("/{id}/signatures")
+    @StandardApiResponses
+    @Operation(summary = "Add signature to form submission",
+               description = "Adds a drawn signature to a specific signature field in the form")
+    public FormSignatureDto addSignature(@PathVariable UUID id, @Valid @RequestBody AddSignatureRequest request) {
+        log.info("REST: Adding signature to submission {} for field {}", id, request.signatureFieldId);
+        return formSubmissionService.addSignature(id, request.signatureFieldId, request.signedByUserId, request.signatureData);
+    }
+
+    /**
+     * Gets all signatures for a form submission.
+     *
+     * @param id the form submission ID
+     * @return list of FormSignatureDto
+     */
+    @GetMapping("/{id}/signatures")
+    @StandardApiResponses
+    @Operation(summary = "Get signatures for form submission",
+               description = "Returns all signatures collected for the form submission")
+    public List<FormSignatureDto> getSignatures(@PathVariable UUID id) {
+        log.info("REST: Getting signatures for submission {}", id);
+        return formSubmissionService.getSignatures(id);
     }
 
     /**
@@ -195,5 +261,19 @@ public class FormSubmissionController {
     public record AttachFileRequest(
             @NotNull(message = "File ID is required")
             UUID fileId
+    ) {}
+
+    /**
+     * Request DTO for adding a signature to a form.
+     */
+    public record AddSignatureRequest(
+            @NotNull(message = "Signature field ID is required")
+            String signatureFieldId,
+
+            @NotNull(message = "Signed by user ID is required")
+            UUID signedByUserId,
+
+            @NotNull(message = "Signature data is required")
+            String signatureData
     ) {}
 }
