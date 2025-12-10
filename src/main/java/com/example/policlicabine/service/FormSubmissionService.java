@@ -166,37 +166,6 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
         return formSubmissionMapper.toDto(saved);
     }
 
-    @Transactional
-    public FormSubmissionDto signForm(UUID submissionId, UUID witnessedByUserId) {
-        if (submissionId == null) {
-            throw new BusinessException("Submission ID is required");
-        }
-        if (witnessedByUserId == null) {
-            throw new BusinessException("Witness user ID is required");
-        }
-
-        FormSubmission submission = formSubmissionRepository.findWithDetailsById(submissionId).orElse(null);
-        if (submission == null) {
-            throw new ResourceNotFoundException("FormSubmission", submissionId);
-        }
-
-        if (submission.getPatientSignedAt() != null) {
-            throw new BusinessException("Form is already signed");
-        }
-
-        if (submission.isExpired()) {
-            throw new BusinessException("Form has expired");
-        }
-
-        User witnessedBy = entityManager.getReference(User.class, witnessedByUserId);
-        submission.signByPatient(witnessedBy);
-
-        FormSubmission saved = formSubmissionRepository.save(submission);
-        log.info("Form signed: {} by witness {}", submissionId, witnessedByUserId);
-
-        return formSubmissionMapper.toDto(saved);
-    }
-
     /**
      * Adds a signature to a form submission.
      *

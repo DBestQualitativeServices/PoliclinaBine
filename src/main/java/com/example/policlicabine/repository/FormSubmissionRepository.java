@@ -19,7 +19,7 @@ import java.util.UUID;
 public interface FormSubmissionRepository extends JpaRepository<FormSubmission, UUID>,
                                                    JpaSpecificationExecutor<FormSubmission> {
 
-    @EntityGraph(attributePaths = {"template", "patient", "appointmentSession", "attachedFiles"})
+    @EntityGraph(attributePaths = {"template", "patient", "appointmentSession", "attachedFiles", "signatures", "signatures.signedBy"})
     Optional<FormSubmission> findWithDetailsById(UUID id);
 
     @Query("""

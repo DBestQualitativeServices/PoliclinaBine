@@ -91,22 +91,6 @@ public class FormSubmissionController {
     }
 
     /**
-     * Signs a form submission.
-     *
-     * @param id the form submission ID
-     * @param request the sign request with witness user ID
-     * @return the updated FormSubmissionDto
-     */
-    @PutMapping("/{id}/sign")
-    @StandardApiResponses
-    @Operation(summary = "Sign a form submission",
-               description = "Marks a form as signed and records the witness")
-    public FormSubmissionDto signForm(@PathVariable UUID id, @Valid @RequestBody SignFormRequest request) {
-        log.info("REST: Signing form submission: {} by witness: {}", id, request.witnessedByUserId);
-        return formSubmissionService.signForm(id, request.witnessedByUserId);
-    }
-
-    /**
      * Adds a signature to a form submission.
      *
      * @param id the form submission ID
@@ -120,21 +104,6 @@ public class FormSubmissionController {
     public FormSignatureDto addSignature(@PathVariable UUID id, @Valid @RequestBody AddSignatureRequest request) {
         log.info("REST: Adding signature to submission {} for field {}", id, request.signatureFieldId);
         return formSubmissionService.addSignature(id, request.signatureFieldId, request.signedByUserId, request.signatureData);
-    }
-
-    /**
-     * Gets all signatures for a form submission.
-     *
-     * @param id the form submission ID
-     * @return list of FormSignatureDto
-     */
-    @GetMapping("/{id}/signatures")
-    @StandardApiResponses
-    @Operation(summary = "Get signatures for form submission",
-               description = "Returns all signatures collected for the form submission")
-    public List<FormSignatureDto> getSignatures(@PathVariable UUID id) {
-        log.info("REST: Getting signatures for submission {}", id);
-        return formSubmissionService.getSignatures(id);
     }
 
     /**
@@ -245,14 +214,6 @@ public class FormSubmissionController {
             UUID consultationTypeId,
             UUID submittedByUserId,
             List<UUID> fileIds
-    ) {}
-
-    /**
-     * Request DTO for signing a form.
-     */
-    public record SignFormRequest(
-            @NotNull(message = "Witness user ID is required")
-            UUID witnessedByUserId
     ) {}
 
     /**

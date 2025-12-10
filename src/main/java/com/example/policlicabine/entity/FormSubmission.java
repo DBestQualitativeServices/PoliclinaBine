@@ -11,6 +11,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,7 +84,7 @@ public class FormSubmission {
     @OneToMany(mappedBy = "formSubmission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @BatchSize(size = 20)
     @Builder.Default
-    private List<FormSignature> signatures = new ArrayList<>();
+    private Set<FormSignature> signatures = new LinkedHashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submitted_by_user_id")
@@ -94,36 +95,6 @@ public class FormSubmission {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
-
-    /**
-     * @deprecated Use signatures collection instead
-     */
-    @Deprecated
-    @Column(name = "patient_signed_at")
-    private LocalDateTime patientSignedAt;
-
-    /**
-     * @deprecated Use signatures collection instead
-     */
-    @Deprecated
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "patient_signed_by_user_id")
-    private User patientSignedBy;
-
-    /**
-     * @deprecated Use signatures collection instead
-     */
-    @Deprecated
-    @Column(name = "doctor_signed_at")
-    private LocalDateTime doctorSignedAt;
-
-    /**
-     * @deprecated Use signatures collection instead
-     */
-    @Deprecated
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "doctor_signed_by_user_id")
-    private User doctorSignedBy;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -156,12 +127,6 @@ public class FormSubmission {
 
     public boolean isValid() {
         return !isExpired() && !isDeleted;
-    }
-
-    public void signByPatient(User witnessedBy) {
-        this.patientSignedAt = LocalDateTime.now();
-        this.patientSignedBy = witnessedBy;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void attachFile(File file) {

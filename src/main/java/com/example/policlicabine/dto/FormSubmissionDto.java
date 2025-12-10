@@ -26,13 +26,10 @@ public class FormSubmissionDto {
     private FormStructure templateSnapshot;
     private Map<String, Object> data;
     private List<UUID> attachedFileIds;
+    private List<FormSignatureDto> signatures;
     private UUID submittedByUserId;
     private LocalDateTime submittedAt;
     private LocalDateTime expiresAt;
-    private LocalDateTime patientSignedAt;
-    private UUID patientSignedByUserId;
-    private LocalDateTime doctorSignedAt;
-    private UUID doctorSignedByUserId;
     private Boolean isExpired;
     private Boolean isValid;
 }
