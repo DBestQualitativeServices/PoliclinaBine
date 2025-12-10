@@ -126,12 +126,15 @@ class PatientRegistrationWorkflowTest {
         // Reset event listener
         eventListener.clear();
 
-        // Create Permission for test
-        Permission allPermission = Permission.builder()
-                .name(PermissionEnum.ALL)
-                .description("Full system access")
-                .build();
-        permissionRepository.save(allPermission);
+        // Create or find Permission for test (idempotent)
+        Permission allPermission = permissionRepository.findByName(PermissionEnum.ALL)
+                .orElseGet(() -> {
+                    Permission newPermission = Permission.builder()
+                            .name(PermissionEnum.ALL)
+                            .description("Full system access")
+                            .build();
+                    return permissionRepository.save(newPermission);
+                });
 
         // Create DOCTOR role for test
         Role doctorRole = Role.builder()
