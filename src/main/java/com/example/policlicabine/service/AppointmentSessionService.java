@@ -122,6 +122,35 @@ public class AppointmentSessionService {
         return appointmentMapper.toDto(savedSession);
     }
 
+    public AppointmentSessionDto removeConsultationFromSession(UUID sessionId, UUID consultationId) {
+        if (sessionId == null) {
+            throw new BusinessException("Session ID is required");
+        }
+        if (consultationId == null) {
+            throw new BusinessException("Consultation ID is required");
+        }
+
+        AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Session", sessionId));
+
+        if (session.getStatus() != SessionStatus.SCHEDULED &&
+            session.getStatus() != SessionStatus.IN_PROGRESS) {
+            throw new BusinessException("Cannot remove consultations from completed sessions");
+        }
+
+        ConsultationType consultationToRemove = session.getConsultationTypes().stream()
+            .filter(c -> c.getConsultationId().equals(consultationId))
+            .findFirst()
+            .orElseThrow(() -> new BusinessException("Consultation not found in session"));
+
+        session.getConsultationTypes().remove(consultationToRemove);
+        AppointmentSession savedSession = appointmentRepository.save(session);
+
+        log.info("ConsultationType {} removed from session {}", consultationId, sessionId);
+
+        return appointmentMapper.toDto(savedSession);
+    }
+
     public AppointmentSessionDto startSession(UUID sessionId) {
         if (sessionId == null) {
             throw new BusinessException("Session ID is required");

@@ -96,6 +96,17 @@ public class AppointmentSessionController {
         return appointmentSessionService.addConsultationToSession(sessionId, consultationName);
     }
 
+    @DeleteMapping("/{sessionId}/consultations/{consultationId}")
+    @StandardApiResponses
+    @Operation(summary = "Remove consultation type from existing appointment")
+    public AppointmentSessionDto removeConsultation(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID consultationId
+    ) {
+        log.info("REST: Removing consultation {} from session {}", consultationId, sessionId);
+        return appointmentSessionService.removeConsultationFromSession(sessionId, consultationId);
+    }
+
     @PostMapping("/{sessionId}/start")
     @StandardApiResponses
     @Operation(summary = "Start appointment session")
