@@ -231,7 +231,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(testUserDetails);
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
         when(jwtService.generateToken(eq(testUserDetails), anyString())).thenReturn("access-token");
         when(jwtService.generateRefreshToken(testUserDetails)).thenReturn("refresh-token");
@@ -269,7 +269,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
                 .thenThrow(new BadCredentialsException("Invalid credentials"));
 
         // When & Then
-        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+        BusinessException exception = assertThrows(BusinessException.class,
                 () -> authenticationService.authenticate(request, "127.0.0.1"));
         assertThat(exception.getMessage()).contains("Invalid credentials");
 
@@ -289,7 +289,7 @@ class AuthenticationServiceTest extends BaseServiceTest {
         when(jwtService.extractUsername("valid-refresh-token")).thenReturn("testuser");
         when(userDetailsService.loadUserByUsername("testuser")).thenReturn(testUserDetails);
         when(jwtService.isTokenValid("valid-refresh-token", testUserDetails)).thenReturn(true);
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(userRepository.findWithRolesAndPermissionsByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(jwtService.generateToken(any(UserDetails.class), anyString())).thenReturn("new-access-token");
 
         // When
