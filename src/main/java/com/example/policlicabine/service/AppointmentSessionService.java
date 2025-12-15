@@ -255,9 +255,14 @@ public class AppointmentSessionService {
         List<AppointmentSession> sessions = appointmentRepository
             .findWithRelationshipsByPatientPatientIdOrderByScheduledDateTimeDesc(patientId);
 
-        return sessions.stream()
+        List<AppointmentSessionDto> dtos = sessions.stream()
             .map(appointmentMapper::toDto)
             .collect(Collectors.toList());
+
+        // Enrich DTOs with form counts (required, completed, allFormsComplete)
+        enrichWithFormStatusBatch(dtos, sessions);
+
+        return dtos;
     }
 
     @Transactional(readOnly = true)
