@@ -97,6 +97,25 @@ public final class PatientSpecifications {
     }
 
     /**
+     * Filter by full name - searches in BOTH firstName OR lastName (case-insensitive partial match).
+     *
+     * @param fullName the name to search for
+     * @return specification or null if fullName is null/blank
+     */
+    public static Specification<Patient> hasFullName(String fullName) {
+        return (root, query, cb) -> {
+            if (fullName == null || fullName.trim().isEmpty()) {
+                return null;
+            }
+            String searchPattern = "%" + fullName.trim().toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("firstName")), searchPattern),
+                    cb.like(cb.lower(root.get("lastName")), searchPattern)
+            );
+        };
+    }
+
+    /**
      * Filter patients registered on or after the specified date/time.
      *
      * @param registeredAfter the minimum registration date (inclusive)
@@ -123,43 +142,6 @@ public final class PatientSpecifications {
                 return null;
             }
             return cb.lessThanOrEqualTo(root.get("registrationDate"), registeredBefore);
-        };
-    }
-
-    /**
-     * Filter patients with consent file.
-     *
-     * @return specification for patients where consentFileUrl IS NOT NULL
-     */
-    public static Specification<Patient> hasConsent() {
-        return (root, query, cb) -> cb.isNotNull(root.get("consentFileUrl"));
-    }
-
-    /**
-     * Filter patients without consent file.
-     *
-     * @return specification for patients where consentFileUrl IS NULL
-     */
-    public static Specification<Patient> hasNoConsent() {
-        return (root, query, cb) -> cb.isNull(root.get("consentFileUrl"));
-    }
-
-    /**
-     * Filter by consent file presence.
-     *
-     * @param hasConsent true = only with consent, false = only without consent, null = no filter
-     * @return specification or null if hasConsent is null
-     */
-    public static Specification<Patient> hasConsentFile(Boolean hasConsent) {
-        return (root, query, cb) -> {
-            if (hasConsent == null) {
-                return null;
-            }
-            if (hasConsent) {
-                return cb.isNotNull(root.get("consentFileUrl"));
-            } else {
-                return cb.isNull(root.get("consentFileUrl"));
-            }
         };
     }
 }

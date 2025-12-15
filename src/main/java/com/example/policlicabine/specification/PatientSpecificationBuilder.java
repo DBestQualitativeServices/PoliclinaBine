@@ -30,11 +30,11 @@ public class PatientSpecificationBuilder implements SpecificationBuilder<Patient
 
         return Specification.where(hasFirstName(criteria.getFirstName()))
                 .and(hasLastName(criteria.getLastName()))
+                .and(hasFullName(criteria.getFullName()))
                 .and(hasPhone(criteria.getPhone()))
                 .and(hasEmail(criteria.getEmail()))
                 .and(registeredAfter(criteria.getRegisteredAfter()))
-                .and(registeredBefore(criteria.getRegisteredBefore()))
-                .and(hasConsentFile(criteria.getHasConsent()));
+                .and(registeredBefore(criteria.getRegisteredBefore()));
     }
 
     /**
@@ -110,6 +110,26 @@ public class PatientSpecificationBuilder implements SpecificationBuilder<Patient
     }
 
     /**
+     * Filter by full name - searches in BOTH firstName OR lastName (case-insensitive partial match).
+     * Uses OR logic: matches if EITHER firstName OR lastName contains the search term.
+     *
+     * @param fullName the name to search for in both firstName and lastName
+     * @return specification or null if fullName is null/blank
+     */
+    private Specification<Patient> hasFullName(String fullName) {
+        return (root, query, cb) -> {
+            if (fullName == null || fullName.trim().isEmpty()) {
+                return null;
+            }
+            String searchPattern = "%" + fullName.trim().toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("firstName")), searchPattern),
+                    cb.like(cb.lower(root.get("lastName")), searchPattern)
+            );
+        };
+    }
+
+    /**
      * Filter patients registered on or after the specified date/time.
      *
      * @param registeredAfter the minimum registration date (inclusive, can be null)
@@ -136,27 +156,6 @@ public class PatientSpecificationBuilder implements SpecificationBuilder<Patient
                 return null;
             }
             return cb.lessThanOrEqualTo(root.get("registrationDate"), registeredBefore);
-        };
-    }
-
-    /**
-     * Filter by consent file presence.
-     *
-     * @param hasConsent true = only with consent, false = only without consent, null = no filter
-     * @return specification or null if hasConsent is null
-     */
-    private Specification<Patient> hasConsentFile(Boolean hasConsent) {
-        return (root, query, cb) -> {
-            if (hasConsent == null) {
-                return null;
-            }
-            if (hasConsent) {
-                // Has consent: consentFileUrl IS NOT NULL
-                return cb.isNotNull(root.get("consentFileUrl"));
-            } else {
-                // No consent: consentFileUrl IS NULL
-                return cb.isNull(root.get("consentFileUrl"));
-            }
         };
     }
 }

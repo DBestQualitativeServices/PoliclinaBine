@@ -17,6 +17,8 @@ public class PatientFilterCriteria {
 
     private String lastName;
 
+    private String fullName;
+
     private String phone;
 
     private String email;
@@ -24,6 +26,4 @@ public class PatientFilterCriteria {
     private OffsetDateTime registeredAfter;
 
     private OffsetDateTime registeredBefore;
-
-    private Boolean hasConsent;
 }
