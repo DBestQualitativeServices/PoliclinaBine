@@ -64,6 +64,18 @@ public class Patient {
     @Column(length = 200)
     private String ciEliberatDe;
 
+    @Column
+    private String sursa;
+
+    @Column
+    private Boolean minor;
+
+    @Column
+    private String sex;
+
+    @Column(length = 13)
+    private String cnp;
+
     @Column(columnDefinition = "DATE")
     private LocalDate ciDataEliberare;
 
@@ -151,6 +163,84 @@ public class Patient {
         if (ciDataEliberare != null) {
             formFieldCache.put("cidataeliberare", ciDataEliberare.toString());
         }
+        if (sursa != null && !sursa.trim().isEmpty()) {
+            formFieldCache.put("sursa", sursa.trim());
+        }
+        if (minor != null) {
+            formFieldCache.put("minor", minor.toString());
+        }
+        if (sex != null && !sex.trim().isEmpty()) {
+            formFieldCache.put("sex", sex.trim());
+        }
+        if (cnp != null && !cnp.trim().isEmpty()) {
+            formFieldCache.put("cnp", cnp.trim());
+        }
+    }
+
+    /**
+     * Calculates sex from CNP first digit.
+     * @param cnp Romanian CNP (13 digits)
+     * @return "M" for male, "F" for female, null if invalid
+     */
+    public static String calculateSexFromCnp(String cnp) {
+        if (cnp == null || cnp.length() != 13 || !cnp.matches("^[0-9]{13}$")) {
+            return null;
+        }
+        char firstDigit = cnp.charAt(0);
+        if (firstDigit == '1' || firstDigit == '5') {
+            return "M";
+        } else if (firstDigit == '2' || firstDigit == '6') {
+            return "F";
+        }
+        return null;
+    }
+
+    /**
+     * Calculates minor status from CNP.
+     * Logic: 1/2 = adult (born 1900-1999), 5/6 = check year (born 2000+)
+     * @param cnp Romanian CNP (13 digits)
+     * @return true if minor, false if adult, null if invalid
+     */
+    public static Boolean calculateMinorFromCnp(String cnp) {
+        if (cnp == null || cnp.length() != 13 || !cnp.matches("^[0-9]{13}$")) {
+            return null;
+        }
+        char firstDigit = cnp.charAt(0);
+
+        // 1 or 2 = born 1900-1999, definitely adult
+        if (firstDigit == '1' || firstDigit == '2') {
+            return false;
+        }
+
+        // 5 or 6 = born 2000+, check year
+        if (firstDigit == '5' || firstDigit == '6') {
+            String yearStr = cnp.substring(1, 3);
+            int year = Integer.parseInt(yearStr);
+            return year < 10; // 00-09 (2000-2009) = minor, 10+ = adult
+        }
+
+        return null;
+    }
+
+    /**
+     * Updates sex and minor fields based on CNP.
+     * Call this after setting/updating CNP.
+     */
+    public void calculateFieldsFromCnp() {
+        if (this.cnp != null && !this.cnp.trim().isEmpty()) {
+            String calculatedSex = calculateSexFromCnp(this.cnp);
+            Boolean calculatedMinor = calculateMinorFromCnp(this.cnp);
+
+            if (calculatedSex != null) {
+                this.sex = calculatedSex;
+            }
+            if (calculatedMinor != null) {
+                this.minor = calculatedMinor;
+            }
+
+            // Sync to cache after calculation
+            syncEntityFieldsToCache();
+        }
     }
 
     @Override
@@ -172,6 +262,10 @@ public class Patient {
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +
                 ", phone='" + phone + '\'' +
+                ", sex='" + sex + '\'' +
+                ", minor=" + minor +
+                ", cnp='" + (cnp != null && cnp.length() >= 3 ? cnp.substring(0, 3) + "**********" : null) + '\'' +
                 '}';
     }
+
 }

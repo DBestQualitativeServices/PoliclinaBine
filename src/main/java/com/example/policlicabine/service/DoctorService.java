@@ -76,9 +76,12 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         if (dto.getSpecialties() != null && !dto.getSpecialties().isEmpty()) {
             entity.setSpecialties(dto.getSpecialties());
         }
+        if (dto.getCnp() != null) {
+            entity.setCnp(dto.getCnp().trim());
+        }
     }
 
-    public DoctorDto createDoctor(UUID userId, String fullName, List<Specialty> specialties) {
+    public DoctorDto createDoctor(UUID userId, String fullName, List<Specialty> specialties, String cnp) {
         if (userId == null) {
             throw new BusinessException("User ID is required");
         }
@@ -109,6 +112,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
             .user(user)
             .fullName(fullName.trim())
             .specialties(specialties)
+            .cnp(cnp != null ? cnp.trim() : null)
             .build();
 
         Doctor savedDoctor = doctorRepository.save(doctor);
@@ -190,7 +194,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
      * INTERNAL: Creates a doctor profile linked to an existing user.
      */
     @Transactional
-    public DoctorDto createDoctorWithUser(User user, String fullName, List<Specialty> specialties) {
+    public DoctorDto createDoctorWithUser(User user, String fullName, List<Specialty> specialties, String cnp) {
         if (user == null) {
             throw new BusinessException("User is required");
         }
@@ -209,6 +213,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
                 .user(user)
                 .fullName(fullName.trim())
                 .specialties(specialties)
+                .cnp(cnp != null ? cnp.trim() : null)
                 .build();
 
         Doctor savedDoctor = doctorRepository.save(doctor);

@@ -48,7 +48,9 @@ public class PatientController {
                 patientDto.getCiSerie(),
                 patientDto.getCiNumber(),
                 patientDto.getCiEliberatDe(),
-                patientDto.getCiDataEliberare()
+                patientDto.getCiDataEliberare(),
+                patientDto.getCnp(),
+                patientDto.getSursa()
         );
     }
 

@@ -16,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +94,20 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (dto.getCiDataEliberare() != null) {
             entity.setCiDataEliberare(dto.getCiDataEliberare());
         }
+        if (dto.getCnp() != null) {
+            entity.setCnp(dto.getCnp().trim());
+            entity.calculateFieldsFromCnp(); // Auto-calculate sex/minor
+        }
+        if (dto.getSursa() != null) {
+            entity.setSursa(dto.getSursa().trim());
+        }
+        // Note: sex and minor are auto-calculated from CNP, but can be manually overridden
+        if (dto.getSex() != null) {
+            entity.setSex(dto.getSex().trim());
+        }
+        if (dto.getMinor() != null) {
+            entity.setMinor(dto.getMinor());
+        }
 
         // Sync entity fields to form field cache after any update
         entity.syncEntityFieldsToCache();
@@ -104,7 +119,8 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     public PatientDto registerNewPatient(String firstName, String lastName,
                                          String phone, String email, String address,
                                          String domiciliu, String ciSerie, String ciNumber,
-                                         String ciEliberatDe, LocalDate ciDataEliberare) {
+                                         String ciEliberatDe, LocalDate ciDataEliberare,
+                                         String cnp, String sursa) {
         if (firstName == null || firstName.trim().isEmpty()) {
             throw new BusinessException("First name is required");
         }
@@ -126,7 +142,12 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             .ciNumber(ciNumber != null ? ciNumber.trim() : null)
             .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
             .ciDataEliberare(ciDataEliberare)
+            .cnp(cnp != null ? cnp.trim() : null)
+            .sursa(sursa != null ? sursa.trim() : null)
             .build();
+
+        // Calculate sex and minor from CNP if available
+        patient.calculateFieldsFromCnp();
 
         // Initialize form field cache with entity fields
         patient.syncEntityFieldsToCache();
@@ -233,7 +254,8 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     public PatientDto createPatientWithUser(User user, String firstName, String lastName,
                                             String phone, String email, String address,
                                             String domiciliu, String ciSerie, String ciNumber,
-                                            String ciEliberatDe, LocalDate ciDataEliberare) {
+                                            String ciEliberatDe, LocalDate ciDataEliberare,
+                                            String cnp, String sursa) {
         if (user == null) {
             throw new BusinessException("User is required");
         }
@@ -263,7 +285,12 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .ciNumber(ciNumber != null ? ciNumber.trim() : null)
                 .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
                 .ciDataEliberare(ciDataEliberare)
+                .cnp(cnp != null ? cnp.trim() : null)
+                .sursa(sursa != null ? sursa.trim() : null)
                 .build();
+
+        // Calculate sex and minor from CNP if available
+        patient.calculateFieldsFromCnp();
 
         // Initialize form field cache with entity fields
         patient.syncEntityFieldsToCache();
@@ -381,5 +408,48 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .collect(Collectors.joining(", "));
         }
         return value.toString();
+    }
+
+    // ==================== Scheduled Tasks ====================
+
+    /**
+     * Scheduled task to recalculate sex and minor fields from CNP for all patients.
+     * Runs daily at 2:00 AM.
+     */
+    @Scheduled(cron = "0 0 2 * * *")
+    @Transactional
+    public void recalculateSexAndMinorFromCnp() {
+        log.info("Starting scheduled CNP recalculation for all patients");
+
+        List<Patient> patients = patientRepository.findAll();
+        int updatedCount = 0;
+        int skippedCount = 0;
+
+        for (Patient patient : patients) {
+            if (patient.getCnp() != null && !patient.getCnp().trim().isEmpty()) {
+                String oldSex = patient.getSex();
+                Boolean oldMinor = patient.getMinor();
+
+                patient.calculateFieldsFromCnp();
+
+                // Only count as updated if values actually changed
+                if (!Objects.equals(oldSex, patient.getSex()) ||
+                    !Objects.equals(oldMinor, patient.getMinor())) {
+                    updatedCount++;
+                    log.debug("Updated patient {}: sex={}->{}, minor={}->{}",
+                        patient.getPatientId(), oldSex, patient.getSex(),
+                        oldMinor, patient.getMinor());
+                }
+            } else {
+                skippedCount++;
+            }
+        }
+
+        if (updatedCount > 0) {
+            patientRepository.saveAll(patients);
+        }
+
+        log.info("CNP recalculation completed: {} patients updated, {} skipped (no CNP)",
+            updatedCount, skippedCount);
     }
 }

@@ -136,6 +136,36 @@ public class PatientDto {
     )
     private LocalDate ciDataEliberare;
 
+    @Pattern(regexp = "^[0-9]{13}$", message = "CNP must be 13 digits")
+    @Schema(
+            description = "Personal Numeric Code (CNP) - Romanian national identification number (13 digits)",
+            example = "1920515123456",
+            pattern = "^[0-9]{13}$",
+            maxLength = 13
+    )
+    private String cnp;
+
+    @Schema(
+            description = "Source of patient registration (e.g., 'online', 'clinic', 'referral')",
+            example = "online",
+            maxLength = 255
+    )
+    private String sursa;
+
+    @Pattern(regexp = "^[MF]$", message = "Sex must be 'M' or 'F'")
+    @Schema(
+            description = "Patient's sex (M=Male, F=Female). Auto-calculated from CNP if available.",
+            example = "F",
+            allowableValues = {"M", "F"}
+    )
+    private String sex;
+
+    @Schema(
+            description = "Whether the patient is a minor. Auto-calculated from CNP if available.",
+            example = "false"
+    )
+    private Boolean minor;
+
     @Schema(
             description = "Timestamp when patient was registered in the system",
             example = "2025-01-15T10:30:00Z",

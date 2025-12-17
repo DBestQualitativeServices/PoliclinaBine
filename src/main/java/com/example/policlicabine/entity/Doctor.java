@@ -32,6 +32,9 @@ public class Doctor {
     @Column(nullable = false, length = 200)
     private String fullName;
 
+    @Column(length = 13)
+    private String cnp;
+
     @ElementCollection(targetClass = Specialty.class, fetch = FetchType.LAZY)
     @CollectionTable(name = "doctor_specialties", joinColumns = @JoinColumn(name = "doctor_id"))
     @Enumerated(EnumType.STRING)
@@ -69,6 +72,8 @@ public class Doctor {
     public String toString() {
         return "Doctor{" +
                 "doctorId=" + doctorId +
+                ", fullName='" + fullName + '\'' +
+                ", cnp='" + (cnp != null && cnp.length() >= 3 ? cnp.substring(0, 3) + "**********" : null) + '\'' +
                 '}';
     }
 }

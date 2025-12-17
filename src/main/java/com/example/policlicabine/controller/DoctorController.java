@@ -44,7 +44,8 @@ public class DoctorController {
         return doctorService.createDoctor(
                 doctorDto.getUserId(),
                 doctorDto.getFullName(),
-                doctorDto.getSpecialties()
+                doctorDto.getSpecialties(),
+                doctorDto.getCnp()
         );
     }
 

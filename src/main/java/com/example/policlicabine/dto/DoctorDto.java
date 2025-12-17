@@ -2,6 +2,7 @@ package com.example.policlicabine.dto;
 
 import com.example.policlicabine.entity.enums.Specialty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,16 @@ public class DoctorDto {
     private UUID doctorId;
     private UUID userId;
     private String fullName;
+    
+    @Pattern(regexp = "^[0-9]{13}$", message = "CNP must be 13 digits")
+    @Schema(
+            description = "Personal Numeric Code (CNP) - Romanian national identification number (13 digits)",
+            example = "1920515123456",
+            pattern = "^[0-9]{13}$",
+            maxLength = 13
+    )
+    private String cnp;
+    
     private List<Specialty> specialties;
     private List<WeeklyAvailabilityDto> weeklyAvailability;
 }
