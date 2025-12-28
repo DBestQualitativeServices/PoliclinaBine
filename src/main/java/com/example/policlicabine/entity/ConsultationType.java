@@ -48,6 +48,24 @@ public class ConsultationType {
 
     private Boolean isActive = true;
 
+    @Column(name = "workflow_step")
+    private Integer workflowStep;
+
+    @Column(name = "category_level_1", length = 100)
+    private String categoryLevel1;
+
+    @Column(name = "category_level_2", length = 200)
+    private String categoryLevel2;
+
+    @Column(name = "subcategory_level_1", length = 200)
+    private String subcategoryLevel1;
+
+    @Column(name = "subcategory_level_2", length = 200)
+    private String subcategoryLevel2;
+
+    @Column(name = "category_path", length = 500)
+    private String categoryPath;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "consultation_type_required_form_templates",

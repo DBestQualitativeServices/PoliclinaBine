@@ -84,6 +84,24 @@ public class ConsultationService extends BaseServiceImpl<ConsultationType, Consu
         if (dto.getIsActive() != null) {
             entity.setIsActive(dto.getIsActive());
         }
+        if (dto.getWorkflowStep() != null) {
+            entity.setWorkflowStep(dto.getWorkflowStep());
+        }
+        if (dto.getCategoryLevel1() != null) {
+            entity.setCategoryLevel1(dto.getCategoryLevel1());
+        }
+        if (dto.getCategoryLevel2() != null) {
+            entity.setCategoryLevel2(dto.getCategoryLevel2());
+        }
+        if (dto.getSubcategoryLevel1() != null) {
+            entity.setSubcategoryLevel1(dto.getSubcategoryLevel1());
+        }
+        if (dto.getSubcategoryLevel2() != null) {
+            entity.setSubcategoryLevel2(dto.getSubcategoryLevel2());
+        }
+        if (dto.getCategoryPath() != null) {
+            entity.setCategoryPath(dto.getCategoryPath());
+        }
     }
 
     public ConsultationTypeDto createConsultation(String name, Specialty specialty,

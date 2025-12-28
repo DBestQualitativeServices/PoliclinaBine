@@ -313,7 +313,13 @@ public class AuthenticationService {
                 request.getPhone(),
                 request.getEmail(),
                 request.getAddress(),
-                null, null, null, null, null
+                null, // domiciliu
+                null, // ciSerie
+                null, // ciNumber
+                null, // ciEliberatDe
+                null, // ciDataEliberare
+                request.getCnp(), // CNP
+                null  // sursa
         );
 
         AuthResponse authResponse = buildAuthResponse(user);
@@ -353,7 +359,8 @@ public class AuthenticationService {
         DoctorDto doctorDto = doctorService.createDoctorWithUser(
                 user,
                 request.getFullName(),
-                specialties
+                specialties,
+                null  // CNP - not collected during doctor registration
         );
 
         AuthResponse authResponse = buildAuthResponse(user);

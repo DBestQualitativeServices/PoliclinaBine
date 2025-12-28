@@ -27,7 +27,14 @@ public class ConsultationTypeDto {
     private Integer durationMinutes;
     private Boolean requiresSurgeryRoom;
     private Boolean isActive;
-    
+
+    private Integer workflowStep;
+    private String categoryLevel1;
+    private String categoryLevel2;
+    private String subcategoryLevel1;
+    private String subcategoryLevel2;
+    private String categoryPath;
+
     @Schema(description = "Form types required for this consultation type")
     private List<FormType> requiredForms;
 }
