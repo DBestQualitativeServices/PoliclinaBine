@@ -93,7 +93,7 @@ class PatientServiceTest extends BaseServiceTest {
         // When
         PatientDto result = patientService.registerNewPatient(
                 "John", "Doe", "0700123456", "john.doe@test.com", "123 Test St",
-                null, null, null, null, null  // CI fields
+                null, null, null, null,null,null  // CI fields
         );
 
         // Then
@@ -122,7 +122,7 @@ class PatientServiceTest extends BaseServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 patientService.registerNewPatient(
                         null, "Doe", "0700123456", "john.doe@test.com", "123 Test St",
-                        null, null, null, null, null  // CI fields
+                        null, null, null, null,null,null  // CI fields
                 )
         );
 

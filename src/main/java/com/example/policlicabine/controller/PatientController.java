@@ -44,7 +44,6 @@ public class PatientController {
                 patientDto.getPhone(),
                 patientDto.getEmail(),
                 patientDto.getAddress(),
-                patientDto.getDomiciliu(),
                 patientDto.getCiSerie(),
                 patientDto.getCiNumber(),
                 patientDto.getCiEliberatDe(),

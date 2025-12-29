@@ -52,9 +52,6 @@ public class Patient {
     @Column(columnDefinition = "TEXT")
     private String address;
 
-    @Column(columnDefinition = "TEXT")
-    private String domiciliu;
-
     @Column(length = 2)
     private String ciSerie;
 
@@ -147,9 +144,6 @@ public class Patient {
         }
         if (address != null && !address.trim().isEmpty()) {
             formFieldCache.put("address", address.trim());
-        }
-        if (domiciliu != null && !domiciliu.trim().isEmpty()) {
-            formFieldCache.put("domiciliu", domiciliu.trim());
         }
         if (ciSerie != null && !ciSerie.trim().isEmpty()) {
             formFieldCache.put("ciserie", ciSerie.trim());

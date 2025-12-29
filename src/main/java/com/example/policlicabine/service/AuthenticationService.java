@@ -313,13 +313,12 @@ public class AuthenticationService {
                 request.getPhone(),
                 request.getEmail(),
                 request.getAddress(),
-                null, // domiciliu
-                null, // ciSerie
-                null, // ciNumber
-                null, // ciEliberatDe
-                null, // ciDataEliberare
-                request.getCnp(), // CNP
-                null  // sursa
+                null,
+                null,
+                null,
+                null,
+                request.getCnp(),
+                null
         );
 
         AuthResponse authResponse = buildAuthResponse(user);

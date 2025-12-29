@@ -79,9 +79,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         if (dto.getAddress() != null) {
             entity.setAddress(dto.getAddress().trim());
         }
-        if (dto.getDomiciliu() != null) {
-            entity.setDomiciliu(dto.getDomiciliu().trim());
-        }
         if (dto.getCiSerie() != null) {
             entity.setCiSerie(dto.getCiSerie().trim().toUpperCase());
         }
@@ -118,7 +115,7 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
      */
     public PatientDto registerNewPatient(String firstName, String lastName,
                                          String phone, String email, String address,
-                                         String domiciliu, String ciSerie, String ciNumber,
+                                         String ciSerie, String ciNumber,
                                          String ciEliberatDe, LocalDate ciDataEliberare,
                                          String cnp, String sursa) {
         if (firstName == null || firstName.trim().isEmpty()) {
@@ -137,7 +134,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             .phone(phone.trim())
             .email(email != null ? email.trim() : null)
             .address(address != null ? address.trim() : null)
-            .domiciliu(domiciliu != null ? domiciliu.trim() : null)
             .ciSerie(ciSerie != null ? ciSerie.trim().toUpperCase() : null)
             .ciNumber(ciNumber != null ? ciNumber.trim() : null)
             .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
@@ -253,7 +249,7 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     @Transactional
     public PatientDto createPatientWithUser(User user, String firstName, String lastName,
                                             String phone, String email, String address,
-                                            String domiciliu, String ciSerie, String ciNumber,
+                                            String ciSerie, String ciNumber,
                                             String ciEliberatDe, LocalDate ciDataEliberare,
                                             String cnp, String sursa) {
         if (user == null) {
@@ -280,7 +276,6 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .phone(phone.trim())
                 .email(email != null ? email.trim() : null)
                 .address(address != null ? address.trim() : null)
-                .domiciliu(domiciliu != null ? domiciliu.trim() : null)
                 .ciSerie(ciSerie != null ? ciSerie.trim().toUpperCase() : null)
                 .ciNumber(ciNumber != null ? ciNumber.trim() : null)
                 .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)

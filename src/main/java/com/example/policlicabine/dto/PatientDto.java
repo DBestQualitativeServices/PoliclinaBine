@@ -94,13 +94,6 @@ public class PatientDto {
     )
     private String address;
 
-    @Size(max = 1000)
-    @Schema(
-            description = "Patient's legal residence address (domiciliu) as per identity card",
-            example = "Str. Victoriei nr. 25, Cluj-Napoca, Romania",
-            maxLength = 1000
-    )
-    private String domiciliu;
 
     @Size(min = 2, max = 2)
     @Pattern(regexp = "^[A-Z]{2}$", message = "ciSerie must be 2 uppercase letters")
