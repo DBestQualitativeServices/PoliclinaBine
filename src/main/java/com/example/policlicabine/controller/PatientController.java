@@ -106,4 +106,31 @@ public class PatientController {
         log.info("REST: Deleting patient: {}", patientId);
         patientService.deleteById(patientId);
     }
+
+    @PostMapping("/{patientId}/tutor/{tutorPatientId}")
+    @StandardApiResponses
+    @Operation(summary = "Assign tutor to minor patient")
+    public PatientDto assignTutor(
+            @PathVariable UUID patientId,
+            @PathVariable UUID tutorPatientId
+    ) {
+        log.info("REST: Assigning tutor {} to patient {}", tutorPatientId, patientId);
+        return patientService.assignTutor(patientId, tutorPatientId);
+    }
+
+    @DeleteMapping("/{patientId}/tutor")
+    @StandardApiResponses
+    @Operation(summary = "Remove tutor from minor patient")
+    public PatientDto removeTutor(@PathVariable UUID patientId) {
+        log.info("REST: Removing tutor from patient {}", patientId);
+        return patientService.removeTutor(patientId);
+    }
+
+    @GetMapping("/{tutorPatientId}/minors")
+    @StandardApiResponses
+    @Operation(summary = "Get all minors for a tutor")
+    public List<PatientDto> getMinorsForTutor(@PathVariable UUID tutorPatientId) {
+        log.info("REST: Getting minors for tutor {}", tutorPatientId);
+        return patientService.getMinorsForTutor(tutorPatientId);
+    }
 }

@@ -160,6 +160,24 @@ public class PatientDto {
     private Boolean minor;
 
     @Schema(
+            description = "Tutor patient ID (for minors). The tutor must be an adult patient in the system.",
+            example = "456e7890-e89b-12d3-a456-426614174001"
+    )
+    private UUID tutorPatientId;
+
+    @Schema(
+            description = "Tutor's first name (read-only, populated when tutor is assigned)",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private String tutorFirstName;
+
+    @Schema(
+            description = "Tutor's last name (read-only, populated when tutor is assigned)",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private String tutorLastName;
+
+    @Schema(
             description = "Timestamp when patient was registered in the system",
             example = "2025-01-15T10:30:00Z",
             accessMode = Schema.AccessMode.READ_ONLY

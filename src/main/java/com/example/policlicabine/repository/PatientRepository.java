@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,4 +33,9 @@ public interface PatientRepository extends FilterableRepository<Patient, UUID> {
     Page<Patient> findAll(Specification<Patient> spec, Pageable pageable);
 
     boolean existsByUserUserId(UUID userId);
+
+    @EntityGraph(attributePaths = {"tutor", "tutor.user"})
+    Optional<Patient> findWithTutorByPatientId(UUID patientId);
+
+    List<Patient> findByTutorPatientId(UUID tutorPatientId);
 }

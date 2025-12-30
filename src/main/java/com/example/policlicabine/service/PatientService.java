@@ -405,12 +405,85 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
         return value.toString();
     }
 
+    // ==================== Tutor Management ====================
+
+    @Transactional
+    public PatientDto assignTutor(UUID minorPatientId, UUID tutorPatientId) {
+        if (minorPatientId == null) {
+            throw new BusinessException("Minor patient ID is required");
+        }
+        if (tutorPatientId == null) {
+            throw new BusinessException("Tutor patient ID is required");
+        }
+        if (minorPatientId.equals(tutorPatientId)) {
+            throw new BusinessException("Patient cannot be their own tutor");
+        }
+
+        Patient minor = patientRepository.findById(minorPatientId)
+            .orElseThrow(() -> new ResourceNotFoundException("Patient", minorPatientId));
+
+        if (!minor.requiresTutor()) {
+            throw new BusinessException("Only minor patients can have a tutor assigned");
+        }
+
+        Patient tutor = patientRepository.findById(tutorPatientId)
+            .orElseThrow(() -> new ResourceNotFoundException("Patient", tutorPatientId));
+
+        if (tutor.requiresTutor()) {
+            throw new BusinessException("Tutor cannot be a minor");
+        }
+
+        UUID previousTutorId = minor.getTutor() != null ? minor.getTutor().getPatientId() : null;
+        minor.setTutor(tutor);
+
+        Patient saved = patientRepository.save(minor);
+
+        return patientMapper.toDto(saved);
+    }
+
+    @Transactional
+    public PatientDto removeTutor(UUID minorPatientId) {
+        if (minorPatientId == null) {
+            throw new BusinessException("Minor patient ID is required");
+        }
+
+        Patient minor = patientRepository.findById(minorPatientId)
+            .orElseThrow(() -> new ResourceNotFoundException("Patient", minorPatientId));
+
+        if (minor.getTutor() == null) {
+            throw new BusinessException("Patient does not have a tutor assigned");
+        }
+
+        minor.setTutor(null);
+        Patient saved = patientRepository.save(minor);
+
+        log.info("Tutor removed from minor {}", minorPatientId);
+
+        return patientMapper.toDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PatientDto> getMinorsForTutor(UUID tutorPatientId) {
+        if (tutorPatientId == null) {
+            throw new BusinessException("Tutor patient ID is required");
+        }
+
+        List<Patient> minors = patientRepository.findByTutorPatientId(tutorPatientId);
+        return minors.stream()
+            .map(patientMapper::toDto)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Patient getPatientWithTutor(UUID patientId) {
+        if (patientId == null) {
+            return null;
+        }
+        return patientRepository.findWithTutorByPatientId(patientId).orElse(null);
+    }
+
     // ==================== Scheduled Tasks ====================
 
-    /**
-     * Scheduled task to recalculate sex and minor fields from CNP for all patients.
-     * Runs daily at 2:00 AM.
-     */
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public void recalculateSexAndMinorFromCnp() {

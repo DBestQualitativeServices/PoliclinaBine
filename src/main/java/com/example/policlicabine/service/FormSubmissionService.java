@@ -115,6 +115,20 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
 
         patientService.validateExists(patientId);
 
+         // Tutor validation for minors
+        Patient patient = patientService.getPatientWithTutor(patientId);
+        if (patient != null && patient.requiresTutor()) {
+            if (!patient.hasTutor()) {
+                throw new BusinessException("Minor patient must have an assigned tutor before submitting forms");
+            }
+            if (submittedByUserId != null) {
+                Patient tutor = patient.getTutor();
+                if (tutor.getUser() == null || !tutor.getUser().getUserId().equals(submittedByUserId)) {
+                    throw new BusinessException("Forms for minors must be submitted by their registered tutor");
+                }
+            }
+        }
+
         List<String> validationErrors = formValidationService.validate(template.getStructure(), data);
         if (!validationErrors.isEmpty()) {
             throw new BusinessException("Validation failed: " + String.join(", ", validationErrors));
@@ -197,6 +211,18 @@ public class FormSubmissionService extends BaseServiceImpl<FormSubmission, FormS
 
         if (submission.isExpired()) {
             throw new BusinessException("Form has expired");
+        }
+
+        // Tutor validation for minors
+        Patient patient = patientService.getPatientWithTutor(submission.getPatient().getPatientId());
+        if (patient != null && patient.requiresTutor()) {
+            if (!patient.hasTutor()) {
+                throw new BusinessException("Minor patient must have an assigned tutor");
+            }
+            Patient tutor = patient.getTutor();
+            if (tutor.getUser() == null || !tutor.getUser().getUserId().equals(signedByUserId)) {
+                throw new BusinessException("Forms for minors must be signed by their registered tutor");
+            }
         }
 
         // Check if signature already exists for this field

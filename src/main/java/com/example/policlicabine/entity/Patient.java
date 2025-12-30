@@ -20,7 +20,8 @@ import java.util.UUID;
 @Table(name = "patients", indexes = {
     @Index(name = "idx_patient_phone", columnList = "phone"),
     @Index(name = "idx_patient_email", columnList = "email"),
-    @Index(name = "idx_patient_user", columnList = "user_id")
+    @Index(name = "idx_patient_user", columnList = "user_id"),
+    @Index(name = "idx_patient_tutor", columnList = "tutor_patient_id")
 })
 @Getter
 @Setter
@@ -66,6 +67,10 @@ public class Patient {
 
     @Column
     private Boolean minor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tutor_patient_id")
+    private Patient tutor;
 
     @Column
     private String sex;
@@ -235,6 +240,14 @@ public class Patient {
             // Sync to cache after calculation
             syncEntityFieldsToCache();
         }
+    }
+
+    public boolean requiresTutor() {
+        return Boolean.TRUE.equals(this.minor);
+    }
+
+    public boolean hasTutor() {
+        return this.tutor != null;
     }
 
     @Override
