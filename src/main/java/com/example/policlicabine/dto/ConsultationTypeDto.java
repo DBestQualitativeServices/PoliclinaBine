@@ -1,5 +1,6 @@
 package com.example.policlicabine.dto;
 
+import com.example.policlicabine.entity.enums.ConsultCategory;
 import com.example.policlicabine.entity.enums.FormType;
 import com.example.policlicabine.entity.enums.Specialty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -22,6 +23,7 @@ public class ConsultationTypeDto {
     private UUID consultationId;
     private String name;
     private Specialty specialty;
+    private ConsultCategory consultCategory;
     private BigDecimal price;
     private String priceCurrency;
     private Integer durationMinutes;

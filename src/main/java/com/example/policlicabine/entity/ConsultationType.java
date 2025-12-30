@@ -1,5 +1,6 @@
 package com.example.policlicabine.entity;
 
+import com.example.policlicabine.entity.enums.ConsultCategory;
 import com.example.policlicabine.entity.enums.Specialty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -35,6 +36,11 @@ public class ConsultationType {
 
     @Enumerated(EnumType.STRING)
     private Specialty specialty;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private ConsultCategory consultCategory = ConsultCategory.PREVENTIV;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal price;
