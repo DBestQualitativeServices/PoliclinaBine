@@ -88,18 +88,35 @@ public class FormReadinessService {
     }
 
     private FormRequirementDto checkSingleRequirement(UUID patientId, FormTemplate template, LocalDateTime appointmentDate) {
+        // Use query that includes template and signatures for owner signature check
         Optional<FormSubmission> validSubmission = formSubmissionRepository
-                .findValidSubmissionForTemplate(patientId, template.getId(), appointmentDate);
+                .findValidSubmissionWithSignaturesForTemplate(patientId, template.getId(), appointmentDate);
 
         if (validSubmission.isPresent()) {
             FormSubmission fs = validSubmission.get();
-            return FormRequirementDto.builder()
-                    .templateId(template.getId())
-                    .templateName(template.getName())
-                    .status(FormRequirementStatus.VALID)
-                    .existingSubmissionId(fs.getId())
-                    .expiresAt(fs.getExpiresAt())
-                    .build();
+
+            // Check if owner has signed
+            if (fs.isOwnerSigned()) {
+                return FormRequirementDto.builder()
+                        .templateId(template.getId())
+                        .templateName(template.getName())
+                        .ownerType(template.getOwnerType())
+                        .status(FormRequirementStatus.VALID)
+                        .existingSubmissionId(fs.getId())
+                        .expiresAt(fs.getExpiresAt())
+                        .build();
+            } else {
+                // Submission exists but owner hasn't signed
+                return FormRequirementDto.builder()
+                        .templateId(template.getId())
+                        .templateName(template.getName())
+                        .ownerType(template.getOwnerType())
+                        .status(FormRequirementStatus.PENDING_SIGNATURE)
+                        .existingSubmissionId(fs.getId())
+                        .expiresAt(fs.getExpiresAt())
+                        .missingOwnerSignatureFields(fs.getMissingOwnerSignatureFields())
+                        .build();
+            }
         }
 
         FormRequirementStatus failureReason = determineFailureReason(patientId, template.getId(), appointmentDate);
@@ -107,6 +124,7 @@ public class FormReadinessService {
         return FormRequirementDto.builder()
                 .templateId(template.getId())
                 .templateName(template.getName())
+                .ownerType(template.getOwnerType())
                 .status(failureReason)
                 .build();
     }

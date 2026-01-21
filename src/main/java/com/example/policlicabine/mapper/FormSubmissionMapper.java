@@ -28,6 +28,9 @@ public abstract class FormSubmissionMapper {
     @Mapping(target = "submittedByUserId", source = "submittedBy.userId")
     @Mapping(target = "isExpired", expression = "java(entity.isExpired())")
     @Mapping(target = "isValid", expression = "java(entity.isValid())")
+    @Mapping(target = "ownerType", source = "template.ownerType")
+    @Mapping(target = "isOwnerSigned", expression = "java(entity.isOwnerSigned())")
+    @Mapping(target = "missingOwnerSignatureFields", expression = "java(entity.getMissingOwnerSignatureFields())")
     public abstract FormSubmissionDto toDto(FormSubmission entity);
 
     @Mapping(target = "template", ignore = true)

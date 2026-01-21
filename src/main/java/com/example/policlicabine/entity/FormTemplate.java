@@ -1,5 +1,6 @@
 package com.example.policlicabine.entity;
 
+import com.example.policlicabine.entity.enums.OwnerType;
 import com.example.policlicabine.model.FormStructure;
 import jakarta.persistence.*;
 import lombok.*;
@@ -46,6 +47,15 @@ public class FormTemplate {
     private FormStructure structure;
 
     private Integer validityMonths;
+
+    /**
+     * Defines who owns forms created from this template.
+     * The owner's signature (matching signatureType field) determines if form is "signed/complete".
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", length = 20)
+    @Builder.Default
+    private OwnerType ownerType = OwnerType.PATIENT;
 
     @Column(name = "pdf_template_url", length = 500)
     private String pdfTemplateUrl;

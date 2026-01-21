@@ -1,5 +1,6 @@
 package com.example.policlicabine.dto;
 
+import com.example.policlicabine.entity.enums.OwnerType;
 import com.example.policlicabine.model.FormStructure;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,4 +33,22 @@ public class FormSubmissionDto {
     private LocalDateTime expiresAt;
     private Boolean isExpired;
     private Boolean isValid;
+
+    /**
+     * The owner type of this form (from template).
+     * Indicates who must sign for the form to be considered complete.
+     */
+    private OwnerType ownerType;
+
+    /**
+     * Whether the owner has signed this form.
+     * True if a signature exists for a signature field matching the ownerType.
+     */
+    private Boolean isOwnerSigned;
+
+    /**
+     * List of signature field names that the owner still needs to sign.
+     * Empty if isOwnerSigned is true.
+     */
+    private List<String> missingOwnerSignatureFields;
 }

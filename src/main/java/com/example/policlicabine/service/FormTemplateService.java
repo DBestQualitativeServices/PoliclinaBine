@@ -4,6 +4,7 @@ import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.dto.FormTemplateFilterCriteria;
 import com.example.policlicabine.entity.FormTemplate;
 import com.example.policlicabine.entity.User;
+import com.example.policlicabine.entity.enums.OwnerType;
 import com.example.policlicabine.event.FormTemplateCreated;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
@@ -98,6 +99,22 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
     @Transactional
     public FormTemplateDto createTemplate(String name, FormStructure structure,
                                           Integer validityMonths, UUID createdByUserId) {
+        return createTemplate(name, structure, validityMonths, OwnerType.PATIENT, createdByUserId);
+    }
+
+    /**
+     * Creates a new form template with specified owner type.
+     *
+     * @param name template name (unique)
+     * @param structure form structure
+     * @param validityMonths validity period in months
+     * @param ownerType who owns forms created from this template (determines required signature)
+     * @param createdByUserId user who created the template
+     * @return created template DTO
+     */
+    @Transactional
+    public FormTemplateDto createTemplate(String name, FormStructure structure,
+                                          Integer validityMonths, OwnerType ownerType, UUID createdByUserId) {
         if (name == null || name.trim().isEmpty()) {
             throw new BusinessException("Template name is required");
         }
@@ -116,12 +133,13 @@ public class FormTemplateService extends BaseServiceImpl<FormTemplate, FormTempl
                 .name(name.trim())
                 .structure(structure)
                 .validityMonths(validityMonths)
+                .ownerType(ownerType != null ? ownerType : OwnerType.PATIENT)
                 .active(false)
                 .createdBy(createdBy)
                 .build();
 
         FormTemplate saved = formTemplateRepository.save(template);
-        log.info("Created form template: {}", saved.getName());
+        log.info("Created form template: {} with owner type: {}", saved.getName(), saved.getOwnerType());
 
         eventPublisher.publishEvent(new FormTemplateCreated(
                 saved.getId(),

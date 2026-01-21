@@ -1,5 +1,6 @@
 package com.example.policlicabine.dto;
 
+import com.example.policlicabine.entity.enums.OwnerType;
 import com.example.policlicabine.model.FormStructure;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class FormTemplateDto {
     private Boolean active;
     private FormStructure structure;
     private Integer validityMonths;
+    private OwnerType ownerType;
     private String pdfTemplateUrl;
     private LocalDateTime createdAt;
     private UUID createdByUserId;

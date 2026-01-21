@@ -205,6 +205,62 @@ public class FormSubmission {
         return signedFields.containsAll(requiredFields);
     }
 
+    /**
+     * Checks if the owner has signed this form submission.
+     * The owner is determined by the template's ownerType (PATIENT, DOCTOR, ADMIN).
+     * A form is considered "owner signed" when a signature exists for a signature field
+     * whose signatureType matches the template's ownerType.
+     *
+     * @return true if owner's signature is present, false otherwise
+     */
+    public boolean isOwnerSigned() {
+        if (template == null || template.getOwnerType() == null) {
+            return true; // No owner type defined means no owner signature required
+        }
+        if (templateSnapshot == null || templateSnapshot.getSections() == null) {
+            return true; // No template structure means no signatures to check
+        }
+
+        String ownerType = template.getOwnerType().name();
+        Set<String> signedFieldIds = getSignedFieldIds();
+
+        // Find signature fields whose signatureType matches the owner type
+        // and check if any of them has been signed
+        return templateSnapshot.getSections().stream()
+                .filter(section -> section.getFields() != null)
+                .flatMap(section -> section.getFields().stream())
+                .filter(field -> "signature".equals(field.getType()))
+                .filter(field -> ownerType.equals(field.getSignatureType()))
+                .anyMatch(field -> signedFieldIds.contains(field.getName()));
+    }
+
+    /**
+     * Gets the list of owner signature field names that are missing.
+     * Useful for understanding what signatures are needed to complete the form.
+     *
+     * @return list of signature field names that the owner needs to sign
+     */
+    public List<String> getMissingOwnerSignatureFields() {
+        if (template == null || template.getOwnerType() == null) {
+            return List.of();
+        }
+        if (templateSnapshot == null || templateSnapshot.getSections() == null) {
+            return List.of();
+        }
+
+        String ownerType = template.getOwnerType().name();
+        Set<String> signedFieldIds = getSignedFieldIds();
+
+        return templateSnapshot.getSections().stream()
+                .filter(section -> section.getFields() != null)
+                .flatMap(section -> section.getFields().stream())
+                .filter(field -> "signature".equals(field.getType()))
+                .filter(field -> ownerType.equals(field.getSignatureType()))
+                .map(FormField::getName)
+                .filter(fieldName -> !signedFieldIds.contains(fieldName))
+                .toList();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

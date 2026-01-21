@@ -2,6 +2,7 @@ package com.example.policlicabine.controller;
 
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.dto.FormTemplateFilterCriteria;
+import com.example.policlicabine.entity.enums.OwnerType;
 import com.example.policlicabine.model.FormStructure;
 import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.service.FormTemplateService;
@@ -31,6 +32,7 @@ public class FormTemplateController {
                 request.name,
                 request.structure,
                 request.validityMonths,
+                request.ownerType,
                 request.createdByUserId
         );
     }
@@ -100,6 +102,7 @@ public class FormTemplateController {
             String name,
             FormStructure structure,
             Integer validityMonths,
+            OwnerType ownerType,
             UUID createdByUserId
     ) {}
 }

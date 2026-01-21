@@ -215,7 +215,7 @@ public class Patient {
         if (firstDigit == '5' || firstDigit == '6') {
             String yearStr = cnp.substring(1, 3);
             int year = Integer.parseInt(yearStr);
-            return year < 10; // 00-09 (2000-2009) = minor, 10+ = adult
+            return year > 7; // 00-09 (2000-2009) = minor, 10+ = adult
         }
 
         return null;

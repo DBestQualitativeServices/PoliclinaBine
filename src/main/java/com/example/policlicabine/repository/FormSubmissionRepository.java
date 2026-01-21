@@ -36,6 +36,26 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
             @Param("targetDate") LocalDateTime targetDate
     );
 
+    /**
+     * Find valid submission with template and signatures loaded.
+     * Used for owner signature validation in FormReadinessService.
+     */
+    @EntityGraph(attributePaths = {"template", "signatures"})
+    @Query("""
+        SELECT fs FROM FormSubmission fs
+        WHERE fs.patient.patientId = :patientId
+          AND fs.template.id = :templateId
+          AND fs.isDeleted = false
+          AND (fs.expiresAt IS NULL OR fs.expiresAt > :targetDate)
+        ORDER BY fs.submittedAt DESC
+        LIMIT 1
+        """)
+    Optional<FormSubmission> findValidSubmissionWithSignaturesForTemplate(
+            @Param("patientId") UUID patientId,
+            @Param("templateId") UUID templateId,
+            @Param("targetDate") LocalDateTime targetDate
+    );
+
     @Query(value = """
         SELECT * FROM form_submissions
         WHERE expires_at BETWEEN :now AND :futureDate
