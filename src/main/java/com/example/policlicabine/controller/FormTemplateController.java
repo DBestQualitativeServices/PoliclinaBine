@@ -8,6 +8,7 @@ import com.example.policlicabine.common.StandardApiResponses;
 import com.example.policlicabine.service.FormTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "form-template-controller")
 @RestController
 @RequestMapping("/api/admin/form-templates")
 @RequiredArgsConstructor
