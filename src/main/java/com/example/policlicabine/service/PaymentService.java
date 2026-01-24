@@ -1,5 +1,6 @@
 package com.example.policlicabine.service;
 
+import com.example.policlicabine.dto.PaymentDto;
 import com.example.policlicabine.entity.Invoice;
 import com.example.policlicabine.entity.Patient;
 import com.example.policlicabine.entity.Payment;
@@ -8,6 +9,7 @@ import com.example.policlicabine.entity.enums.PaymentType;
 import com.example.policlicabine.event.PaymentProcessed;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
+import com.example.policlicabine.mapper.PaymentMapper;
 import com.example.policlicabine.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,18 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Service for managing payment operations.
+ *
+ * <p>This service handles:</p>
+ * <ul>
+ *   <li>Processing payments against invoices</li>
+ *   <li>Retrieving payment information</li>
+ *   <li>Validating payment amounts</li>
+ * </ul>
+ *
+ * <p>All public methods return DTOs to maintain clean separation from entities.</p>
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -32,9 +46,22 @@ public class PaymentService {
     private final InvoiceService invoiceService;
     private final UserService userService;
     private final ApplicationEventPublisher eventPublisher;
+    private final PaymentMapper paymentMapper;
 
-    public Payment processPayment(List<UUID> invoiceIds, BigDecimal amount,
-                                  PaymentType paymentType, UUID processedByUserId, String notes) {
+    /**
+     * Processes a payment against one or more invoices.
+     *
+     * @param invoiceIds the list of invoice IDs to pay
+     * @param amount the payment amount (must be positive and not exceed total invoice amount)
+     * @param paymentType the type of payment (CASH, CARD, etc.)
+     * @param processedByUserId the user processing the payment
+     * @param notes optional payment notes
+     * @return the created PaymentDto
+     * @throws BusinessException if validation fails
+     * @throws ResourceNotFoundException if invoices or user not found
+     */
+    public PaymentDto processPayment(List<UUID> invoiceIds, BigDecimal amount,
+                                     PaymentType paymentType, UUID processedByUserId, String notes) {
         if (invoiceIds == null || invoiceIds.isEmpty()) {
             throw new BusinessException("At least one invoice is required");
         }
@@ -90,21 +117,53 @@ public class PaymentService {
         log.info("Payment processed: {} for amount {} across {} invoices",
             paymentWithRelations.getPaymentId(), amount, invoiceIds.size());
 
-        return paymentWithRelations;
+        return paymentMapper.toDto(paymentWithRelations);
     }
 
+    /**
+     * Retrieves payment information by ID.
+     *
+     * @param paymentId the payment ID
+     * @return the PaymentDto
+     * @throws BusinessException if paymentId is null
+     * @throws ResourceNotFoundException if payment not found
+     */
     @Transactional(readOnly = true)
-    public Payment getPaymentById(UUID paymentId) {
+    public PaymentDto getPaymentById(UUID paymentId) {
         if (paymentId == null) {
             throw new BusinessException("Payment ID is required");
         }
 
-        return paymentRepository.findWithInvoicesAndBillingsByPaymentId(paymentId)
+        Payment payment = paymentRepository.findWithInvoicesAndBillingsByPaymentId(paymentId)
             .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
+
+        return paymentMapper.toDto(payment);
     }
 
+    /**
+     * Retrieves all payments.
+     *
+     * @return list of PaymentDto
+     */
     @Transactional(readOnly = true)
-    public List<Payment> getAllPayments() {
-        return paymentRepository.findAll();
+    public List<PaymentDto> getAllPayments() {
+        return paymentRepository.findAll().stream()
+            .map(paymentMapper::toDto)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Internal method for service-to-service communication.
+     * Returns Payment entity directly for internal use.
+     *
+     * @param paymentId the payment ID
+     * @return the Payment entity or null if not found
+     */
+    @Transactional(readOnly = true)
+    public Payment getEntityById(UUID paymentId) {
+        if (paymentId == null) {
+            return null;
+        }
+        return paymentRepository.findWithInvoicesAndBillingsByPaymentId(paymentId).orElse(null);
     }
 }

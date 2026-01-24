@@ -14,6 +14,7 @@ import com.example.policlicabine.specification.PatientSpecificationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -487,37 +488,46 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public void recalculateSexAndMinorFromCnp() {
-        log.info("Starting scheduled CNP recalculation for all patients");
+        log.info("Starting scheduled CNP recalculation for all patients (paginated)");
 
-        List<Patient> patients = patientRepository.findAll();
+        int pageSize = 100;
+        int pageNumber = 0;
         int updatedCount = 0;
         int skippedCount = 0;
+        int totalProcessed = 0;
 
-        for (Patient patient : patients) {
-            if (patient.getCnp() != null && !patient.getCnp().trim().isEmpty()) {
-                String oldSex = patient.getSex();
-                Boolean oldMinor = patient.getMinor();
+        Page<Patient> patientsPage;
+        do {
+            patientsPage = patientRepository.findAll(PageRequest.of(pageNumber, pageSize));
 
-                patient.calculateFieldsFromCnp();
+            for (Patient patient : patientsPage.getContent()) {
+                if (patient.getCnp() != null && !patient.getCnp().trim().isEmpty()) {
+                    String oldSex = patient.getSex();
+                    Boolean oldMinor = patient.getMinor();
 
-                // Only count as updated if values actually changed
-                if (!Objects.equals(oldSex, patient.getSex()) ||
-                    !Objects.equals(oldMinor, patient.getMinor())) {
-                    updatedCount++;
-                    log.debug("Updated patient {}: sex={}->{}, minor={}->{}",
-                        patient.getPatientId(), oldSex, patient.getSex(),
-                        oldMinor, patient.getMinor());
+                    patient.calculateFieldsFromCnp();
+
+                    // Only count as updated if values actually changed
+                    if (!Objects.equals(oldSex, patient.getSex()) ||
+                        !Objects.equals(oldMinor, patient.getMinor())) {
+                        updatedCount++;
+                        log.debug("Updated patient {}: sex={}->{}, minor={}->{}",
+                            patient.getPatientId(), oldSex, patient.getSex(),
+                            oldMinor, patient.getMinor());
+                    }
+                } else {
+                    skippedCount++;
                 }
-            } else {
-                skippedCount++;
             }
-        }
 
-        if (updatedCount > 0) {
-            patientRepository.saveAll(patients);
-        }
+            totalProcessed += patientsPage.getNumberOfElements();
+            pageNumber++;
 
-        log.info("CNP recalculation completed: {} patients updated, {} skipped (no CNP)",
-            updatedCount, skippedCount);
+            log.info("Processed page {} of {} ({} patients processed so far)",
+                pageNumber, patientsPage.getTotalPages(), totalProcessed);
+        } while (patientsPage.hasNext());
+
+        log.info("CNP recalculation completed: {} total processed, {} updated, {} skipped (no CNP)",
+            totalProcessed, updatedCount, skippedCount);
     }
 }
