@@ -125,8 +125,8 @@ public class GlobalExceptionHandler {
             MaxUploadSizeExceededException ex,
             HttpServletRequest request) {
         log.warn("File upload size exceeded at {}: {}", request.getRequestURI(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(
-                ErrorResponse.of(HttpStatus.PAYLOAD_TOO_LARGE.value(),
+        return ResponseEntity.status(413).body(
+                ErrorResponse.of(413,
                         "File size exceeds maximum limit of 25MB. Please upload a smaller file.",
                         request.getRequestURI()));
     }
