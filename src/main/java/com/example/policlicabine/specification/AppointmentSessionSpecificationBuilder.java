@@ -220,22 +220,26 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
         };
     }
 
-    /**
-     * Filter sessions containing ANY of the specified consultation types.
-     * <p>
-     * Sessions that have at least one consultation matching any name in the list will be included.
-     * </p>
-     *
-     * @param consultationNames the list of consultation names to search for (can be null)
-     * @return specification or null if consultationNames is null/empty
-     */
     private Specification<AppointmentSession> hasConsultationTypes(List<String> consultationNames) {
         return (root, query, cb) -> {
             if (consultationNames == null || consultationNames.isEmpty()) {
                 return null;
             }
             Join<AppointmentSession, ConsultationType> consultationJoin = root.join("consultationTypes");
-            return consultationJoin.get("name").in(consultationNames);
+
+            List<Predicate> predicates = consultationNames.stream()
+                    .filter(name -> name != null && !name.trim().isEmpty())
+                    .map(name -> cb.like(
+                            cb.lower(consultationJoin.get("name")),
+                            "%" + name.trim().toLowerCase() + "%"
+                    ))
+                    .toList();
+
+            if (predicates.isEmpty()) {
+                return null;
+            }
+
+            return cb.or(predicates.toArray(new Predicate[0]));
         };
     }
 }

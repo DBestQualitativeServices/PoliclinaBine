@@ -19,6 +19,9 @@ import java.util.UUID;
 public class DoctorDto {
 
     private UUID doctorId;
+    
+    // Note: userId is used for INPUT (creating doctors) but NOT mapped from entity
+    // to avoid N+1 queries from User's bidirectional OneToOne relationships
     private UUID userId;
     private String fullName;
     

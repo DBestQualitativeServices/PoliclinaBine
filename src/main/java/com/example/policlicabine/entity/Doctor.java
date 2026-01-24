@@ -6,8 +6,10 @@ import lombok.*;
 import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -38,11 +40,11 @@ public class Doctor {
     @ElementCollection(targetClass = Specialty.class, fetch = FetchType.LAZY)
     @CollectionTable(name = "doctor_specialties", joinColumns = @JoinColumn(name = "doctor_id"))
     @Enumerated(EnumType.STRING)
-    private List<Specialty> specialties = new ArrayList<>();
+    private Set<Specialty> specialties = new HashSet<>();
 
     @OneToMany(mappedBy = "doctor", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @BatchSize(size = 10)
-    private List<WeeklyAvailability> weeklyAvailability = new ArrayList<>();
+    private Set<WeeklyAvailability> weeklyAvailability = new HashSet<>();
 
     @OneToMany(mappedBy = "doctor", fetch = FetchType.LAZY)
     @BatchSize(size = 20)

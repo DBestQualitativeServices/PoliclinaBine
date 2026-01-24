@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -74,7 +76,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
             entity.setFullName(dto.getFullName().trim());
         }
         if (dto.getSpecialties() != null && !dto.getSpecialties().isEmpty()) {
-            entity.setSpecialties(dto.getSpecialties());
+            entity.setSpecialties(new HashSet<>(dto.getSpecialties()));
         }
         if (dto.getCnp() != null) {
             entity.setCnp(dto.getCnp().trim());
@@ -111,7 +113,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         Doctor doctor = Doctor.builder()
             .user(user)
             .fullName(fullName.trim())
-            .specialties(specialties)
+            .specialties(new HashSet<>(specialties))
             .cnp(cnp != null ? cnp.trim() : null)
             .build();
 
@@ -132,7 +134,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
             .orElseThrow(() -> new ResourceNotFoundException("Doctor", doctorId));
 
         List<ConsultationType> consultations = consultationService
-            .getEntitiesBySpecialties(doctor.getSpecialties());
+            .getEntitiesBySpecialties(new ArrayList<>(doctor.getSpecialties()));
 
         return consultations.stream()
             .map(consultationMapper::toDto)
@@ -212,7 +214,7 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         Doctor doctor = Doctor.builder()
                 .user(user)
                 .fullName(fullName.trim())
-                .specialties(specialties)
+                .specialties(new HashSet<>(specialties))
                 .cnp(cnp != null ? cnp.trim() : null)
                 .build();
 

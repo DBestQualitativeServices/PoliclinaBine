@@ -8,6 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring", uses = {WeeklyAvailabilityMapper.class})
 public interface DoctorMapper {
 
-    @Mapping(target = "userId", source = "user.userId")
+    // userId ignored to avoid N+1 from User's bidirectional OneToOne relationships
+    @Mapping(target = "userId", ignore = true)
     DoctorDto toDto(Doctor doctor);
 }

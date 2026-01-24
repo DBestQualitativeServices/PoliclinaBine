@@ -9,13 +9,20 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
-@Table(name = "appointment_sessions")
+@Table(name = "appointment_sessions", indexes = {
+    @Index(name = "idx_appointment_status", columnList = "status"),
+    @Index(name = "idx_appointment_scheduled_date", columnList = "scheduledDateTime"),
+    @Index(name = "idx_appointment_doctor_date", columnList = "doctor_id, scheduledDateTime"),
+    @Index(name = "idx_appointment_patient_date", columnList = "patient_id, scheduledDateTime")
+})
 @Getter
 @Setter
 @Builder
@@ -51,7 +58,7 @@ public class AppointmentSession {
         inverseJoinColumns = @JoinColumn(name = "consultation_type_id")
     )
     @BatchSize(size = 10)
-    private List<ConsultationType> consultationTypes;
+    private Set<ConsultationType> consultationTypes = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -60,7 +67,7 @@ public class AppointmentSession {
         inverseJoinColumns = @JoinColumn(name = "diagnosis_id")
     )
     @BatchSize(size = 10)
-    private List<Diagnosis> diagnoses;
+    private Set<Diagnosis> diagnoses = new HashSet<>();
 
     @Column(columnDefinition = "TEXT")
     private String freeTextDiagnosis;

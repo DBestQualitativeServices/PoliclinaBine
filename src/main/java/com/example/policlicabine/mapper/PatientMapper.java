@@ -11,6 +11,7 @@ public interface PatientMapper {
     @Mapping(target = "tutorPatientId", source = "tutor.patientId")
     @Mapping(target = "tutorFirstName", source = "tutor.firstName")
     @Mapping(target = "tutorLastName", source = "tutor.lastName")
+    // user field commented out in DTO to avoid N+1 from User's bidirectional OneToOne
     PatientDto toDto(Patient patient);
 
     @Mapping(target = "appointments", ignore = true)
