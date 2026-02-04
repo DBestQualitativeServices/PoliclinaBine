@@ -140,6 +140,13 @@ public class PatientDto {
     private String cnp;
 
     @Schema(
+            description = "Patient's birth date (auto-calculated from CNP if available, can be manually provided)",
+            example = "1992-05-15",
+            format = "date"
+    )
+    private LocalDate dataNastere;
+
+    @Schema(
             description = "Source of patient registration (e.g., 'online', 'clinic', 'referral')",
             example = "online",
             maxLength = 255

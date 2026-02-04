@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +38,9 @@ public class Doctor {
     @Column(length = 13)
     private String cnp;
 
+    @Column(columnDefinition = "DATE")
+    private LocalDate dataNastere;
+
     @ElementCollection(targetClass = Specialty.class, fetch = FetchType.LAZY)
     @CollectionTable(name = "doctor_specialties", joinColumns = @JoinColumn(name = "doctor_id"))
     @Enumerated(EnumType.STRING)
@@ -54,6 +58,19 @@ public class Doctor {
     void generateId() {
         if (doctorId == null) {
             doctorId = UUID.randomUUID();
+        }
+    }
+
+    public static LocalDate calculateBirthDateFromCnp(String cnp) {
+        return Patient.calculateBirthDateFromCnp(cnp);  // Delegate to Patient
+    }
+
+    public void calculateBirthDateFromCnp() {
+        if (this.cnp != null && !this.cnp.trim().isEmpty()) {
+            LocalDate calculated = calculateBirthDateFromCnp(this.cnp);
+            if (calculated != null) {
+                this.dataNastere = calculated;
+            }
         }
     }
 

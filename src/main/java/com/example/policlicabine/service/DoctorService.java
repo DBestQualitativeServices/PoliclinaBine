@@ -81,6 +81,9 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
         if (dto.getCnp() != null) {
             entity.setCnp(dto.getCnp().trim());
         }
+        if (dto.getDataNastere() != null) {
+            entity.setDataNastere(dto.getDataNastere());
+        }
     }
 
     public DoctorDto createDoctor(UUID userId, String fullName, List<Specialty> specialties, String cnp) {
@@ -116,6 +119,8 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
             .specialties(new HashSet<>(specialties))
             .cnp(cnp != null ? cnp.trim() : null)
             .build();
+
+        doctor.calculateBirthDateFromCnp();
 
         Doctor savedDoctor = doctorRepository.save(doctor);
 
@@ -217,6 +222,8 @@ public class DoctorService extends BaseServiceImpl<Doctor, DoctorDto, UUID> {
                 .specialties(new HashSet<>(specialties))
                 .cnp(cnp != null ? cnp.trim() : null)
                 .build();
+
+        doctor.calculateBirthDateFromCnp();
 
         Doctor savedDoctor = doctorRepository.save(doctor);
 

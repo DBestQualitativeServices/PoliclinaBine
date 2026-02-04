@@ -43,9 +43,10 @@ build/
 .env.*
 
 ### Local Initialization Config ###
-/src/main/java/com/example/policlicabine/config/InitialConfig.java
-
+#/src/main/java/com/example/policlicabine/config/InitialConfig.jav
 ### Azure ###
 .azure/
 
 applicationinsights.log
+
+.gitignore

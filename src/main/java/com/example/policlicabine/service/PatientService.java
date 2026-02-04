@@ -107,6 +107,16 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             entity.setMinor(dto.getMinor());
         }
 
+        // Auto-calculate dataNastere from CNP, but allow manual override
+        if (dto.getDataNastere() != null) {
+            entity.setDataNastere(dto.getDataNastere());
+        } else if (dto.getCnp() != null && !dto.getCnp().trim().isEmpty()) {
+            LocalDate calculated = Patient.calculateBirthDateFromCnp(dto.getCnp().trim());
+            if (calculated != null) {
+                entity.setDataNastere(calculated);
+            }
+        }
+
         // Sync entity fields to form field cache after any update
         entity.syncEntityFieldsToCache();
     }

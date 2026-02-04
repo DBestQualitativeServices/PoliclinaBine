@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -50,7 +51,10 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
                 .and(completedAfter(criteria.getCompletedAfter()))
                 .and(completedBefore(criteria.getCompletedBefore()))
                 .and(hasStatus(criteria.getStatus()))
-                .and(hasConsultationTypes(criteria.getConsultationNames()));
+                .and(hasConsultationTypes(criteria.getConsultationNames()))
+                .and(hasPatientCnp(criteria.getPatientCnp()))
+                .and(birthDateFrom(criteria.getBirthDateFrom()))
+                .and(birthDateTo(criteria.getBirthDateTo()));
     }
 
     /**
@@ -240,6 +244,49 @@ public class AppointmentSessionSpecificationBuilder implements SpecificationBuil
             }
 
             return cb.or(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * Filter by patient CNP (partial match).
+     * Searches for appointments where the patient's CNP contains the search string.
+     */
+    private Specification<AppointmentSession> hasPatientCnp(String cnp) {
+        return (root, query, cb) -> {
+            if (cnp == null || cnp.trim().isEmpty()) {
+                return null;
+            }
+            Join<AppointmentSession, Patient> patientJoin = root.join("patient");
+            String searchPattern = "%" + cnp.trim() + "%";
+            return cb.like(patientJoin.get("cnp"), searchPattern);
+        };
+    }
+
+    /**
+     * Filter by birth date from (inclusive).
+     * Searches for appointments where patient's birth date >= specified date.
+     */
+    private Specification<AppointmentSession> birthDateFrom(LocalDate birthDateFrom) {
+        return (root, query, cb) -> {
+            if (birthDateFrom == null) {
+                return null;
+            }
+            Join<AppointmentSession, Patient> patientJoin = root.join("patient");
+            return cb.greaterThanOrEqualTo(patientJoin.get("dataNastere"), birthDateFrom);
+        };
+    }
+
+    /**
+     * Filter by birth date to (inclusive).
+     * Searches for appointments where patient's birth date <= specified date.
+     */
+    private Specification<AppointmentSession> birthDateTo(LocalDate birthDateTo) {
+        return (root, query, cb) -> {
+            if (birthDateTo == null) {
+                return null;
+            }
+            Join<AppointmentSession, Patient> patientJoin = root.join("patient");
+            return cb.lessThanOrEqualTo(patientJoin.get("dataNastere"), birthDateTo);
         };
     }
 }

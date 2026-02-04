@@ -81,6 +81,9 @@ public class Patient {
     @Column(columnDefinition = "DATE")
     private LocalDate ciDataEliberare;
 
+    @Column(columnDefinition = "DATE")
+    private LocalDate dataNastere;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "form_field_cache", columnDefinition = "jsonb")
     @Builder.Default
@@ -174,6 +177,9 @@ public class Patient {
         if (cnp != null && !cnp.trim().isEmpty()) {
             formFieldCache.put("cnp", cnp.trim());
         }
+        if (dataNastere != null) {
+            formFieldCache.put("datanastere", dataNastere.toString());
+        }
     }
 
     /**
@@ -222,19 +228,68 @@ public class Patient {
     }
 
     /**
-     * Updates sex and minor fields based on CNP.
+     * Calculates birth date from CNP.
+     * CNP format: SAALLZZJJNNNC where:
+     *   S = sex indicator (1-9)
+     *   AA = year (last 2 digits)
+     *   LL = month (01-12)
+     *   ZZ = day (01-31)
+     *
+     * Century determination:
+     *   1/2 = 1900-1999
+     *   3/4 = 1800-1899
+     *   5/6 = 2000-2099
+     *   7/8 = 2000-2099 (foreign residents)
+     *   9 = foreign residents (smart detection: year > 24 → 1900s, else 2000s)
+     */
+    public static LocalDate calculateBirthDateFromCnp(String cnp) {
+        if (cnp == null || cnp.length() != 13 || !cnp.matches("^[0-9]{13}$")) {
+            return null;
+        }
+
+        try {
+            char firstDigit = cnp.charAt(0);
+            int year = Integer.parseInt(cnp.substring(1, 3));
+            int month = Integer.parseInt(cnp.substring(3, 5));
+            int day = Integer.parseInt(cnp.substring(5, 7));
+
+            if (month < 1 || month > 12 || day < 1 || day > 31) {
+                return null;
+            }
+
+            int fullYear;
+            switch (firstDigit) {
+                case '1', '2' -> fullYear = 1900 + year;
+                case '3', '4' -> fullYear = 1800 + year;
+                case '5', '6', '7', '8' -> fullYear = 2000 + year;
+                case '9' -> fullYear = (year > 24) ? (1900 + year) : (2000 + year);
+                default -> { return null; }
+            }
+
+            return LocalDate.of(fullYear, month, day);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Updates sex, minor, and birth date fields based on CNP.
      * Call this after setting/updating CNP.
      */
     public void calculateFieldsFromCnp() {
         if (this.cnp != null && !this.cnp.trim().isEmpty()) {
             String calculatedSex = calculateSexFromCnp(this.cnp);
             Boolean calculatedMinor = calculateMinorFromCnp(this.cnp);
+            LocalDate calculatedBirthDate = calculateBirthDateFromCnp(this.cnp);
 
             if (calculatedSex != null) {
                 this.sex = calculatedSex;
             }
             if (calculatedMinor != null) {
                 this.minor = calculatedMinor;
+            }
+            if (calculatedBirthDate != null) {
+                this.dataNastere = calculatedBirthDate;
             }
 
             // Sync to cache after calculation
@@ -271,6 +326,7 @@ public class Patient {
                 ", phone='" + phone + '\'' +
                 ", sex='" + sex + '\'' +
                 ", minor=" + minor +
+                ", dataNastere=" + dataNastere +
                 ", cnp='" + (cnp != null && cnp.length() >= 3 ? cnp.substring(0, 3) + "**********" : null) + '\'' +
                 '}';
     }

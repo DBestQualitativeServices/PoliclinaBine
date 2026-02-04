@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,7 +34,14 @@ public class DoctorDto {
             maxLength = 13
     )
     private String cnp;
-    
+
+    @Schema(
+            description = "Doctor's birth date (auto-calculated from CNP if available)",
+            example = "1985-03-20",
+            format = "date"
+    )
+    private LocalDate dataNastere;
+
     private List<Specialty> specialties;
     private List<WeeklyAvailabilityDto> weeklyAvailability;
 }
