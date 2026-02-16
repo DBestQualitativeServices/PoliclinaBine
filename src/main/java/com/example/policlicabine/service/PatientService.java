@@ -128,7 +128,7 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                                          String phone, String email, String address,
                                          String ciSerie, String ciNumber,
                                          String ciEliberatDe, LocalDate ciDataEliberare,
-                                         String cnp, String sursa) {
+                                         String cnp, LocalDate dataNastere, String sursa) {
         if (firstName == null || firstName.trim().isEmpty()) {
             throw new BusinessException("First name is required");
         }
@@ -150,11 +150,13 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
             .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
             .ciDataEliberare(ciDataEliberare)
             .cnp(cnp != null ? cnp.trim() : null)
+            .dataNastere(dataNastere)
             .sursa(sursa != null ? sursa.trim() : null)
             .build();
 
-        // Calculate sex and minor from CNP if available
-        patient.calculateFieldsFromCnp();
+        if (cnp != null && !cnp.trim().isEmpty()) {
+            patient.calculateFieldsFromCnp();
+        }
 
         // Initialize form field cache with entity fields
         patient.syncEntityFieldsToCache();
@@ -262,7 +264,7 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                                             String phone, String email, String address,
                                             String ciSerie, String ciNumber,
                                             String ciEliberatDe, LocalDate ciDataEliberare,
-                                            String cnp, String sursa) {
+                                            String cnp, LocalDate dataNastere, String sursa) {
         if (user == null) {
             throw new BusinessException("User is required");
         }
@@ -292,11 +294,13 @@ public class PatientService extends BaseServiceImpl<Patient, PatientDto, UUID> {
                 .ciEliberatDe(ciEliberatDe != null ? ciEliberatDe.trim() : null)
                 .ciDataEliberare(ciDataEliberare)
                 .cnp(cnp != null ? cnp.trim() : null)
+                .dataNastere(dataNastere)
                 .sursa(sursa != null ? sursa.trim() : null)
                 .build();
 
-        // Calculate sex and minor from CNP if available
-        patient.calculateFieldsFromCnp();
+        if (cnp != null && !cnp.trim().isEmpty()) {
+            patient.calculateFieldsFromCnp();
+        }
 
         // Initialize form field cache with entity fields
         patient.syncEntityFieldsToCache();

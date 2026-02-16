@@ -1,5 +1,6 @@
 package com.example.policlicabine.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -8,6 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -40,4 +43,11 @@ public class RegisterPatientRequest {
     private String cnp;
 
     private String address;
+
+    @Schema(
+        description = "Patient's birth date (optional - if not provided, auto-calculated from CNP)",
+        example = "1992-05-15",
+        format = "date"
+    )
+    private LocalDate dataNastere;
 }
