@@ -1,5 +1,6 @@
 package com.example.policlicabine.exception;
 
+import com.example.policlicabine.dto.BookingConflictErrorResponse;
 import com.example.policlicabine.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,6 +25,24 @@ import java.util.Map;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(BookingConflictException.class)
+    public ResponseEntity<BookingConflictErrorResponse> handleBookingConflictException(
+            BookingConflictException ex,
+            HttpServletRequest request) {
+        log.warn("Booking conflict at {}: {} conflict(s) found",
+            request.getRequestURI(), ex.getConflicts().size());
+
+        BookingConflictErrorResponse response = BookingConflictErrorResponse.builder()
+            .status(HttpStatus.CONFLICT.value())
+            .message(ex.getMessage())
+            .timestamp(OffsetDateTime.now())
+            .path(request.getRequestURI())
+            .conflicts(ex.getConflicts())
+            .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(

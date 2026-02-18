@@ -9,7 +9,11 @@ import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.service.AppointmentSessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.example.policlicabine.dto.BookingConflictErrorResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -35,17 +39,40 @@ public class AppointmentSessionController {
 
     @PostMapping
     @StandardApiResponses
-    @Operation(summary = "Schedule a new appointment")
+    @Operation(summary = "Schedule a new appointment",
+               description = "Creates a new appointment. Checks for booking conflicts unless forceOverride=true. " +
+                           "Returns HTTP 409 if doctor has overlapping appointments (CANCELLED/NO_SHOW excluded).")
+    @ApiResponse(responseCode = "409", description = "Booking conflict - Doctor has overlapping appointments",
+                 content = @Content(schema = @Schema(implementation = BookingConflictErrorResponse.class)))
     public AppointmentSessionDto scheduleAppointment(
             @RequestParam UUID patientId,
             @RequestParam UUID doctorId,
             @RequestParam List<String> consultationNames,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime scheduledDateTime,
-            @RequestParam(defaultValue = "false") boolean isEmergency
+            @RequestParam(defaultValue = "false") boolean isEmergency,
+            @RequestParam(defaultValue = "false") boolean forceOverride
     ) {
-        log.info("REST: Scheduling appointment for patient {} with doctor {} at {}",
-                patientId, doctorId, scheduledDateTime);
-        return appointmentSessionService.scheduleAppointment(patientId, doctorId, consultationNames, scheduledDateTime, isEmergency);
+        log.info("REST: Scheduling appointment for patient {} with doctor {} at {} (forceOverride: {})",
+                patientId, doctorId, scheduledDateTime, forceOverride);
+        return appointmentSessionService.scheduleAppointment(patientId, doctorId, consultationNames,
+            scheduledDateTime, isEmergency, forceOverride);
+    }
+
+    @PutMapping("/{sessionId}/reschedule")
+    @StandardApiResponses
+    @Operation(summary = "Reschedule an existing appointment",
+               description = "Changes the scheduled time of an appointment. Checks for booking conflicts unless forceOverride=true. " +
+                           "Cannot reschedule COMPLETED, CANCELLED, or NO_SHOW appointments.")
+    @ApiResponse(responseCode = "409", description = "Booking conflict - Doctor has overlapping appointments",
+                 content = @Content(schema = @Schema(implementation = BookingConflictErrorResponse.class)))
+    public AppointmentSessionDto rescheduleAppointment(
+            @PathVariable UUID sessionId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime newScheduledDateTime,
+            @RequestParam(defaultValue = "false") boolean forceOverride
+    ) {
+        log.info("REST: Rescheduling appointment {} to {} (forceOverride: {})",
+                sessionId, newScheduledDateTime, forceOverride);
+        return appointmentSessionService.rescheduleAppointment(sessionId, newScheduledDateTime, forceOverride);
     }
 
     @GetMapping("/{sessionId}")
@@ -87,13 +114,18 @@ public class AppointmentSessionController {
 
     @PatchMapping("/{sessionId}/consultations")
     @StandardApiResponses
-    @Operation(summary = "Add consultation to existing appointment")
+    @Operation(summary = "Add consultation to existing appointment",
+               description = "Adds a consultation to an appointment. Recalculates total duration and checks for conflicts unless forceOverride=true.")
+    @ApiResponse(responseCode = "409", description = "Booking conflict - Doctor has overlapping appointments with new duration",
+                 content = @Content(schema = @Schema(implementation = BookingConflictErrorResponse.class)))
     public AppointmentSessionDto addConsultation(
             @PathVariable UUID sessionId,
-            @RequestParam String consultationName
+            @RequestParam String consultationName,
+            @RequestParam(defaultValue = "false") boolean forceOverride
     ) {
-        log.info("REST: Adding consultation {} to session {}", consultationName, sessionId);
-        return appointmentSessionService.addConsultationToSession(sessionId, consultationName);
+        log.info("REST: Adding consultation {} to session {} (forceOverride: {})",
+                consultationName, sessionId, forceOverride);
+        return appointmentSessionService.addConsultationToSession(sessionId, consultationName, forceOverride);
     }
 
     @DeleteMapping("/{sessionId}/consultations/{consultationId}")

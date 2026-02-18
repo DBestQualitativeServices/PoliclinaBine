@@ -87,6 +87,15 @@ public class AppointmentSession {
     @Builder.Default
     private Integer rescheduleCount = 0;
 
+    /**
+     * Cached total duration in minutes for all consultations in this session.
+     * Calculated automatically on new appointments (@PrePersist).
+     * Explicitly recalculated in service layer when consultations are added/removed.
+     * Used for efficient booking conflict detection queries.
+     */
+    @Builder.Default
+    private Integer totalDurationMinutes = 0;
+
     @CreationTimestamp
     @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime createdAt;
@@ -105,6 +114,34 @@ public class AppointmentSession {
         if (sessionId == null) {
             sessionId = UUID.randomUUID();
         }
+        // Calculate total duration for new appointments
+        calculateTotalDuration();
+    }
+
+    /**
+     * Calculates and sets totalDurationMinutes from consultationTypes.
+     * Called by @PrePersist for new entities.
+     * Service layer calls this explicitly when consultations change.
+     */
+    public void calculateTotalDuration() {
+        if (consultationTypes == null || consultationTypes.isEmpty()) {
+            this.totalDurationMinutes = 0;
+            return;
+        }
+        this.totalDurationMinutes = consultationTypes.stream()
+            .map(c -> c.getDurationMinutes() != null ? c.getDurationMinutes() : 0)
+            .reduce(0, Integer::sum);
+    }
+
+    /**
+     * Convenience method to get the end time of this appointment.
+     * @return scheduledDateTime + totalDurationMinutes
+     */
+    public OffsetDateTime getEndTime() {
+        if (scheduledDateTime == null) {
+            return null;
+        }
+        return scheduledDateTime.plusMinutes(totalDurationMinutes != null ? totalDurationMinutes : 0);
     }
 
     public boolean isCompleted() {

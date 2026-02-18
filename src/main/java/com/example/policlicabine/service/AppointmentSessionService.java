@@ -2,11 +2,13 @@ package com.example.policlicabine.service;
 
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
+import com.example.policlicabine.dto.BookingConflictDto;
 import com.example.policlicabine.dto.FormReadinessDto;
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.entity.*;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import com.example.policlicabine.event.SessionCompleted;
+import com.example.policlicabine.exception.BookingConflictException;
 import com.example.policlicabine.exception.BusinessException;
 import com.example.policlicabine.exception.ResourceNotFoundException;
 import com.example.policlicabine.mapper.AppointmentSessionMapper;
@@ -57,7 +59,8 @@ public class AppointmentSessionService {
     public AppointmentSessionDto scheduleAppointment(UUID patientId, UUID doctorId,
                                                      List<String> consultationNames,
                                                      OffsetDateTime scheduledDateTime,
-                                                     boolean isEmergency) {
+                                                     boolean isEmergency,
+                                                     boolean forceOverride) {
         if (consultationNames == null || consultationNames.isEmpty()) {
             throw new BusinessException("At least one consultation is required");
         }
@@ -73,6 +76,10 @@ public class AppointmentSessionService {
             throw new BusinessException("Some consultations not found or inactive");
         }
 
+        int totalDuration = calculateTotalDuration(new HashSet<>(consultations));
+
+        checkForBookingConflicts(doctorId, scheduledDateTime, totalDuration, null, forceOverride);
+
         Patient patientRef = entityManager.getReference(Patient.class, patientId);
         Doctor doctorRef = entityManager.getReference(Doctor.class, doctorId);
 
@@ -81,19 +88,67 @@ public class AppointmentSessionService {
             .doctor(doctorRef)
             .scheduledDateTime(scheduledDateTime)
             .consultationTypes(new HashSet<>(consultations))
+            .totalDurationMinutes(totalDuration)
             .isEmergency(isEmergency)
             .status(SessionStatus.SCHEDULED)
             .build();
 
         AppointmentSession savedSession = appointmentRepository.save(session);
 
-        log.info("Appointment scheduled: {} for patient {} with doctor {} at {}",
-            savedSession.getSessionId(), patientId, doctorId, scheduledDateTime);
+        if (forceOverride) {
+            log.warn("Appointment scheduled WITH OVERRIDE: {} for patient {} with doctor {} at {} (conflicts ignored)",
+                savedSession.getSessionId(), patientId, doctorId, scheduledDateTime);
+        } else {
+            log.info("Appointment scheduled: {} for patient {} with doctor {} at {}",
+                savedSession.getSessionId(), patientId, doctorId, scheduledDateTime);
+        }
 
         return appointmentMapper.toDto(savedSession);
     }
 
-    public AppointmentSessionDto addConsultationToSession(UUID sessionId, String consultationName) {
+    public AppointmentSessionDto rescheduleAppointment(UUID sessionId,
+                                                       OffsetDateTime newScheduledDateTime,
+                                                       boolean forceOverride) {
+        if (sessionId == null) {
+            throw new BusinessException("Session ID is required");
+        }
+        if (newScheduledDateTime == null) {
+            throw new BusinessException("New scheduled date and time is required");
+        }
+
+        AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Session", sessionId));
+
+        if (session.getStatus() == SessionStatus.COMPLETED ||
+            session.getStatus() == SessionStatus.CANCELLED ||
+            session.getStatus() == SessionStatus.NO_SHOW) {
+            throw new BusinessException("Cannot reschedule completed, cancelled, or no-show appointments");
+        }
+
+        checkForBookingConflicts(
+            session.getDoctor().getDoctorId(),
+            newScheduledDateTime,
+            session.getTotalDurationMinutes(),
+            sessionId,
+            forceOverride
+        );
+
+        session.setScheduledDateTime(newScheduledDateTime);
+        session.setRescheduleCount(session.getRescheduleCount() + 1);
+
+        AppointmentSession savedSession = appointmentRepository.save(session);
+
+        if (forceOverride) {
+            log.warn("Appointment rescheduled WITH OVERRIDE: {} to {} (conflicts ignored)",
+                sessionId, newScheduledDateTime);
+        } else {
+            log.info("Appointment rescheduled: {} to {}", sessionId, newScheduledDateTime);
+        }
+
+        return appointmentMapper.toDto(savedSession);
+    }
+
+    public AppointmentSessionDto addConsultationToSession(UUID sessionId, String consultationName, boolean forceOverride) {
         if (sessionId == null) {
             throw new BusinessException("Session ID is required");
         }
@@ -115,6 +170,18 @@ public class AppointmentSessionService {
         }
 
         session.getConsultationTypes().add(consultation);
+
+        int totalDuration = calculateTotalDuration(session.getConsultationTypes());
+        session.setTotalDurationMinutes(totalDuration);
+
+        checkForBookingConflicts(
+            session.getDoctor().getDoctorId(),
+            session.getScheduledDateTime(),
+            totalDuration,
+            sessionId,
+            forceOverride
+        );
+
         AppointmentSession savedSession = appointmentRepository.save(session);
 
         log.info("ConsultationType {} added to session {}", consultationName, sessionId);
@@ -144,6 +211,10 @@ public class AppointmentSessionService {
             .orElseThrow(() -> new BusinessException("Consultation not found in session"));
 
         session.getConsultationTypes().remove(consultationToRemove);
+
+        int totalDuration = calculateTotalDuration(session.getConsultationTypes());
+        session.setTotalDurationMinutes(totalDuration);
+
         AppointmentSession savedSession = appointmentRepository.save(session);
 
         log.info("ConsultationType {} removed from session {}", consultationId, sessionId);
@@ -545,6 +616,55 @@ public class AppointmentSessionService {
                 sessionId, dto.getValidCount(), dto.getTotalRequired(), dto.isAllFormsComplete());
 
         return dto;
+    }
+
+    private int calculateTotalDuration(Set<ConsultationType> consultations) {
+        if (consultations == null || consultations.isEmpty()) {
+            return 0;
+        }
+        return consultations.stream()
+            .map(c -> c.getDurationMinutes() != null ? c.getDurationMinutes() : 0)
+            .reduce(0, Integer::sum);
+    }
+
+    private void checkForBookingConflicts(UUID doctorId, OffsetDateTime startTime,
+                                         int totalDurationMinutes, UUID excludeSessionId,
+                                         boolean forceOverride) {
+        if (forceOverride) {
+            log.warn("FORCE OVERRIDE enabled - skipping conflict check for doctor {} at {}",
+                doctorId, startTime);
+            return;
+        }
+
+        OffsetDateTime endTime = startTime.plusMinutes(totalDurationMinutes);
+        List<SessionStatus> excludedStatuses = List.of(SessionStatus.CANCELLED, SessionStatus.NO_SHOW);
+
+        List<AppointmentSession> conflicts;
+        if (excludeSessionId != null) {
+            conflicts = appointmentRepository.findOverlappingAppointmentsExcluding(
+                doctorId, excludeSessionId, startTime, endTime, excludedStatuses);
+        } else {
+            conflicts = appointmentRepository.findOverlappingAppointments(
+                doctorId, startTime, endTime, excludedStatuses);
+        }
+
+        if (!conflicts.isEmpty()) {
+            List<BookingConflictDto> conflictDtos = conflicts.stream()
+                .map(this::toBookingConflictDto)
+                .toList();
+            throw BookingConflictException.of(conflictDtos);
+        }
+    }
+
+    private BookingConflictDto toBookingConflictDto(AppointmentSession session) {
+        return BookingConflictDto.builder()
+            .sessionId(session.getSessionId())
+            .patientName(session.getPatient().getFirstName() + " " + session.getPatient().getLastName())
+            .startTime(session.getScheduledDateTime())
+            .endTime(session.getEndTime())
+            .consultationNames(session.getConsultationNames())
+            .status(session.getStatus())
+            .build();
     }
 
     private FormTemplateDto toFormTemplateDto(FormTemplate template) {

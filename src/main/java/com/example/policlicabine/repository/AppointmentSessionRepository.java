@@ -8,6 +8,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
@@ -110,4 +112,32 @@ public interface AppointmentSessionRepository extends JpaRepository<AppointmentS
 
     boolean existsByDoctorDoctorIdAndPatientPatientIdAndScheduledDateTimeBetweenAndStatusNot(
             UUID doctorId, UUID patientId, OffsetDateTime start, OffsetDateTime end, SessionStatus status);
+
+    @EntityGraph(attributePaths = {"patient", "consultationTypes"})
+    @Query("SELECT a FROM AppointmentSession a " +
+           "WHERE a.doctor.doctorId = :doctorId " +
+           "AND a.status NOT IN :excludedStatuses " +
+           "AND :startTime < FUNCTION('TIMESTAMPADD', MINUTE, a.totalDurationMinutes, a.scheduledDateTime) " +
+           "AND :endTime > a.scheduledDateTime " +
+           "ORDER BY a.scheduledDateTime")
+    List<AppointmentSession> findOverlappingAppointments(
+            @Param("doctorId") UUID doctorId,
+            @Param("startTime") OffsetDateTime startTime,
+            @Param("endTime") OffsetDateTime endTime,
+            @Param("excludedStatuses") List<SessionStatus> excludedStatuses);
+
+    @EntityGraph(attributePaths = {"patient", "consultationTypes"})
+    @Query("SELECT a FROM AppointmentSession a " +
+           "WHERE a.doctor.doctorId = :doctorId " +
+           "AND a.sessionId != :excludeSessionId " +
+           "AND a.status NOT IN :excludedStatuses " +
+           "AND :startTime < FUNCTION('TIMESTAMPADD', MINUTE, a.totalDurationMinutes, a.scheduledDateTime) " +
+           "AND :endTime > a.scheduledDateTime " +
+           "ORDER BY a.scheduledDateTime")
+    List<AppointmentSession> findOverlappingAppointmentsExcluding(
+            @Param("doctorId") UUID doctorId,
+            @Param("excludeSessionId") UUID excludeSessionId,
+            @Param("startTime") OffsetDateTime startTime,
+            @Param("endTime") OffsetDateTime endTime,
+            @Param("excludedStatuses") List<SessionStatus> excludedStatuses);
 }
