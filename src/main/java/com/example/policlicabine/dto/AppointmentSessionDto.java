@@ -42,6 +42,12 @@ public class AppointmentSessionDto {
     private OffsetDateTime cancelledAt;
     private BigDecimal subtotalAmount;
 
+    @Schema(description = "Effective duration of this appointment slot in minutes (custom or calculated from consultations)")
+    private Integer totalDurationMinutes;
+
+    @Schema(description = "True if duration was set manually; false if auto-calculated from consultation types")
+    private Boolean isCustomDuration;
+
     // Form completion status
     @Schema(description = "Total forms required for all consultation types in this appointment")
     private Integer requiredFormsCount;

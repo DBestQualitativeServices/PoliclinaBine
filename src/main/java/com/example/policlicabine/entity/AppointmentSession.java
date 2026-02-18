@@ -89,12 +89,28 @@ public class AppointmentSession {
 
     /**
      * Cached total duration in minutes for all consultations in this session.
-     * Calculated automatically on new appointments (@PrePersist).
+     * Calculated automatically on new appointments (@PrePersist) unless isCustomDuration is true.
      * Explicitly recalculated in service layer when consultations are added/removed.
+     * When isCustomDuration is true, this field holds the customDurationMinutes value instead.
      * Used for efficient booking conflict detection queries.
      */
     @Builder.Default
     private Integer totalDurationMinutes = 0;
+
+    /**
+     * Whether a custom duration has been manually set for this session.
+     * When true, totalDurationMinutes is NOT recalculated when consultations change.
+     * Default false (auto-calculated from consultations).
+     */
+    @Builder.Default
+    private Boolean isCustomDuration = false;
+
+    /**
+     * Custom duration in minutes, set manually by receptionist.
+     * Only relevant when isCustomDuration = true.
+     * Min value: 5 minutes.
+     */
+    private Integer customDurationMinutes;
 
     @CreationTimestamp
     @Column(updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
@@ -114,8 +130,10 @@ public class AppointmentSession {
         if (sessionId == null) {
             sessionId = UUID.randomUUID();
         }
-        // Calculate total duration for new appointments
-        calculateTotalDuration();
+        // Only auto-calculate if not using custom duration
+        if (!Boolean.TRUE.equals(isCustomDuration)) {
+            calculateTotalDuration();
+        }
     }
 
     /**

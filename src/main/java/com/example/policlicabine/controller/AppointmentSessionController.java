@@ -50,12 +50,13 @@ public class AppointmentSessionController {
             @RequestParam List<String> consultationNames,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime scheduledDateTime,
             @RequestParam(defaultValue = "false") boolean isEmergency,
-            @RequestParam(defaultValue = "false") boolean forceOverride
+            @RequestParam(defaultValue = "false") boolean forceOverride,
+            @RequestParam(required = false) Integer customDurationMinutes
     ) {
-        log.info("REST: Scheduling appointment for patient {} with doctor {} at {} (forceOverride: {})",
-                patientId, doctorId, scheduledDateTime, forceOverride);
+        log.info("REST: Scheduling appointment for patient {} with doctor {} at {} (forceOverride: {}, customDuration: {})",
+                patientId, doctorId, scheduledDateTime, forceOverride, customDurationMinutes);
         return appointmentSessionService.scheduleAppointment(patientId, doctorId, consultationNames,
-            scheduledDateTime, isEmergency, forceOverride);
+            scheduledDateTime, isEmergency, forceOverride, customDurationMinutes);
     }
 
     @PutMapping("/{sessionId}/reschedule")
@@ -137,6 +138,24 @@ public class AppointmentSessionController {
     ) {
         log.info("REST: Removing consultation {} from session {}", consultationId, sessionId);
         return appointmentSessionService.removeConsultationFromSession(sessionId, consultationId);
+    }
+
+    @PatchMapping("/{sessionId}/duration")
+    @StandardApiResponses
+    @Operation(summary = "Set custom duration for appointment",
+               description = "Overrides the auto-calculated duration. Min 5 minutes. " +
+                           "Returns 409 if new duration creates a booking conflict. " +
+                           "Once set, adding/removing consultations will NOT recalculate the duration.")
+    @ApiResponse(responseCode = "409", description = "Booking conflict with new duration",
+                 content = @Content(schema = @Schema(implementation = BookingConflictErrorResponse.class)))
+    public AppointmentSessionDto updateDuration(
+            @PathVariable UUID sessionId,
+            @RequestParam int durationMinutes,
+            @RequestParam(defaultValue = "false") boolean forceOverride
+    ) {
+        log.info("REST: Updating duration for session {} to {} minutes (forceOverride: {})",
+                sessionId, durationMinutes, forceOverride);
+        return appointmentSessionService.updateSessionDuration(sessionId, durationMinutes, forceOverride);
     }
 
     @PostMapping("/{sessionId}/start")

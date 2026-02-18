@@ -3,9 +3,11 @@ package com.example.policlicabine.service;
 import com.example.policlicabine.dto.AppointmentSessionDto;
 import com.example.policlicabine.dto.AppointmentSessionFilterCriteria;
 import com.example.policlicabine.dto.BookingConflictDto;
+import com.example.policlicabine.dto.ConflictType;
 import com.example.policlicabine.dto.FormReadinessDto;
 import com.example.policlicabine.dto.FormTemplateDto;
 import com.example.policlicabine.entity.*;
+import com.example.policlicabine.entity.enums.BlockType;
 import com.example.policlicabine.entity.enums.SessionStatus;
 import com.example.policlicabine.event.SessionCompleted;
 import com.example.policlicabine.exception.BookingConflictException;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
 public class AppointmentSessionService {
 
     private final AppointmentSessionRepository appointmentRepository;
+    private final BlockedSlotService blockedSlotService;
     private final ConsultationRepository consultationRepository;
     private final FormSubmissionRepository formSubmissionRepository;
     private final PatientService patientService;
@@ -60,7 +63,8 @@ public class AppointmentSessionService {
                                                      List<String> consultationNames,
                                                      OffsetDateTime scheduledDateTime,
                                                      boolean isEmergency,
-                                                     boolean forceOverride) {
+                                                     boolean forceOverride,
+                                                     Integer customDurationMinutes) {
         if (consultationNames == null || consultationNames.isEmpty()) {
             throw new BusinessException("At least one consultation is required");
         }
@@ -76,7 +80,17 @@ public class AppointmentSessionService {
             throw new BusinessException("Some consultations not found or inactive");
         }
 
-        int totalDuration = calculateTotalDuration(new HashSet<>(consultations));
+        boolean useCustomDuration = customDurationMinutes != null;
+        int totalDuration;
+
+        if (useCustomDuration) {
+            if (customDurationMinutes < 5) {
+                throw new BusinessException("Custom duration must be at least 5 minutes");
+            }
+            totalDuration = customDurationMinutes;
+        } else {
+            totalDuration = calculateTotalDuration(new HashSet<>(consultations));
+        }
 
         checkForBookingConflicts(doctorId, scheduledDateTime, totalDuration, null, forceOverride);
 
@@ -89,6 +103,8 @@ public class AppointmentSessionService {
             .scheduledDateTime(scheduledDateTime)
             .consultationTypes(new HashSet<>(consultations))
             .totalDurationMinutes(totalDuration)
+            .isCustomDuration(useCustomDuration)
+            .customDurationMinutes(useCustomDuration ? customDurationMinutes : null)
             .isEmergency(isEmergency)
             .status(SessionStatus.SCHEDULED)
             .build();
@@ -171,16 +187,18 @@ public class AppointmentSessionService {
 
         session.getConsultationTypes().add(consultation);
 
-        int totalDuration = calculateTotalDuration(session.getConsultationTypes());
-        session.setTotalDurationMinutes(totalDuration);
+        if (!Boolean.TRUE.equals(session.getIsCustomDuration())) {
+            int totalDuration = calculateTotalDuration(session.getConsultationTypes());
+            session.setTotalDurationMinutes(totalDuration);
 
-        checkForBookingConflicts(
-            session.getDoctor().getDoctorId(),
-            session.getScheduledDateTime(),
-            totalDuration,
-            sessionId,
-            forceOverride
-        );
+            checkForBookingConflicts(
+                session.getDoctor().getDoctorId(),
+                session.getScheduledDateTime(),
+                totalDuration,
+                sessionId,
+                forceOverride
+            );
+        }
 
         AppointmentSession savedSession = appointmentRepository.save(session);
 
@@ -212,12 +230,49 @@ public class AppointmentSessionService {
 
         session.getConsultationTypes().remove(consultationToRemove);
 
-        int totalDuration = calculateTotalDuration(session.getConsultationTypes());
-        session.setTotalDurationMinutes(totalDuration);
+        if (!Boolean.TRUE.equals(session.getIsCustomDuration())) {
+            int totalDuration = calculateTotalDuration(session.getConsultationTypes());
+            session.setTotalDurationMinutes(totalDuration);
+        }
 
         AppointmentSession savedSession = appointmentRepository.save(session);
 
         log.info("ConsultationType {} removed from session {}", consultationId, sessionId);
+
+        return appointmentMapper.toDto(savedSession);
+    }
+
+    public AppointmentSessionDto updateSessionDuration(UUID sessionId, int durationMinutes, boolean forceOverride) {
+        if (sessionId == null) {
+            throw new BusinessException("Session ID is required");
+        }
+        if (durationMinutes < 5) {
+            throw new BusinessException("Custom duration must be at least 5 minutes");
+        }
+
+        AppointmentSession session = appointmentRepository.findWithConsultationsBySessionId(sessionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Session", sessionId));
+
+        if (session.getStatus() != SessionStatus.SCHEDULED &&
+            session.getStatus() != SessionStatus.IN_PROGRESS) {
+            throw new BusinessException("Cannot update duration of completed, cancelled, or no-show appointments");
+        }
+
+        checkForBookingConflicts(
+            session.getDoctor().getDoctorId(),
+            session.getScheduledDateTime(),
+            durationMinutes,
+            sessionId,
+            forceOverride
+        );
+
+        session.setCustomDurationMinutes(durationMinutes);
+        session.setIsCustomDuration(true);
+        session.setTotalDurationMinutes(durationMinutes);
+
+        AppointmentSession savedSession = appointmentRepository.save(session);
+
+        log.info("Custom duration set to {} minutes for session {}", durationMinutes, sessionId);
 
         return appointmentMapper.toDto(savedSession);
     }
@@ -648,10 +703,17 @@ public class AppointmentSessionService {
                 doctorId, startTime, endTime, excludedStatuses);
         }
 
-        if (!conflicts.isEmpty()) {
-            List<BookingConflictDto> conflictDtos = conflicts.stream()
+        List<BlockedSlot> blockedConflicts = blockedSlotService
+            .findOverlappingBlockedSlots(doctorId, startTime, endTime);
+
+        if (!conflicts.isEmpty() || !blockedConflicts.isEmpty()) {
+            List<BookingConflictDto> conflictDtos = new ArrayList<>();
+            conflicts.stream()
                 .map(this::toBookingConflictDto)
-                .toList();
+                .forEach(conflictDtos::add);
+            blockedConflicts.stream()
+                .map(this::toBlockedSlotConflictDto)
+                .forEach(conflictDtos::add);
             throw BookingConflictException.of(conflictDtos);
         }
     }
@@ -664,6 +726,20 @@ public class AppointmentSessionService {
             .endTime(session.getEndTime())
             .consultationNames(session.getConsultationNames())
             .status(session.getStatus())
+            .conflictType(ConflictType.APPOINTMENT)
+            .build();
+    }
+
+    private BookingConflictDto toBlockedSlotConflictDto(BlockedSlot slot) {
+        return BookingConflictDto.builder()
+            .sessionId(null)
+            .patientName("[" + slot.getBlockType().name() + "] " +
+                         (slot.getReason() != null ? slot.getReason() : "Interval blocat"))
+            .startTime(slot.getStartTime())
+            .endTime(slot.getEndTime())
+            .consultationNames(List.of())
+            .status(null)
+            .conflictType(ConflictType.BLOCKED_SLOT)
             .build();
     }
 

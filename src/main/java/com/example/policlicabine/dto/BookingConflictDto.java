@@ -39,4 +39,7 @@ public class BookingConflictDto {
 
     @Schema(description = "Status of the conflicting appointment", example = "SCHEDULED")
     private SessionStatus status;
+
+    @Schema(description = "Type of conflict: APPOINTMENT or BLOCKED_SLOT")
+    private ConflictType conflictType;
 }
